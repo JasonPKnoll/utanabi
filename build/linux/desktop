@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Utanabi
+Comment=Learn Japanese through song lyrics
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/utanabi %u
+Terminal=false
+Type=Application
+Icon=utanabi
+Categories=Utility;
+StartupWMClass=utanabi
+
+ 
