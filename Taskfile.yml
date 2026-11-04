@@ -1,0 +1,170 @@
+version: '3'
+
+vars:
+  APP_NAME: "utanabi"
+  BIN_DIR: "bin"
+  PACKAGE_MANAGER: '{{.PACKAGE_MANAGER | default "npm"}}'
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  # Target OS for build/package/run. Defaults to the host OS, and is overridden
+  # by `wails3 build GOOS=...` (or the GOOS env var) for cross-compilation. The
+  # tasks below dispatch to the matching platform Taskfile via this variable.
+  GOOS: '{{.GOOS | default OS}}'
+  GOLANGCI_LINT_VERSION: v2.15.0
+  GOVULNCHECK_VERSION: v1.9.0
+  # The app's own packages. build/ holds Wails's per-platform helpers, which are not linted or tested here.
+  GO_PKGS: ". ./internal/..."
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+  ios: ./build/ios/Taskfile.yml
+  android: ./build/android/Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the application
+    cmds:
+      - task: "{{.GOOS}}:build"
+
+  package:
+    summary: Packages a production build of the application
+    cmds:
+      - task: "{{.GOOS}}:package"
+
+  run:
+    summary: Runs the application
+    cmds:
+      - task: "{{.GOOS}}:run"
+
+  dev:
+    summary: Runs the application in development mode
+    cmds:
+      - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+
+  tools:
+    summary: Installs the wails3 CLI at the version pinned in go.mod
+    cmds:
+      - go install tool
+
+  test:
+    summary: Runs the Go and frontend unit tests
+    deps: [dist:placeholder, common:install:frontend:deps]
+    cmds:
+      - go test -race ./internal/...
+      - task: common:frontend:run
+        vars: { SCRIPT: test }
+
+  test-integration:
+    summary: Runs the Go integration tests (build tag integration) against a real SQLite file
+    deps: [dist:placeholder]
+    cmds:
+      - go test -race -tags integration ./internal/...
+
+  test:e2e:
+    summary: Builds the server-mode app and runs the headless browser smoke test against it
+    deps: [build:server]
+    dir: frontend
+    cmds:
+      - npx playwright test
+
+  lint:
+    summary: Runs golangci-lint for the desktop and server builds, then the frontend lint and type check
+    deps: [dist:placeholder, common:install:frontend:deps]
+    cmds:
+      - go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}} run {{.GO_PKGS}}
+      - go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}} run --build-tags server {{.GO_PKGS}}
+      - task: common:frontend:run
+        vars: { SCRIPT: lint }
+      - task: common:frontend:run
+        vars: { SCRIPT: check }
+
+  format:
+    summary: Formats Go and frontend code
+    cmds:
+      - go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}} fmt {{.GO_PKGS}}
+      - task: common:frontend:run
+        vars: { SCRIPT: format }
+
+  vulncheck:
+    summary: Checks Go dependencies for known vulnerabilities
+    deps: [dist:placeholder]
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} {{.GO_PKGS}}
+
+  tidy:
+    summary: Runs go mod tidy
+    cmds:
+      - go mod tidy
+
+  bindings:
+    summary: Regenerates frontend/bindings from the bound Go services. Never edit those files by hand.
+    cmds:
+      - wails3 generate bindings -clean=true -ts -i
+
+  bindings:check:
+    summary: Fails when frontend/bindings is out of date with the Go services
+    deps: [bindings]
+    cmds:
+      - git diff --exit-code -- frontend/bindings
+      - test -z "$(git status --porcelain -- frontend/bindings)"
+
+  # main.go embeds frontend/dist, so Go cannot compile it before the first frontend build.
+  dist:placeholder:
+    internal: true
+    status:
+      - test -n "$(ls -A frontend/dist 2>/dev/null)"
+    cmds:
+      - mkdir -p frontend/dist
+      - touch frontend/dist/.gitkeep
+
+  install:msix:tools:
+    summary: Installs tools required for Windows MSIX packaging
+    cmds:
+      - task: windows:install:msix:tools
+
+  setup:docker:
+    summary: Builds Docker image for cross-compilation (~800MB download)
+    cmds:
+      - task: common:setup:docker
+
+  build:server:
+    summary: Builds the application in server mode (no GUI, HTTP server only)
+    cmds:
+      - task: common:build:server
+
+  run:server:
+    summary: Runs the application in server mode
+    cmds:
+      - task: common:run:server
+
+  build:docker:
+    summary: Builds a Docker image for server mode deployment
+    cmds:
+      - task: common:build:docker
+
+  run:docker:
+    summary: Builds and runs the Docker image
+    cmds:
+      - task: common:run:docker
+
+  build:ios:
+    summary: Builds the iOS app (needs macOS with Xcode). Wails mobile is experimental.
+    cmds:
+      - task: ios:build
+
+  run:ios:
+    summary: Builds and runs the app in the iOS Simulator
+    cmds:
+      - task: ios:run
+
+  build:android:
+    summary: Builds the Android app (needs the Android SDK and NDK). Wails mobile is experimental.
+    cmds:
+      - task: android:build
+
+  run:android:
+    summary: Builds and runs the app in the Android emulator
+    cmds:
+      - task: android:run
