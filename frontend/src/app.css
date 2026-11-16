@@ -1,0 +1,31 @@
+:root {
+  --bg: #faf8f5;
+  --fg: #1f1d1a;
+  --muted: #6b655c;
+  --danger: #b42318;
+
+  color-scheme: light dark;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Hiragino Sans",
+    "Noto Sans JP",
+    "Yu Gothic UI",
+    sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16151a;
+    --fg: #efece6;
+    --muted: #a39d93;
+    --danger: #f97066;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}

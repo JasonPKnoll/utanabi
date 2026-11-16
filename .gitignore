@@ -1,0 +1,9 @@
+.task
+.wails
+bin
+frontend/dist
+frontend/node_modules
+data
+frontend/playwright-report
+frontend/test-results
+.env

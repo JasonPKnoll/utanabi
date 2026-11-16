@@ -1,0 +1,129 @@
+version: "2"
+
+run:
+  # Lint integration tests too. The server build is linted by a second run with --build-tags server.
+  build-tags:
+    - integration
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - contextcheck
+    - depguard
+    - errcheck
+    - errname
+    - errorlint
+    - forcetypeassert
+    - gochecknoinits
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - noctx
+    - nolintlint
+    - paralleltest
+    - revive
+    - rowserrcheck
+    - sloglint
+    - sqlclosecheck
+    - staticcheck
+    - thelper
+    - tparallel
+    - unused
+    - usetesting
+
+  settings:
+    depguard:
+      rules:
+        wails-only-at-the-edge:
+          list-mode: lax
+          files:
+            - $all
+            - "!**/main.go"
+            - "!**/internal/app/**"
+            - "!**/internal/features/*/service.go"
+          deny:
+            - pkg: github.com/wailsapp/wails/v3
+              desc: Wails is used only in main.go, internal/app, and a slice's service.go.
+        database-only-in-database-files:
+          list-mode: lax
+          files:
+            - $all
+            - "!$test"
+            - "!**/internal/store/**"
+            - "!**/internal/features/*/sqlite.go"
+          deny:
+            - pkg: database/sql
+              desc: SQL lives in internal/store and a slice's sqlite.go.
+            - pkg: modernc.org/sqlite
+              desc: The SQLite driver lives in internal/store.
+        use-case-has-no-adapters:
+          list-mode: lax
+          files:
+            - "**/internal/features/**"
+            - "!$test"
+            - "!**/internal/features/*/service.go"
+            - "!**/internal/features/*/sqlite.go"
+            - "!**/internal/features/*/*_api.go"
+          deny:
+            - pkg: net/http
+              desc: HTTP clients live in a slice's <source>_api.go adapter, never in the use case.
+            - pkg: github.com/JasonPKnoll/utanabi/internal/store
+              desc: The use case declares a port. Only the slice's sqlite.go talks to the store.
+        no-slice-imports-another-slice:
+          list-mode: lax
+          files:
+            - "**/internal/features/**"
+          deny:
+            - pkg: github.com/JasonPKnoll/utanabi/internal/features
+              desc: A slice never imports another slice. Move shared code to internal/common/<pkg>.
+
+    errcheck:
+      check-type-assertions: true
+
+    errorlint:
+      # The project wraps only its own errors with %w. A dependency's error goes through %v on purpose.
+      errorf: false
+
+    gosec:
+      excludes:
+        # The app reads and writes only files inside the folders it resolves itself.
+        - G304
+
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+
+    sloglint:
+      no-mixed-args: true
+      context: scope
+      static-msg: true
+      key-naming-case: snake
+      forbidden-keys:
+        - error
+
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      # The logger package owns the "error" key.
+      - path: internal/logger/
+        linters: [sloglint]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/JasonPKnoll/utanabi
