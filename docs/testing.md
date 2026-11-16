@@ -22,7 +22,7 @@ The first run of `make test-e2e` needs a browser: `cd frontend && npx playwright
 - Files start with `//go:build integration`.
 - The database is real SQLite. It runs in process, so there is no container. `storetest.New(t)` opens a fresh database file in the test's temp folder and closes it when the test ends.
 - Every query function in a `sqlite.go` file runs in at least one integration test. An untested query counts as broken.
-- Each test creates its own tables and rows. No shared seed data, so tests run in parallel and in any order.
+- `storetest.New(t)` returns an empty database. A slice's test applies the real schema with `db.Migrate(t.Context(), store.Migrations())`, then inserts its own rows. Tests in `internal/store` create their own tables or pass their own migration files. No shared seed data, so tests run in parallel and in any order.
 - Stub only what can't run for real: a remote service (behind an `httptest` server), a failure the real dependency can't produce on demand, or a clock.
 
 A slice's `sqlite.go` test looks like this:
@@ -33,7 +33,10 @@ A slice's `sqlite.go` test looks like this:
 func TestThingByID(t *testing.T) {
 	t.Parallel()
 	db := storetest.New(t)
-	// create the table, insert a row, call the adapter, check the result
+	if err := db.Migrate(t.Context(), store.Migrations()); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	// insert a row, call the adapter, check the result
 }
 ```
 

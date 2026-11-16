@@ -18,7 +18,7 @@ service.go (primary adapter) ──► app.Fail ──► error the frontend see
 sqlite.go / <source>_api.go (secondary adapters) ──► internal/store ──► SQLite file
 ```
 
-`main.go` builds everything in this order: platform folders, config, logger, database, services, then `app.New` and `Run`. When the app quits, Wails calls `ServiceShutdown` on each service in reverse order. The shutdown hook from `app.CloseOnShutdown` closes the database. `main` closes the log file last.
+`main.go` builds everything in this order: platform folders, config, logger, database (opened, then migrated), services, then `app.New` and `Run`. When the app quits, Wails calls `ServiceShutdown` on each service in reverse order. The shutdown hook from `app.CloseOnShutdown` closes the database. `main` closes the log file last.
 
 ## Slices
 
@@ -63,7 +63,19 @@ The iOS and Android builds also use `build/ios/main_ios.go` and `build/android/m
 
 `internal/store` opens one SQLite database with foreign keys on, WAL journaling, a busy timeout, and immediate write transactions. The driver is `modernc.org/sqlite`, which is pure Go, so the same code builds for every target without a C toolchain for SQLite.
 
-Slices get a `store.Querier` (satisfied by both the database and a transaction) and call `store.Translate` on every error. There is no migration tool yet. The first slice that needs a table adds one.
+Slices get a `store.Querier` (satisfied by both the database and a transaction) and call `store.Translate` on every error.
+
+### Migrations
+
+The schema is a series of numbered SQL files in `internal/store/migrations`, embedded in the binary with `embed`. Each name is `<version>_<change>.sql`, and the versions run 1, 2, 3 with no gaps or repeats.
+
+`main.go` calls `db.Migrate(ctx, store.Migrations())` right after `store.Open`. `Migrate` reads `PRAGMA user_version`, the number of the last file applied, and runs each later file in order, each in its own transaction. The same transaction sets `user_version` to the file's version, so a file either applies in full and is recorded, or leaves no trace. A failed file stops startup with an error that names it, such as `store: migration failed (002_add_songs.sql); store: query failed (<driver detail>)`, and the database stays at the last good version. A database already at the latest version applies nothing. A database newer than the app (after a downgrade) fails startup instead of running against a schema the app doesn't know.
+
+`Migrate` takes an `fs.FS`, so tests pass their own files with `fstest.MapFS`.
+
+To change the schema, add a file numbered one past the highest. Never edit a file that has been merged: a user's database may already have run it. A migration runs inside a transaction, so it can't change `PRAGMA foreign_keys` or `journal_mode`.
+
+There are no down migrations. Undo a change with a new file.
 
 ## Why these choices
 
