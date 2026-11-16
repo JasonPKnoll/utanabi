@@ -13,6 +13,17 @@ vars:
   GOVULNCHECK_VERSION: v1.9.0
   # The app's own packages. build/ holds Wails's per-platform helpers, which are not linted or tested here.
   GO_PKGS: ". ./internal/..."
+  # The app version is info.version in build/config.yml, which also feeds the platform build assets. Production
+  # builds stamp it into internal/config through VERSION_LDFLAG; dev builds report "dev". The loop uses only shell
+  # builtins, so it also runs on Windows, where sed and grep may be missing.
+  VERSION:
+    sh: |
+      while IFS= read -r line; do
+        case "$line" in
+          '  version: '*) v=${line#*\"}; echo "${v%%\"*}"; break ;;
+        esac
+      done < "{{.ROOT_DIR}}/build/config.yml"
+  VERSION_LDFLAG: "-X github.com/JasonPKnoll/utanabi/internal/config.version={{.VERSION}}"
 
 includes:
   common: ./build/Taskfile.yml

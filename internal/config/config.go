@@ -23,6 +23,7 @@ const AppName = "Utanabi"
 const SettingsFile = "settings.json"
 
 // version is set at build time: -ldflags "-X github.com/JasonPKnoll/utanabi/internal/config.version=1.2.3".
+// Production builds stamp info.version from build/config.yml through VERSION_LDFLAG in the Taskfiles.
 var version = "dev"
 
 // Dirs are the OS folders the app writes to. An empty Log means log to stderr.

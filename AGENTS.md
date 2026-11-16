@@ -118,6 +118,7 @@ Detail in [docs/logging.md](docs/logging.md).
 ### Config
 
 - Settings come from build-time values (`-ldflags "-X github.com/JasonPKnoll/utanabi/internal/config.version=..."`) and the user settings file `settings.json` in the OS config folder, parsed into one typed `Config` at startup.
+- **The version has one source: `info.version` in `build/config.yml`.** The root `Taskfile.yml` reads it into `VERSION`, and every production build (desktop, server, iOS, Android) stamps it in through `VERSION_LDFLAG`. Dev builds and plain `go build` report `dev`. To bump it, edit `info.version` (keep the value in double quotes on its own two-space-indented line), then run `wails3 task common:update:build-assets` so the Info.plist, Windows manifest, and package files match (it overwrites hand edits to those files).
 - Invalid config fails startup with an error that names the setting.
 - The server-mode build also reads env vars (`WAILS_SERVER_HOST`, `WAILS_SERVER_PORT`, and the `UTANABI_*` ones), listed in `.env.example` with comments. Desktop and mobile builds ignore env vars.
 - A new setting adds a field to `settings` and `Config`, a validation with a test, and a line in `.env.example` if server mode reads it.
