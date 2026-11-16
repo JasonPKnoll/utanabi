@@ -143,6 +143,19 @@ Detail in [docs/logging.md](docs/logging.md).
 - **Errors:** pass every rejection through `toAppError` (`frontend/src/lib/errors.ts`). Show its `message` and switch on its `code`. Never show the raw `Error.message`.
 - **Commands:** `npm run lint` (ESLint and Prettier), `npm run check` (svelte-check types), `npm test` (Vitest), `npm run test:e2e` (Playwright, after `task build:server`). `task lint` and `task test` run them for you.
 
+### Mobile first
+
+Most people will use Utanabi on a phone. Design and build every screen for a phone first, then add room for bigger screens.
+
+- **Start at 360px wide.** Write the base styles for a phone, then widen the layout with `min-width` media queries. Never start from a desktop layout and squeeze it down.
+- **One column on a phone,** with no sideways scrolling of the page at 360px. Wide content (a table, a long word list) scrolls inside its own box.
+- **Touch targets are at least 44×44px,** with space between them so a thumb doesn't hit the wrong one.
+- **Nothing depends on hover.** Every action works with a tap and with a keyboard. Use real `<button>`, `<a>`, `<input>`, and `<label>` elements.
+- **Main actions sit within thumb reach,** near the bottom of the screen: the tab bar, player controls, and "Save word".
+- **Text is readable on a small screen.** Body text and form fields are at least 16px (smaller fields make iOS zoom in). Lyrics are bigger, with enough line height for furigana in `<ruby>` above them.
+- **Respect the safe areas** on phones with a notch or a home bar: pad edges with `env(safe-area-inset-*)`.
+- **Check every UI change at 360px wide first,** then at tablet and desktop widths.
+
 ## Error handling
 
 Detail and examples in [docs/errors.md](docs/errors.md).
