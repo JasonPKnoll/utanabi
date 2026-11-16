@@ -7,3 +7,4 @@
 - [ ] API changes are backward compatible, or the break is called out
 - [ ] Bindings regenerated, and no secret added to the app
 - [ ] Desktop-only or mobile-only code is guarded for the other builds
+- [ ] UI changes checked at 360px wide first, then on bigger screens
