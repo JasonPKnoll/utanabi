@@ -49,6 +49,9 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
+	if err := db.Migrate(ctx, store.Migrations()); err != nil {
+		return errors.Join(err, db.Close())
+	}
 
 	dist, err := fs.Sub(assets, "frontend/dist")
 	if err != nil {

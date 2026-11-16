@@ -10,14 +10,15 @@ Utanabi is an app for learning Japanese through song lyrics. It is a Go app buil
 
 | Path | Job |
 | --- | --- |
-| `main.go` | Wiring only: platform folders, config, logger, database, services, `app.New`, `Run`. |
+| `main.go` | Wiring only: platform folders, config, logger, database and its migrations, services, `app.New`, `Run`. |
 | `internal/config` | The typed `Config`: build-time values, the user settings file, and server-mode env vars, validated at startup. |
 | `internal/logger` | The JSON slog logger, `From` and `Into` for the context, and the `Err` and `Panic` attributes. |
 | `internal/app` | The Wails wiring (options, window, platform folders per build target), `app.Fail` (the one frontend error mapping), the example `AboutService`, and the shutdown hook. |
 | `internal/common/fault` | The project's error sentinels (`ErrNotFound`, `ErrConflict`, `ErrCanceled`, `ErrTimeout`) and `InvalidError`. |
 | `internal/common/redact` | The `Secret` type, which never prints its value. |
 | `internal/features` | Feature slices, one folder each. Empty until the first feature. |
-| `internal/store` | The SQLite database: open, `WithTx`, `Querier`, and `Translate` for driver errors. |
+| `internal/store` | The SQLite database: open, `Migrate`, `WithTx`, `Querier`, and `Translate` for driver errors. |
+| `internal/store/migrations` | The schema: numbered `.sql` files, embedded in the binary and applied at startup. |
 | `internal/store/storetest` | A fresh database file per test, for integration tests. |
 | `frontend/src` | The Svelte UI. |
 | `frontend/src/lib` | Shared frontend code, such as `toAppError`. |
@@ -50,12 +51,13 @@ internal/features/<slice>/
 ### Adding a slice, step by step
 
 1. Create `internal/features/<slice>/<slice>.go` with the request and response types, the port interface, and the use case function. Validate every input here and return `fault.Invalid(field, reason)` for bad input.
-2. Add `sqlite.go` with a struct that implements the port. Take a `store.Querier`, write plain SQL, and pass every error from `database/sql` through `store.Translate`.
-3. Add `service.go` with the Wails service struct. Each exported method takes `context.Context` first, calls the use case, and returns `result, app.Fail(ctx, err)`.
-4. Register the service in `main.go`: `application.NewService(<slice>.NewService(...))`.
-5. Run `task bindings`, then call the generated function from `frontend/src`. Catch errors with `toAppError`.
-6. Add a unit test for the use case (mock the port) and an integration test for `sqlite.go`.
-7. Add a row to the code layout table above.
+2. Add the slice's tables in a new migration file, `internal/store/migrations/<NNN>_<change>.sql`, numbered one past the highest file there. Never edit a migration that has been merged; change the schema with a new file.
+3. Add `sqlite.go` with a struct that implements the port. Take a `store.Querier`, write plain SQL, and pass every error from `database/sql` through `store.Translate`.
+4. Add `service.go` with the Wails service struct. Each exported method takes `context.Context` first, calls the use case, and returns `result, app.Fail(ctx, err)`.
+5. Register the service in `main.go`: `application.NewService(<slice>.NewService(...))`.
+6. Run `task bindings`, then call the generated function from `frontend/src`. Catch errors with `toAppError`.
+7. Add a unit test for the use case (mock the port) and an integration test for `sqlite.go`. The integration test applies the real schema with `db.Migrate(t.Context(), store.Migrations())` after `storetest.New(t)`.
+8. Add a row to the code layout table above.
 
 A skeleton, with generic names:
 
@@ -99,6 +101,7 @@ func (s *Service) Get(ctx context.Context, id int64) (Thing, error) {
 
 - The local database is SQLite, through the pure Go driver `modernc.org/sqlite`. The file lives in the OS app-data folder (on mobile, the app's sandbox storage path; in server mode, `UTANABI_DATA_DIR`).
 - Database code stays in the slices' `sqlite.go` files. Use plain SQL, scanned into typed structs. No ORM.
+- **The schema lives in migrations:** numbered files in `internal/store/migrations` (`001_init.sql`, `002_<change>.sql`, and so on, no gaps). `main.go` runs `db.Migrate` right after `store.Open`. Each pending file runs in its own transaction, and `PRAGMA user_version` records the last one applied. A failed file stops startup with an error that names it. Never edit a merged migration; add a new one.
 - **Translate every driver error at the adapter** with `store.Translate`, into the project's own sentinels. Nothing above the adapter sees a driver error.
 - `db.WithTx(ctx, fn)` runs `fn` in one transaction, and rolls back on an error or a panic.
 - Every connection gets a busy timeout from config (`db_busy_timeout`, default 5s). Pass a context with a deadline for work that must not run long.
