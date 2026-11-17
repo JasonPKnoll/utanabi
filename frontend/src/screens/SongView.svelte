@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Service as Songs, type Song } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
-  import { firstSungLine, lyricLines } from "../lib/lyrics";
+  import { startsStanza } from "../lib/lyrics";
   import { homeHref } from "../lib/route";
 
   let { id }: { id: number } = $props();
@@ -12,14 +12,11 @@
   let confirmDelete = $state(false);
   let deleting = $state(false);
 
-  let lines = $derived(song ? lyricLines(song.lyrics) : []);
+  let lines = $derived(song?.lines ?? []);
 
   $effect(() => {
     Songs.Get(id)
-      .then((found) => {
-        song = found;
-        current = firstSungLine(lyricLines(found.lyrics));
-      })
+      .then((found) => (song = found))
       .catch((err: unknown) => (failure = toAppError(err)));
   });
 
@@ -75,20 +72,16 @@
     <main>
       <p class="hint muted">Tap a line to follow along.</p>
       <ol class="lyrics" lang="ja">
-        {#each lines as line, i (i)}
-          {#if line === ""}
-            <li class="gap" aria-hidden="true"></li>
-          {:else}
-            <li>
-              <button
-                type="button"
-                class="line"
-                class:current={i === current}
-                aria-current={i === current}
-                onclick={() => (current = i)}>{line}</button
-              >
-            </li>
-          {/if}
+        {#each lines as line, i (line.position)}
+          <li class:stanza-start={startsStanza(lines, i)}>
+            <button
+              type="button"
+              class="line"
+              class:current={i === current}
+              aria-current={i === current}
+              onclick={() => (current = i)}>{line.text}</button
+            >
+          </li>
         {/each}
       </ol>
     </main>
@@ -180,8 +173,8 @@
     list-style: none;
   }
 
-  .gap {
-    height: 20px;
+  .stanza-start {
+    margin-top: 20px;
   }
 
   .line {

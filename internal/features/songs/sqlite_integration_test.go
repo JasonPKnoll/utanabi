@@ -4,6 +4,7 @@ package songs
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
@@ -17,13 +18,20 @@ func newSQLite(t *testing.T) *SQLite {
 	if err := db.Migrate(t.Context(), store.Migrations()); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	return NewSQLite(db.Querier())
+	return NewSQLite(db)
+}
+
+func sampleLines() []Line {
+	return []Line{
+		{Position: 0, Stanza: 0, Text: "夜の空に"},
+		{Position: 1, Stanza: 0, Text: "星が光る"},
+		{Position: 2, Stanza: 1, Text: "君の声を探している"},
+	}
 }
 
 func addSong(t *testing.T, repo *SQLite, title string) Song {
 	t.Helper()
-	song, err := repo.AddSong(t.Context(), Song{Title: title, Artist: "Demo Artist", Lyrics: "夜の空に\n星が光る",
-		Source: SourceUser})
+	song, err := repo.AddSong(t.Context(), Song{Title: title, Artist: "Demo Artist", Source: SourceUser, Lines: sampleLines()})
 	if err != nil {
 		t.Fatalf("AddSong(%s): %v", title, err)
 	}
@@ -43,8 +51,26 @@ func TestSQLiteAddThenGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SongByID: %v", err)
 	}
-	if got != added {
+	if !reflect.DeepEqual(got, added) {
 		t.Errorf("got %+v, want %+v", got, added)
+	}
+}
+
+func TestSQLiteAddIsAllOrNothing(t *testing.T) {
+	t.Parallel()
+
+	repo := newSQLite(t)
+	lines := []Line{{Position: 0, Stanza: 0, Text: "星"}, {Position: 0, Stanza: 0, Text: "same position"}}
+	if _, err := repo.AddSong(t.Context(), Song{Title: "broken", Source: SourceUser, Lines: lines}); err == nil {
+		t.Fatal("AddSong saved two lines in the same position, want an error")
+	}
+
+	list, err := repo.Songs(t.Context())
+	if err != nil {
+		t.Fatalf("Songs: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("a failed add left %d songs behind, want none", len(list))
 	}
 }
 
@@ -63,7 +89,7 @@ func TestSQLiteSongsNewestFirst(t *testing.T) {
 		{ID: second.ID, Title: "春の手紙", Artist: "Demo Artist", Source: SourceUser},
 		{ID: first.ID, Title: "星の歌", Artist: "Demo Artist", Source: SourceUser},
 	}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 }
@@ -103,6 +129,16 @@ func TestSQLiteDelete(t *testing.T) {
 	}
 	if err := repo.DeleteSong(t.Context(), song.ID); !errors.Is(err, fault.ErrNotFound) {
 		t.Errorf("second delete, err = %v, want fault.ErrNotFound", err)
+	}
+
+	var lines int
+	err := repo.db.Querier().QueryRowContext(t.Context(), `SELECT count(*) FROM lyric_lines WHERE song_id = ?`, song.ID).
+		Scan(&lines)
+	if err != nil {
+		t.Fatalf("count lines: %v", err)
+	}
+	if lines != 0 {
+		t.Errorf("%d lines left after deleting the song, want none", lines)
 	}
 }
 

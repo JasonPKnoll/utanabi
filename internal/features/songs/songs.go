@@ -1,4 +1,4 @@
-// Package songs keeps the songs the user is learning, with their lyrics.
+// Package songs keeps the songs the user is learning, with their lyrics as lines.
 package songs
 
 import (
@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/common/jtext"
 )
 
 // SourceUser marks lyrics the user typed in themselves.
@@ -17,18 +18,26 @@ const (
 	maxTitleLen  = 200
 	maxArtistLen = 200
 	maxLyricsLen = 20000
+	maxLineLen   = 500
 )
 
-// Song is one song with its full lyrics.
+// Line is one sung line. Stanza goes up by one at each verse break.
+type Line struct {
+	Position int    `json:"position"`
+	Stanza   int    `json:"stanza"`
+	Text     string `json:"text"`
+}
+
+// Song is one song with its lines.
 type Song struct {
 	ID     int64  `json:"id"`
 	Title  string `json:"title"`
 	Artist string `json:"artist"`
-	Lyrics string `json:"lyrics"`
 	Source string `json:"source"`
+	Lines  []Line `json:"lines"`
 }
 
-// Summary is a song without its lyrics, for lists.
+// Summary is a song without its lines, for lists.
 type Summary struct {
 	ID     int64  `json:"id"`
 	Title  string `json:"title"`
@@ -36,7 +45,8 @@ type Summary struct {
 	Source string `json:"source"`
 }
 
-// NewSong is a song the user adds with their own lyrics.
+// NewSong is a song the user adds with their own lyrics, pasted or typed as text: one sung line per line, and a blank
+// line between verses.
 type NewSong struct {
 	Title  string `json:"title"`
 	Artist string `json:"artist"`
@@ -51,24 +61,24 @@ type Repository interface {
 	DeleteSong(ctx context.Context, id int64) error
 }
 
-// AddSong validates a song the user typed in and saves it.
+// AddSong validates a song the user typed in, splits its lyrics into lines, and saves it.
 func AddSong(ctx context.Context, repo Repository, in NewSong) (Song, error) {
-	song := Song{
-		Title:  strings.TrimSpace(in.Title),
-		Artist: strings.TrimSpace(in.Artist),
-		Lyrics: normalizeLyrics(in.Lyrics),
-		Source: SourceUser,
-	}
-	if err := required("title", song.Title, maxTitleLen); err != nil {
+	title, err := oneLine("title", in.Title, maxTitleLen)
+	if err != nil {
 		return Song{}, err
 	}
-	if utf8.RuneCountInString(song.Artist) > maxArtistLen {
-		return Song{}, tooLong("artist", maxArtistLen)
+	if title == "" {
+		return Song{}, fault.Invalid("title", "is required")
 	}
-	if err := required("lyrics", song.Lyrics, maxLyricsLen); err != nil {
+	artist, err := oneLine("artist", in.Artist, maxArtistLen)
+	if err != nil {
 		return Song{}, err
 	}
-	return repo.AddSong(ctx, song)
+	lines, err := splitLyrics(in.Lyrics)
+	if err != nil {
+		return Song{}, err
+	}
+	return repo.AddSong(ctx, Song{Title: title, Artist: artist, Source: SourceUser, Lines: lines})
 }
 
 // ListSongs returns every song, newest first.
@@ -76,7 +86,7 @@ func ListSongs(ctx context.Context, repo Repository) ([]Summary, error) {
 	return repo.Songs(ctx)
 }
 
-// GetSong returns one song with its lyrics.
+// GetSong returns one song with its lines.
 func GetSong(ctx context.Context, repo Repository, id int64) (Song, error) {
 	if id <= 0 {
 		return Song{}, fault.Invalid("id", "must be positive")
@@ -84,7 +94,7 @@ func GetSong(ctx context.Context, repo Repository, id int64) (Song, error) {
 	return repo.SongByID(ctx, id)
 }
 
-// DeleteSong removes one song.
+// DeleteSong removes one song and everything that belongs to it.
 func DeleteSong(ctx context.Context, repo Repository, id int64) error {
 	if id <= 0 {
 		return fault.Invalid("id", "must be positive")
@@ -92,24 +102,46 @@ func DeleteSong(ctx context.Context, repo Repository, id int64) error {
 	return repo.DeleteSong(ctx, id)
 }
 
-// normalizeLyrics keeps the user's line breaks but drops Windows line endings, trailing spaces on each line, and
-// blank lines at the start and end.
-func normalizeLyrics(s string) string {
-	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
-	for i, line := range lines {
-		lines[i] = strings.TrimRight(line, " \t　")
+func oneLine(field, s string, maxLen int) (string, error) {
+	s = strings.TrimSpace(jtext.Normalize(s))
+	if strings.ContainsRune(s, '\n') {
+		return "", fault.Invalid(field, "must be one line")
 	}
-	return strings.Trim(strings.Join(lines, "\n"), "\n")
+	if utf8.RuneCountInString(s) > maxLen {
+		return "", tooLong(field, maxLen)
+	}
+	return s, nil
 }
 
-func required(field, value string, maxLen int) error {
-	if value == "" {
-		return fault.Invalid(field, "is required")
+// splitLyrics turns pasted lyrics into lines. Spaces at either end of a line are dropped, and any run of blank lines
+// between two sung lines starts a new stanza.
+func splitLyrics(lyrics string) ([]Line, error) {
+	lyrics = jtext.Normalize(lyrics)
+	if utf8.RuneCountInString(lyrics) > maxLyricsLen {
+		return nil, tooLong("lyrics", maxLyricsLen)
 	}
-	if utf8.RuneCountInString(value) > maxLen {
-		return tooLong(field, maxLen)
+
+	var lines []Line
+	stanza, gap := 0, false
+	for raw := range strings.SplitSeq(lyrics, "\n") {
+		text := strings.TrimSpace(raw)
+		if text == "" {
+			gap = true
+			continue
+		}
+		if utf8.RuneCountInString(text) > maxLineLen {
+			return nil, fault.Invalid("lyrics", "has a line over "+strconv.Itoa(maxLineLen)+" characters")
+		}
+		if gap && len(lines) > 0 {
+			stanza++
+		}
+		gap = false
+		lines = append(lines, Line{Position: len(lines), Stanza: stanza, Text: text})
 	}
-	return nil
+	if len(lines) == 0 {
+		return nil, fault.Invalid("lyrics", "is required")
+	}
+	return lines, nil
 }
 
 func tooLong(field string, maxLen int) error {

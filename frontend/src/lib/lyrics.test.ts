@@ -1,20 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { firstSungLine, initial, lyricLines } from "./lyrics";
+import { initial, startsStanza } from "./lyrics";
 
-describe("lyricLines", () => {
-  it("keeps blank lines between verses", () => {
-    expect(lyricLines("夜の空に\n\n星が光る  ")).toEqual(["夜の空に", "", "星が光る"]);
-  });
-});
+describe("startsStanza", () => {
+  const lines = [
+    { position: 0, stanza: 0, text: "夜の空に" },
+    { position: 1, stanza: 0, text: "星が光る" },
+    { position: 2, stanza: 1, text: "君の声を探している" },
+  ];
 
-describe("firstSungLine", () => {
-  it("skips leading blank lines", () => {
-    expect(firstSungLine(["", "", "星が光る"])).toBe(2);
-  });
-
-  it("falls back to the first line when every line is blank", () => {
-    expect(firstSungLine(["", ""])).toBe(0);
+  it.each([
+    [0, false],
+    [1, false],
+    [2, true],
+    [3, false],
+  ])("line %i starts a stanza: %s", (i, want) => {
+    expect(startsStanza(lines, i)).toBe(want);
   });
 });
 

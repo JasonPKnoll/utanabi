@@ -7,6 +7,7 @@ export {
 };
 
 export type {
+    Line,
     NewSong,
     Song,
     Summary

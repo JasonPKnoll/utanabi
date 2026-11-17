@@ -61,7 +61,7 @@ func run() (err error) {
 
 	a := app.New(cfg, log, dist,
 		application.NewService(app.NewAboutService(cfg)),
-		application.NewService(songs.NewService(songs.NewSQLite(db.Querier()))),
+		application.NewService(songs.NewService(songs.NewSQLite(db))),
 		app.CloseOnShutdown(db),
 	)
 
