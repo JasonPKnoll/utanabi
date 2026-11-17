@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -45,6 +46,9 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if got, want := cfg.DBBusyTimeout, 5*time.Second; got != want {
 		t.Errorf("DBBusyTimeout = %v, want %v", got, want)
+	}
+	if got, want := cfg.DictionaryPath, filepath.Join(p.Dirs.Data, "dictionary.db"); got != want {
+		t.Errorf("DictionaryPath = %q, want %q", got, want)
 	}
 	if got, want := cfg.Platform, "desktop"; got != want {
 		t.Errorf("Platform = %q, want %q", got, want)
@@ -119,6 +123,18 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 		{name: "bad busy timeout", platform: "desktop", settings: `{"db_busy_timeout":"soon"}`, wantName: "db_busy_timeout"},
 		{name: "negative busy timeout", platform: "desktop", settings: `{"db_busy_timeout":"-1s"}`, wantName: "db_busy_timeout"},
 		{name: "unknown setting", platform: "desktop", settings: `{"colour":"blue"}`, wantName: "colour"},
+		{
+			name: "dictionary path names a folder", platform: "desktop",
+			settings: `{"dictionary_path":"reference/"}`, wantName: "dictionary_path",
+		},
+		{
+			name: "dictionary path with spaces around it", platform: "desktop",
+			settings: `{"dictionary_path":" dictionary.db"}`, wantName: "dictionary_path",
+		},
+		{
+			name: "bad env dictionary path", platform: "server",
+			env: map[string]string{"UTANABI_DICTIONARY_PATH": "dict\x00.db"}, wantName: "dictionary_path",
+		},
 		{name: "bad env log level", platform: "server", env: map[string]string{"UTANABI_LOG_LEVEL": "loud"}, wantName: "log_level"},
 		{name: "bad port", platform: "server", env: map[string]string{"WAILS_SERVER_PORT": "http"}, wantName: "WAILS_SERVER_PORT"},
 		{name: "port out of range", platform: "server", env: map[string]string{"WAILS_SERVER_PORT": "70000"}, wantName: "WAILS_SERVER_PORT"},
@@ -141,6 +157,50 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tt.wantName) {
 				t.Errorf("Load() error = %q, want it to name %q", err, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestLoadDictionaryPath(t *testing.T) {
+	t.Parallel()
+
+	abs := filepath.Join(t.TempDir(), "reference", "dictionary.db")
+	tests := []struct {
+		name     string
+		platform string
+		settings string
+		env      map[string]string
+		want     func(data string) string
+	}{
+		{
+			name: "absolute path from the settings file", platform: "desktop",
+			settings: `{"dictionary_path":` + strconv.Quote(abs) + `}`,
+			want:     func(string) string { return abs },
+		},
+		{
+			name: "relative path is taken from the data folder", platform: "desktop",
+			settings: `{"dictionary_path":"reference/dictionary.db"}`,
+			want:     func(data string) string { return filepath.Join(data, "reference", "dictionary.db") },
+		},
+		{
+			name: "env var overrides the settings file in server mode", platform: "server",
+			settings: `{"dictionary_path":"ignored.db"}`,
+			env:      map[string]string{"UTANABI_DICTIONARY_PATH": "server.db"},
+			want:     func(data string) string { return filepath.Join(data, "server.db") },
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p := platform(t, tt.platform, tt.env)
+			writeSettings(t, p, tt.settings)
+			cfg, err := config.Load(p)
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if got, want := cfg.DictionaryPath, tt.want(p.Dirs.Data); got != want {
+				t.Errorf("DictionaryPath = %q, want %q", got, want)
 			}
 		})
 	}

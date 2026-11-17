@@ -1,0 +1,631 @@
+[
+  {
+    "id": "ga-subject",
+    "kind": "particle",
+    "pattern": "が",
+    "title": "Subject marker",
+    "meaning": "Marks who or what does the action or has the quality: the subject.",
+    "explanation": "が comes after the subject of a verb or adjective. It often brings in new information or answers the question \"who?\" or \"what?\": 星が光る, the stars shine. Compare は, which marks what the sentence is about. Inside a longer sentence, the subject of a smaller clause usually takes が, not は."
+  },
+  {
+    "id": "wa-topic",
+    "kind": "particle",
+    "pattern": "は",
+    "title": "Topic",
+    "meaning": "Marks what the sentence is about: \"as for this\".",
+    "explanation": "は (written with the kana は but said \"wa\") sets the topic, and the rest of the sentence says something about it: 僕は歌う, as for me, I sing. The topic is often the subject, but it doesn't have to be. Once a topic is clear, Japanese often leaves it out of the following lines."
+  },
+  {
+    "id": "wa-contrast",
+    "kind": "particle",
+    "pattern": "は",
+    "title": "Contrast",
+    "meaning": "Sets one thing against another: \"this one, at least\".",
+    "explanation": "は can point out a contrast instead of a plain topic: 今日は泣かない, today (unlike other days) I won't cry. You often find it after time words, after another particle (には, では), or in a negative sentence, where it hints that something else is different."
+  },
+  {
+    "id": "wo-object",
+    "kind": "particle",
+    "pattern": "を",
+    "title": "Object",
+    "meaning": "Marks the thing an action is done to: the direct object.",
+    "explanation": "を comes after the thing that a verb acts on: 君の声を探す, I look for your voice. It is written with the kana を and said \"o\". In casual speech and lyrics it is often dropped, leaving the noun bare before the verb."
+  },
+  {
+    "id": "wo-through",
+    "kind": "particle",
+    "pattern": "を",
+    "title": "Through a place",
+    "meaning": "Marks the space you move through, along, or out of.",
+    "explanation": "With verbs of motion, を marks the place the movement crosses or leaves, not a thing being acted on: 空を飛ぶ, fly through the sky; 道を歩く, walk along the road; 家を出る, leave the house. Songs use it often with 飛ぶ, 走る, and 渡る."
+  },
+  {
+    "id": "ni-place",
+    "kind": "particle",
+    "pattern": "に",
+    "title": "Place of being",
+    "meaning": "Marks where something is or exists.",
+    "explanation": "に marks the place where someone or something is, with verbs of being and staying like いる, ある, 住む, and 残る: 空に星がある, there are stars in the sky. For the place where an action happens, Japanese uses で instead."
+  },
+  {
+    "id": "ni-time",
+    "kind": "particle",
+    "pattern": "に",
+    "title": "Point in time",
+    "meaning": "Marks the time when something happens: at, on, in.",
+    "explanation": "に after a time word fixes when something happens: 夜に会う, meet at night; 七時に, at seven. Words that are relative to now, like 今日, 明日, and いつか, usually take no particle."
+  },
+  {
+    "id": "ni-target",
+    "kind": "particle",
+    "pattern": "に",
+    "title": "Target",
+    "meaning": "Marks the person or thing an action is aimed at: to, for, at.",
+    "explanation": "に marks who receives something or who an action is directed at: 君に会いたい, I want to see you; 君に歌う, I sing to you. With giving verbs it marks the receiver, and with 似る and 負ける it marks the thing compared or lost to."
+  },
+  {
+    "id": "ni-destination",
+    "kind": "particle",
+    "pattern": "に",
+    "title": "Destination",
+    "meaning": "Marks where a movement ends: to, into, onto.",
+    "explanation": "With verbs of motion like 行く, 来る, 帰る, and 着く, に marks the end point: 海に行こう, let's go to the sea. へ is close in meaning, but に puts the weight on arriving there."
+  },
+  {
+    "id": "ni-purpose",
+    "kind": "particle",
+    "pattern": "〜に行く",
+    "title": "Purpose of going",
+    "meaning": "Says what you go or come somewhere to do: \"go to do\".",
+    "explanation": "The stem of a verb (the form before ます) plus に, then a verb of motion, gives the reason for the trip: 会いに行く, go to see; 迎えに来る, come to pick up. A noun for an activity works too: 散歩に行く, go for a walk."
+  },
+  {
+    "id": "ni-change",
+    "kind": "particle",
+    "pattern": "〜になる",
+    "title": "Becoming",
+    "meaning": "Marks what something turns into: \"become\", \"turn into\".",
+    "explanation": "に with なる marks the result of a change: 星になる, become a star; 大人になった, grew up. With する it marks a choice or a change you make: 君にする, I choose you. An い-adjective uses its く form instead: 強くなる."
+  },
+  {
+    "id": "ni-agent",
+    "kind": "particle",
+    "pattern": "に",
+    "title": "Done by",
+    "meaning": "In a passive or causative sentence, marks who does the action: \"by\".",
+    "explanation": "With a passive verb, に marks the one who acts: 雨に打たれる, be beaten by the rain. With a causative verb, it marks the one who is made or let to act: 子供に歌わせる, let the child sing."
+  },
+  {
+    "id": "de-place",
+    "kind": "particle",
+    "pattern": "で",
+    "title": "Place of action",
+    "meaning": "Marks where an action happens.",
+    "explanation": "で marks the place where something is done: 公園で歌う, sing in the park. Compare に, which marks where something simply is. で can also mark the scope of a statement: 世界で一番, the most in the world."
+  },
+  {
+    "id": "de-means",
+    "kind": "particle",
+    "pattern": "で",
+    "title": "Means",
+    "meaning": "Marks the tool, way, or material used: with, by, in.",
+    "explanation": "で marks how something is done: 電車で行く, go by train; 声で伝える, tell with your voice; 日本語で歌う, sing in Japanese. It can also give a cause: 風邪で休む, stay home with a cold."
+  },
+  {
+    "id": "he-direction",
+    "kind": "particle",
+    "pattern": "へ",
+    "title": "Direction",
+    "meaning": "Marks the direction of a movement: toward.",
+    "explanation": "へ, written with the kana へ but said \"e\", points the way something moves: 未来へ, toward the future; 空へ飛ぶ, fly up to the sky. It stresses the direction more than the arrival, and song titles often end with it."
+  },
+  {
+    "id": "to-and",
+    "kind": "particle",
+    "pattern": "と",
+    "title": "And",
+    "meaning": "Joins nouns into a complete list: A and B.",
+    "explanation": "と between nouns lists them all: 君と僕, you and me. It joins nouns only, never verbs or sentences. Compare や, which lists a few examples out of more."
+  },
+  {
+    "id": "to-with",
+    "kind": "particle",
+    "pattern": "と",
+    "title": "With",
+    "meaning": "Marks who you do something with, or together with.",
+    "explanation": "と marks a partner in an action: 君と歩く, walk with you. Verbs that need two people, like 会う, 話す, and 結婚する, often take と. 一緒に can follow it for emphasis: 君と一緒に."
+  },
+  {
+    "id": "to-quote",
+    "kind": "particle",
+    "pattern": "と",
+    "title": "Quote",
+    "meaning": "Marks what someone says, thinks, or hears.",
+    "explanation": "と comes after the words of a quote or a thought, before verbs like 言う, 思う, and 聞く: 好きだと言った, I said that I love you. The quote can be exact words in 「」 or reported speech."
+  },
+  {
+    "id": "tte-quote",
+    "kind": "particle",
+    "pattern": "って",
+    "title": "Quote (casual)",
+    "meaning": "The casual spoken form of the quoting と.",
+    "explanation": "って does the job of the quoting と in speech and lyrics: 好きだって言って, say that you love me. It can also stand at the end of a line to mean \"they say\" or \"I said\", with the verb left out.",
+    "standard_id": "to-quote"
+  },
+  {
+    "id": "no-possession",
+    "kind": "particle",
+    "pattern": "の",
+    "title": "Possession and linking",
+    "meaning": "Links two nouns, like \"'s\" or \"of\": 君の声, your voice.",
+    "explanation": "の joins a noun to the noun after it, which is the main one. It can show who owns something (君の声, your voice), where something belongs (夜の空, the night sky), or what it is made of or about. Several can chain: 僕の夢の続き, the rest of my dream."
+  },
+  {
+    "id": "no-nominalizer",
+    "kind": "particle",
+    "pattern": "の",
+    "title": "Turns a phrase into a noun",
+    "meaning": "Makes a verb or phrase work like a noun: \"the act of\", \"the one that\".",
+    "explanation": "の after a verb or adjective turns the phrase into a noun, so a particle can follow it: 歌うのが好き, I like singing. It can also stand for a thing already known: 赤いの, the red one."
+  },
+  {
+    "id": "mo-also",
+    "kind": "particle",
+    "pattern": "も",
+    "title": "Also",
+    "meaning": "Means \"too\" or \"also\", and replaces が, は, or を.",
+    "explanation": "も adds a thing to what was said before: 僕も, me too. It takes the place of が, は, and を, but follows other particles: 夢にも, even in dreams. With a negative it means \"neither\", and after a question word it means \"every\" or \"none\": 何も, nothing."
+  },
+  {
+    "id": "kara-from",
+    "kind": "particle",
+    "pattern": "から",
+    "title": "From",
+    "meaning": "Marks where or when something starts: from, since.",
+    "explanation": "から after a place, time, or person marks the starting point: 空から, from the sky; あの日から, since that day. It often pairs with まで: 朝から夜まで, from morning until night."
+  },
+  {
+    "id": "kara-because",
+    "kind": "particle",
+    "pattern": "から",
+    "title": "Because",
+    "meaning": "After a clause, gives the reason: \"because\", \"so\".",
+    "explanation": "から after a full clause gives the reason for what follows: 好きだから, because I love you. Lyrics often end a line with it and leave the result unsaid. ので is a softer, more formal way to say the same."
+  },
+  {
+    "id": "made-until",
+    "kind": "particle",
+    "pattern": "まで",
+    "title": "Until",
+    "meaning": "Marks the end point in time or place: until, as far as.",
+    "explanation": "まで marks how far something goes: 朝まで, until morning; 空の果てまで, to the end of the sky. It can also mean \"even\": 君まで, even you."
+  },
+  {
+    "id": "yori-than",
+    "kind": "particle",
+    "pattern": "より",
+    "title": "Than",
+    "meaning": "Marks the thing being compared against: \"than\".",
+    "explanation": "より marks the standard of comparison: 星より明るい, brighter than the stars. 誰より and 何より mean \"more than anyone\" and \"more than anything\". In formal or old style it can also mean \"from\"."
+  },
+  {
+    "id": "ya-and-so-on",
+    "kind": "particle",
+    "pattern": "や",
+    "title": "And so on",
+    "meaning": "Lists some examples out of more: A, B, and so on.",
+    "explanation": "や between nouns gives a sample, not the full list: 花や星, flowers, stars, and things like that. なんか or など can follow the last item to make the \"and so on\" clear."
+  },
+  {
+    "id": "ka-question",
+    "kind": "particle",
+    "pattern": "か",
+    "title": "Question",
+    "meaning": "At the end of a sentence, makes it a question.",
+    "explanation": "か at the end turns a statement into a question: 会えるか, can we meet? Inside a sentence it marks an embedded question: 何をすればいいか分からない, I don't know what I should do. Casual speech often drops it and uses rising intonation instead."
+  },
+  {
+    "id": "ne-agreement",
+    "kind": "particle",
+    "pattern": "ね",
+    "title": "Shared feeling",
+    "meaning": "At the end of a sentence, asks for or shows agreement: \"isn't it?\", \"right?\".",
+    "explanation": "ね invites the listener to share a feeling or agree: きれいだね, it's beautiful, isn't it? It softens a statement and makes it warmer. In lyrics it often speaks straight to the person the song is for."
+  },
+  {
+    "id": "yo-emphasis",
+    "kind": "particle",
+    "pattern": "よ",
+    "title": "Emphasis",
+    "meaning": "At the end of a sentence, stresses something the listener should know: \"you know\", \"I tell you\".",
+    "explanation": "よ adds weight to a statement or tells the listener something new: 大丈夫だよ, it's all right, really. After a command or invitation it makes it more urgent: 行こうよ, come on, let's go. よね joins the two particles: telling, and checking you agree."
+  },
+  {
+    "id": "na-prohibition",
+    "kind": "particle",
+    "pattern": "〜な",
+    "title": "Don't",
+    "meaning": "After the dictionary form of a verb, a strong \"don't\".",
+    "explanation": "な right after the plain form of a verb forbids it, bluntly: 泣くな, don't cry; 忘れるな, don't forget. It is rough in speech but common in songs. Don't confuse it with the な that ends a line softly, or with the な of a な-adjective."
+  },
+  {
+    "id": "kana-wonder",
+    "kind": "particle",
+    "pattern": "かな",
+    "title": "I wonder",
+    "meaning": "At the end of a sentence, shows doubt: \"I wonder\".",
+    "explanation": "かな wonders aloud, to yourself or to the listener: 届くかな, I wonder if it will reach you. かしら means the same, with a softer, more feminine sound."
+  },
+  {
+    "id": "kedo-but",
+    "kind": "particle",
+    "pattern": "けど",
+    "title": "But",
+    "meaning": "Joins two clauses that contrast: \"but\", \"although\".",
+    "explanation": "けど after a clause sets up a contrast with what comes next: 好きだけど言えない, I love you, but I can't say it. At the end of a line, with the rest left out, it softens what was said. けれど and けれども are fuller forms."
+  },
+  {
+    "id": "dake-only",
+    "kind": "particle",
+    "pattern": "だけ",
+    "title": "Only",
+    "meaning": "Means \"only\" or \"just\", with a plain or positive verb.",
+    "explanation": "だけ limits something to what it follows: 君だけ, only you; 少しだけ, just a little. It doesn't need a negative verb, unlike しか."
+  },
+  {
+    "id": "shika-only",
+    "kind": "particle",
+    "pattern": "〜しか〜ない",
+    "title": "Nothing but",
+    "meaning": "With a negative verb, means \"only\" with a sense of \"nothing but\".",
+    "explanation": "しか always pairs with a negative: 君しか見えない, I can see nothing but you. Compared with だけ, it stresses that there is nothing else, often with a feeling that it is not enough or that it is everything."
+  },
+  {
+    "id": "te-form",
+    "kind": "conjugation",
+    "pattern": "〜て",
+    "title": "Te form",
+    "meaning": "The joining form: links actions in order (\"and then\"), or makes a request.",
+    "explanation": "The te form joins a verb or adjective to what follows. It can list actions in order (起きて、歌った, got up and sang), give a cause (会えて嬉しい, glad because I could see you), or make a request on its own (聞いて, listen). Many other forms are built on it, such as 〜ている and 〜てしまう.",
+    "formation": "Godan verbs (v5) change the last kana: う, つ, and る become って (会って, 待って, 光って); む, ぶ, and ぬ become んで (読んで, 遊んで, 死んで); く becomes いて (書いて); ぐ becomes いで (泳いで); す becomes して (探して). 行く (v5k-s) is an exception: 行って. Ichidan verbs (v1): drop る and add て (食べて). する (vs-i): して. 来る (vk): 来て (きて). い-adjectives (adj-i): drop い and add くて (美しくて); いい becomes よくて. な-adjectives (adj-na) and nouns: add で (静かで)."
+  },
+  {
+    "id": "teiru",
+    "kind": "conjugation",
+    "pattern": "〜ている",
+    "title": "Ongoing action or state",
+    "meaning": "Says an action is going on (\"is doing\"), or that a state has lasted since it happened.",
+    "explanation": "〜ている has two main uses. With an action verb it means the action is in progress: 探している, I am searching. With a verb of change, like 死ぬ, 知る, or 結婚する, it means the result is still in place: 知っている, I know (I came to know, and still do). It also covers habits: 毎日歌っている, I sing every day.",
+    "formation": "The te form of the verb plus いる, which then conjugates as an ichidan verb (v1): 探して + いる = 探している; past 探していた; negative 探していない. Every conjugation class forms it from its te form."
+  },
+  {
+    "id": "teru",
+    "kind": "conjugation",
+    "pattern": "〜てる",
+    "title": "Ongoing action (spoken)",
+    "meaning": "The spoken short form of 〜ている: \"is doing\".",
+    "explanation": "In speech and lyrics the い of 〜ている drops out: 待ってる for 待っている, 知ってる for 知っている. It means exactly the same, and conjugates the same way: 待ってた, 待ってない.",
+    "formation": "The te form plus る, which then conjugates as an ichidan verb (v1): 待って + る = 待ってる. After a te form that ends in で, it is でる: 読んでる.",
+    "standard_id": "teiru"
+  },
+  {
+    "id": "past",
+    "kind": "conjugation",
+    "pattern": "〜た",
+    "title": "Past",
+    "meaning": "Says something happened or was so: \"did\", \"was\".",
+    "explanation": "The ta form puts a verb or adjective in the past, or says an action is complete: 光った, it shone. Before a noun it describes the noun: 忘れた歌, the song I forgot. It is the te form with the て changed to た.",
+    "formation": "Take the te form and change て to た, or で to だ. Godan verbs (v5): 会った, 待った, 光った, 読んだ, 書いた, 泳いだ, 探した; 行く (v5k-s) becomes 行った. Ichidan verbs (v1): 食べた. する (vs-i): した. 来る (vk): 来た (きた). い-adjectives (adj-i): drop い and add かった (美しかった); いい becomes よかった. な-adjectives (adj-na) and nouns: add だった (静かだった)."
+  },
+  {
+    "id": "negative",
+    "kind": "conjugation",
+    "pattern": "〜ない",
+    "title": "Negative",
+    "meaning": "Says something does not happen or is not so: \"doesn't\", \"isn't\".",
+    "explanation": "The nai form makes a verb or adjective negative: 泣かない, I won't cry. ない itself conjugates like an い-adjective, so the past negative is 〜なかった: 言えなかった, I couldn't say it.",
+    "formation": "Godan verbs (v5): change the last kana to its あ-row kana and add ない (書く to 書かない, 探す to 探さない); a verb ending in う takes わない (会う to 会わない). ある is irregular: ない. Ichidan verbs (v1): drop る and add ない (食べない). する (vs-i): しない. 来る (vk): 来ない (こない). い-adjectives (adj-i): drop い and add くない (美しくない); いい becomes よくない. な-adjectives (adj-na) and nouns: add じゃない, or ではない in writing (静かじゃない)."
+  },
+  {
+    "id": "nu",
+    "kind": "conjugation",
+    "pattern": "〜ぬ",
+    "title": "Negative (old style)",
+    "meaning": "An old, literary negative: \"doesn't\", \"isn't\".",
+    "explanation": "〜ぬ is a classical negative that still lives in songs, poems, and set phrases: 消えぬ想い, a feeling that won't fade; 知らぬ間に, before I knew it. It means the same as 〜ない. In speech, 〜ん is a common short form of it: 知らん.",
+    "formation": "Same stem as the nai form, with ぬ instead of ない. Godan verbs (v5): change the last kana to its あ-row kana and add ぬ (知る to 知らぬ). Ichidan verbs (v1): drop る and add ぬ (消えぬ). する (vs-i): せぬ. 来る (vk): 来ぬ (こぬ).",
+    "standard_id": "negative"
+  },
+  {
+    "id": "zu",
+    "kind": "conjugation",
+    "pattern": "〜ず",
+    "title": "Without doing",
+    "meaning": "\"Without doing\", or a literary \"not\".",
+    "explanation": "〜ず is a written and literary negative. It often joins clauses to mean \"without doing\" or \"not doing, and\": 何も言わず, without saying anything. 〜ずに means the same, and 〜ずにはいられない means \"can't help doing\".",
+    "formation": "Same stem as the nai form, with ず instead of ない. Godan verbs (v5): change the last kana to its あ-row kana and add ず (言う to 言わず). Ichidan verbs (v1): drop る and add ず (忘れず). する (vs-i): せず. 来る (vk): 来ず (こず)."
+  },
+  {
+    "id": "polite-masu",
+    "kind": "conjugation",
+    "pattern": "〜ます",
+    "title": "Polite",
+    "meaning": "The polite form of a verb, used with strangers and in formal speech.",
+    "explanation": "ます makes a verb polite without changing its meaning: 歌います, I sing. It has its own forms: past 〜ました, negative 〜ません, past negative 〜ませんでした, and volitional 〜ましょう (let's). Songs use it when the singer speaks formally or tenderly.",
+    "formation": "The verb's stem plus ます. Godan verbs (v5): change the last kana to its い-row kana (書く to 書きます, 探す to 探します, 会う to 会います). Ichidan verbs (v1): drop る (食べます). する (vs-i): します. 来る (vk): 来ます (きます). Adjectives and nouns don't take ます; they use です instead."
+  },
+  {
+    "id": "continuative",
+    "kind": "conjugation",
+    "pattern": "〜り、〜い (verb stem)",
+    "title": "Stem as a link",
+    "meaning": "The bare stem of a verb, used to join clauses (\"and\") or as a noun.",
+    "explanation": "The stem of a verb, the form before ます, can end a clause and link it to the next, like a written te form: 夢を見、歌う, dream, and sing. Lyrics use it often. The same stem builds compound verbs (光り輝く, shine brightly), and many stems work as nouns (光り, 願い, 想い).",
+    "formation": "Godan verbs (v5): change the last kana to its い-row kana (光る to 光り, 願う to 願い). Ichidan verbs (v1): drop る (忘れる to 忘れ). する (vs-i): し. 来る (vk): 来 (き). い-adjectives (adj-i) link with their く form instead (美しく)."
+  },
+  {
+    "id": "potential",
+    "kind": "conjugation",
+    "pattern": "〜える / 〜られる",
+    "title": "Can do",
+    "meaning": "Says someone can do something: \"can\", \"be able to\".",
+    "explanation": "The potential form says an action is possible: 会える, can meet; 忘れられない, can't forget. The thing you can do is often marked with が instead of を. The result conjugates as an ichidan verb.",
+    "formation": "Godan verbs (v5): change the last kana to its え-row kana and add る (会う to 会える, 書く to 書ける, 探す to 探せる). Ichidan verbs (v1): drop る and add られる (食べられる); spoken Japanese often drops the ら (see ra-nuki). する (vs-i): できる. 来る (vk): 来られる (こられる), or 来れる in speech."
+  },
+  {
+    "id": "ra-nuki",
+    "kind": "conjugation",
+    "pattern": "〜れる",
+    "title": "Can do (spoken, without ら)",
+    "meaning": "A spoken potential that drops the ら: 見れる for 見られる.",
+    "explanation": "In everyday speech and in many lyrics, the potential of ichidan verbs and 来る loses its ら: 見れる (can see), 食べれる (can eat), 来れる (can come). It means the same as the standard form and is called ら抜き言葉, \"words without ら\". Textbooks treat it as casual.",
+    "formation": "Ichidan verbs (v1): drop る and add れる (見る to 見れる, 信じる to 信じれる). 来る (vk): 来れる (これる). Godan verbs already have their own potential and never take this form.",
+    "standard_id": "potential"
+  },
+  {
+    "id": "passive",
+    "kind": "conjugation",
+    "pattern": "〜れる / 〜られる",
+    "title": "Passive",
+    "meaning": "Says something is done to the subject: \"be done\", \"have it done to you\".",
+    "explanation": "The passive turns the one acted on into the subject: 君に呼ばれる, be called by you. Japanese also uses it for things that happen to you against your wishes: 雨に降られた, I got caught in the rain. The one who acts is marked with に.",
+    "formation": "Godan verbs (v5): change the last kana to its あ-row kana and add れる (呼ぶ to 呼ばれる); a verb ending in う takes われる (言う to 言われる). Ichidan verbs (v1): drop る and add られる (忘れられる). する (vs-i): される. 来る (vk): 来られる (こられる). The result conjugates as an ichidan verb."
+  },
+  {
+    "id": "causative",
+    "kind": "conjugation",
+    "pattern": "〜せる / 〜させる",
+    "title": "Make or let",
+    "meaning": "Says someone makes or lets another do something.",
+    "explanation": "The causative adds a person who causes the action: 歌わせる, make (or let) someone sing. Which one is meant comes from context. 〜させて, often with ください or ほしい, asks to be allowed: 言わせて, let me say it.",
+    "formation": "Godan verbs (v5): change the last kana to its あ-row kana and add せる (歌う to 歌わせる, 待つ to 待たせる). Ichidan verbs (v1): drop る and add させる (食べさせる). する (vs-i): させる. 来る (vk): 来させる (こさせる). The result conjugates as an ichidan verb."
+  },
+  {
+    "id": "causative-passive",
+    "kind": "conjugation",
+    "pattern": "〜させられる",
+    "title": "Be made to",
+    "meaning": "Says the subject is made to do something, usually against their will.",
+    "explanation": "The causative passive puts both together: 待たせられる, be made to wait. It often carries a feeling of being forced or put upon. Godan verbs have a common shorter form: 待たされる.",
+    "formation": "The causative form, then the passive of that: change the final る of 〜せる or 〜させる to られる. Godan verbs (v5): 待たせられる, often shortened to 待たされる (not for verbs ending in す: 話させられる). Ichidan verbs (v1): 食べさせられる. する (vs-i): させられる. 来る (vk): 来させられる (こさせられる)."
+  },
+  {
+    "id": "volitional",
+    "kind": "conjugation",
+    "pattern": "〜よう / 〜おう",
+    "title": "Let's, I will",
+    "meaning": "Suggests doing something together (\"let's\") or states your will (\"I'll\").",
+    "explanation": "The volitional form says \"let's\" to a listener, or \"I'll\" when you speak to yourself: 行こう, let's go; もう一度歌おう, I'll sing once more. 〜ようと思う means \"I'm thinking of doing\", and 〜ようとする means \"try to do\".",
+    "formation": "Godan verbs (v5): change the last kana to its お-row kana and add う (行く to 行こう, 歌う to 歌おう, 探す to 探そう). Ichidan verbs (v1): drop る and add よう (食べよう). する (vs-i): しよう. 来る (vk): 来よう (こよう). The polite form is 〜ましょう."
+  },
+  {
+    "id": "conditional-ba",
+    "kind": "conjugation",
+    "pattern": "〜ば",
+    "title": "If (ba)",
+    "meaning": "\"If\": the condition for what follows.",
+    "explanation": "The ba form sets a condition: 会えれば, if we can meet. It focuses on the condition itself, often a general or hoped-for one: 春が来れば, when spring comes. 〜ばよかった means \"I wish I had\": 言えばよかった, I should have said it.",
+    "formation": "Godan verbs (v5): change the last kana to its え-row kana and add ば (行く to 行けば, 会う to 会えば). Ichidan verbs (v1): drop る and add れば (食べれば). する (vs-i): すれば. 来る (vk): 来れば (くれば). い-adjectives (adj-i): drop い and add ければ (美しければ); いい becomes よければ. な-adjectives (adj-na) and nouns: add なら or であれば."
+  },
+  {
+    "id": "conditional-tara",
+    "kind": "conjugation",
+    "pattern": "〜たら",
+    "title": "If, when (tara)",
+    "meaning": "\"If\" or \"when\": once this happens, then that.",
+    "explanation": "The tara form says that one thing follows once another has happened: 夜が明けたら, when the night ends. It covers both \"if\" and \"when\", and is the most common conditional in speech. 〜たらいい means \"it would be good if\".",
+    "formation": "Take the past (ta) form and add ら: 会ったら, 読んだら, 食べたら, したら, 来たら (きたら). い-adjectives (adj-i): 美しかったら; いい becomes よかったら. な-adjectives (adj-na) and nouns: だったら (静かだったら)."
+  },
+  {
+    "id": "imperative",
+    "kind": "conjugation",
+    "pattern": "〜え / 〜ろ",
+    "title": "Command",
+    "meaning": "A blunt order: \"do it!\"",
+    "explanation": "The imperative gives a direct, rough command: 走れ, run!; 生きろ, live! In speech it sounds harsh, but songs use it often for strong feeling. The softer request is the te form, or 〜てください.",
+    "formation": "Godan verbs (v5): change the last kana to its え-row kana (走る to 走れ, 行く to 行け). Ichidan verbs (v1): drop る and add ろ (生きろ), or よ in writing (生きよ). する (vs-i): しろ, or せよ in writing. 来る (vk): 来い (こい). くれる: くれ."
+  },
+  {
+    "id": "tai-want",
+    "kind": "conjugation",
+    "pattern": "〜たい",
+    "title": "Want to",
+    "meaning": "Says the speaker wants to do something: \"want to\".",
+    "explanation": "〜たい expresses your own wish to do something: 会いたい, I want to see you. It conjugates like an い-adjective: 会いたくない, 会いたかった. For what someone else wants, Japanese uses 〜たがる (行きたがる, wants to go) instead.",
+    "formation": "The verb's stem plus たい. Godan verbs (v5): change the last kana to its い-row kana (会う to 会いたい, 帰る to 帰りたい). Ichidan verbs (v1): drop る (見たい). する (vs-i): したい. 来る (vk): 来たい (きたい)."
+  },
+  {
+    "id": "te-shimau",
+    "kind": "conjugation",
+    "pattern": "〜てしまう",
+    "title": "Completely, by mistake",
+    "meaning": "Says an action is done completely, or happened with regret.",
+    "explanation": "〜てしまう says an action is finished for good, often with a feeling of regret or that it couldn't be helped: 忘れてしまった, I've forgotten (and I'm sorry). It can also mean something happened by accident.",
+    "formation": "The te form plus しまう, which conjugates as a godan verb (v5u): 忘れて + しまう = 忘れてしまう; past 忘れてしまった. Every conjugation class forms it from its te form."
+  },
+  {
+    "id": "chau",
+    "kind": "conjugation",
+    "pattern": "〜ちゃう",
+    "title": "Completely (spoken)",
+    "meaning": "The spoken short form of 〜てしまう.",
+    "explanation": "In speech and lyrics, 〜てしまう shrinks to 〜ちゃう, and 〜でしまう to 〜じゃう: 忘れちゃう, 飲んじゃった. It means the same thing, with a lighter, more casual feel.",
+    "formation": "Replace the て of the te form with ちゃう, or the で with じゃう: 忘れて to 忘れちゃう, 死んで to 死んじゃう. It conjugates as a godan verb: past 〜ちゃった.",
+    "standard_id": "te-shimau"
+  },
+  {
+    "id": "adverbial",
+    "kind": "conjugation",
+    "pattern": "〜く / 〜に",
+    "title": "Adverb form",
+    "meaning": "Turns an adjective into an adverb: \"beautifully\", \"quietly\".",
+    "explanation": "An adjective's adverb form describes how something is done: 美しく咲く, bloom beautifully; 静かに歌う, sing quietly. With なる it says what something becomes: 強くなる, become strong.",
+    "formation": "い-adjectives (adj-i): drop い and add く (美しい to 美しく); いい becomes よく. な-adjectives (adj-na): add に (静か to 静かに)."
+  },
+  {
+    "id": "na-attributive",
+    "kind": "conjugation",
+    "pattern": "〜な",
+    "title": "Na adjective before a noun",
+    "meaning": "The な that joins a な-adjective to the noun it describes.",
+    "explanation": "A な-adjective takes な when it comes right before a noun: 静かな夜, a quiet night; 大切な人, someone precious. At the end of a sentence it takes だ or です instead, or nothing in casual speech.",
+    "formation": "な-adjectives (adj-na): add な (静か to 静かな). Before a noun, い-adjectives need nothing (美しい夜), and nouns join with の instead (夢の中)."
+  },
+  {
+    "id": "te-iku",
+    "kind": "pattern",
+    "pattern": "〜ていく",
+    "title": "Going on, moving away",
+    "meaning": "An action moves away from the speaker, or goes on into the future.",
+    "explanation": "〜ていく adds direction to an action. It can mean moving away while doing it (飛んでいく, fly away), or a change that goes on from now: 変わっていく, keep changing. The いく is usually written in kana.",
+    "formation": "The te form plus いく, which conjugates as 行く (v5k-s): 消えていく, 消えていった."
+  },
+  {
+    "id": "te-kuru",
+    "kind": "pattern",
+    "pattern": "〜てくる",
+    "title": "Coming toward, up to now",
+    "meaning": "An action comes toward the speaker, or has been going on up to now.",
+    "explanation": "〜てくる is the opposite of 〜ていく. It can mean coming toward the speaker (聞こえてくる, I can hear it coming), a change that has started (暗くなってきた, it has got dark), or something done until now: 生きてきた, I have lived (all this time).",
+    "formation": "The te form plus くる, which conjugates as 来る (vk): 帰ってくる, 帰ってきた."
+  },
+  {
+    "id": "te-kureru",
+    "kind": "pattern",
+    "pattern": "〜てくれる",
+    "title": "Do for me",
+    "meaning": "Someone does something for the speaker, as a favor: \"for me\".",
+    "explanation": "〜てくれる says another person does something for you or your side, and shows you are grateful: 歌ってくれた, you sang for me. As a request, 〜てくれる? and 〜てくれないか ask \"will you do it for me?\"",
+    "formation": "The te form plus くれる, which conjugates as an ichidan verb except for its command form くれ: 待ってくれ, wait for me."
+  },
+  {
+    "id": "te-mo",
+    "kind": "pattern",
+    "pattern": "〜ても",
+    "title": "Even if",
+    "meaning": "\"Even if\" or \"even though\".",
+    "explanation": "〜ても says the outcome holds no matter the condition: 離れても, even if we're apart. After a question word it means \"no matter\": 何度でも, no matter how many times; どこにいても, wherever you are.",
+    "formation": "The te form plus も: 会えても, 泣いても. い-adjectives (adj-i): 〜くても (遠くても). な-adjectives (adj-na) and nouns: 〜でも (静かでも)."
+  },
+  {
+    "id": "nagara",
+    "kind": "pattern",
+    "pattern": "〜ながら",
+    "title": "While",
+    "meaning": "Two actions at once: \"while doing\".",
+    "explanation": "〜ながら joins a background action to the main one, by the same person: 泣きながら笑う, laugh while crying. It can also mean \"although\": 知りながら, even though I knew.",
+    "formation": "The verb's stem plus ながら: 歌いながら, 見ながら, しながら, 来ながら (きながら)."
+  },
+  {
+    "id": "you-da",
+    "kind": "pattern",
+    "pattern": "〜ようだ / 〜ように / 〜ような",
+    "title": "Like, as if",
+    "meaning": "Compares or guesses: \"like\", \"as if\", \"seems\".",
+    "explanation": "よう says something is like something else, or looks like it is so. Before a noun it is ような (夢のような夜, a night like a dream), before a verb ように (鳥のように飛ぶ, fly like a bird), and at the end of a sentence ようだ (it seems). Lyrics use it constantly in comparisons.",
+    "formation": "After a noun with の (夢のよう), after a verb or い-adjective in plain form (消えるよう), and after a な-adjective with な (静かなよう). It then takes な before a noun, に before a verb, and だ to end a sentence."
+  },
+  {
+    "id": "you-ni",
+    "kind": "pattern",
+    "pattern": "〜ように",
+    "title": "So that, I hope",
+    "meaning": "Gives a goal (\"so that\") or a wish (\"I hope\").",
+    "explanation": "After a plain verb, often a potential or negative one, ように gives the goal of an action: 忘れないように歌う, sing so I won't forget. At the end of a sentence, often as 〜ますように, it is a wish or prayer: 届きますように, may it reach you.",
+    "formation": "The plain present form of a verb, positive or negative, plus ように: 会えるように, 迷わないように."
+  },
+  {
+    "id": "mitai",
+    "kind": "pattern",
+    "pattern": "〜みたい",
+    "title": "Like, seems (casual)",
+    "meaning": "\"Like\" or \"it seems\", in casual speech.",
+    "explanation": "みたい is the everyday spoken partner of よう: 夢みたい, like a dream; 雨が降るみたい, looks like it'll rain. Before a noun it takes な (夢みたいな日), and before a verb に (子供みたいに笑う).",
+    "formation": "Straight after a noun or a な-adjective (夢みたい, 静かみたい), or after the plain form of a verb or い-adjective (降るみたい). It then conjugates like a な-adjective."
+  },
+  {
+    "id": "kamoshirenai",
+    "kind": "pattern",
+    "pattern": "〜かもしれない",
+    "title": "Maybe",
+    "meaning": "\"Maybe\" or \"might\": a fair chance, not certain.",
+    "explanation": "かもしれない says something is possible: 会えるかもしれない, we might meet. Casual speech shortens it to かも, often at the end of a line. The polite form is かもしれません.",
+    "formation": "After the plain form of a verb or い-adjective (来るかもしれない), and straight after a noun or な-adjective (夢かもしれない)."
+  },
+  {
+    "id": "darou",
+    "kind": "pattern",
+    "pattern": "〜だろう",
+    "title": "Probably, I wonder",
+    "meaning": "A guess (\"probably\"), or, as a question, wondering aloud.",
+    "explanation": "だろう makes a guess: 晴れるだろう, it will probably clear up. With a question word, often as 〜んだろう, it wonders: どこにいるんだろう, where could you be? With rising intonation it asks for agreement: \"right?\". でしょう is the polite form, and だろ is a short spoken form.",
+    "formation": "After the plain form of a verb or い-adjective (来るだろう), and straight after a noun or な-adjective (夢だろう)."
+  },
+  {
+    "id": "n-da",
+    "kind": "pattern",
+    "pattern": "〜んだ / 〜のだ",
+    "title": "Explaining",
+    "meaning": "Gives a reason or background, or stresses a feeling: \"it's that\", \"you see\".",
+    "explanation": "〜のだ, usually said 〜んだ, presents a statement as an explanation or as something the speaker feels strongly: 好きなんだ, I love you (that's the truth of it). As a question, 〜の? or 〜んですか asks for the story behind something. Lyrics use it for emotional emphasis.",
+    "formation": "After the plain form of a verb or い-adjective (行くんだ), and after a noun or な-adjective with な (好きなんだ). The polite form is 〜んです."
+  },
+  {
+    "id": "nakereba-naranai",
+    "kind": "pattern",
+    "pattern": "〜なければならない",
+    "title": "Must",
+    "meaning": "\"Must\" or \"have to\".",
+    "explanation": "〜なければならない says something has to be done: 行かなければならない, I have to go. Literally it is \"if I don't go, it won't do\". 〜なければいけない means the same, and speech shortens both a lot (see nakucha and nakya).",
+    "formation": "The nai form with ない changed to なければ, plus ならない or いけない: 行かなければならない, 忘れなければいけない."
+  },
+  {
+    "id": "nakucha",
+    "kind": "pattern",
+    "pattern": "〜なくちゃ",
+    "title": "Must (spoken)",
+    "meaning": "A spoken short form of \"must\": \"I've got to\".",
+    "explanation": "〜なくちゃ comes from 〜なくては (いけない), with the end dropped: 行かなくちゃ, I've got to go. It is casual and common in songs.",
+    "formation": "The nai form with ない changed to なくちゃ: 行かなくちゃ, 起きなくちゃ.",
+    "standard_id": "nakereba-naranai"
+  },
+  {
+    "id": "nakya",
+    "kind": "pattern",
+    "pattern": "〜なきゃ",
+    "title": "Must (spoken)",
+    "meaning": "A spoken short form of \"must\": \"I've got to\".",
+    "explanation": "〜なきゃ comes from 〜なければ (ならない), with the end dropped: 行かなきゃ, I've got to go. It is casual and very common in songs.",
+    "formation": "The nai form with ない changed to なきゃ: 行かなきゃ, 伝えなきゃ.",
+    "standard_id": "nakereba-naranai"
+  },
+  {
+    "id": "sou-looks",
+    "kind": "pattern",
+    "pattern": "〜そう",
+    "title": "Looks like",
+    "meaning": "Says something looks like it is so, or is about to happen.",
+    "explanation": "〜そう after a stem gives an impression from what you see: 泣きそう, about to cry; 嬉しそう, looks happy. Before a noun it takes な (楽しそうな声), and before a verb に. Don't confuse it with そうだ after a plain form, which means \"I hear that\".",
+    "formation": "Verbs: the stem plus そう (泣きそう, 消えそう). い-adjectives (adj-i): drop い and add そう (嬉しそう); いい becomes よさそう. な-adjectives (adj-na): add そう (幸せそう)."
+  }
+]

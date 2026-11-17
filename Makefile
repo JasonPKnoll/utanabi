@@ -1,7 +1,7 @@
 # Thin wrapper over the Taskfile. Tasks run through the wails3 CLI pinned in go.mod, so no other install is needed.
 TASK := go tool wails3 task
 
-.PHONY: tools dev build run test test-integration test-e2e lint format vulncheck tidy bindings
+.PHONY: tools dev build run test test-integration test-e2e lint format vulncheck tidy bindings dictionary
 
 # Installs wails3 on your PATH (GOBIN), which `make dev` and the build tasks call directly.
 tools:
@@ -39,3 +39,7 @@ tidy:
 
 bindings:
 	$(TASK) bindings
+
+# make dictionary OUT=path/to/dictionary.db writes somewhere other than data/dictionary.db.
+dictionary:
+	$(TASK) dictionary $(if $(OUT),OUT="$(OUT)")

@@ -56,9 +56,13 @@ linters:
             - "!$test"
             - "!**/internal/store/**"
             - "!**/internal/features/*/sqlite.go"
+            # dictionary.db is a separate read-only file, not the app database, so its reader and its builder each
+            # keep their SQL in one sqlite.go, like a slice.
+            - "!**/internal/dictionary/sqlite.go"
+            - "!**/internal/dictionary/dictbuild/sqlite.go"
           deny:
             - pkg: database/sql
-              desc: SQL lives in internal/store and a slice's sqlite.go.
+              desc: SQL lives in internal/store, a slice's sqlite.go, and the dictionary's sqlite.go files.
             - pkg: modernc.org/sqlite
               desc: The SQLite driver lives in internal/store.
         use-case-has-no-adapters:

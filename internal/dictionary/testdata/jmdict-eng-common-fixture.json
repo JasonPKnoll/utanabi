@@ -1,0 +1,3578 @@
+{
+ "version": "3.6.2",
+ "languages": [
+  "eng"
+ ],
+ "commonOnly": true,
+ "dictDate": "2026-11-16",
+ "dictRevisions": [
+  "1.09",
+  "1.08",
+  "1.07",
+  "1.06",
+  "1.05",
+  "1.04"
+ ],
+ "tags": {
+  "pref": "prefix",
+  "rK": "rarely used kanji form",
+  "n-pref": "noun, used as a prefix",
+  "suf": "suffix",
+  "hon": "honorific or respectful (sonkeigo) language",
+  "pol": "polite (teineigo) language",
+  "sk": "search-only kana form",
+  "sl": "slang",
+  "n": "noun (common) (futsuumeishi)",
+  "arch": "archaic",
+  "adv": "adverb (fukushi)",
+  "prt": "particle",
+  "vi": "intransitive verb",
+  "vt": "transitive verb",
+  "go": "go (game)",
+  "form": "formal or literary term",
+  "obs": "obsolete term",
+  "conj": "conjunction",
+  "fam": "familiar language",
+  "num": "numeric",
+  "adj-no": "nouns which may take the genitive case particle 'no'",
+  "sumo": "sumo",
+  "oK": "word containing out-dated kanji or kanji usage",
+  "ling": "linguistics",
+  "v5r": "Godan verb with 'ru' ending",
+  "v5s": "Godan verb with 'su' ending",
+  "pn": "pronoun"
+ },
+ "words": [
+  {
+   "id": "1195250",
+   "kanji": [
+    {
+     "common": true,
+     "text": "荷",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "に",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "load"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "baggage"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "cargo"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "freight"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "goods"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "burden"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "responsibility"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1202270",
+   "kanji": [
+    {
+     "common": true,
+     "text": "絵",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "画",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "え",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "が",
+     "tags": [],
+     "appliesToKanji": [
+      "画"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "picture"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "drawing"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "painting"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "sketch"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "image (TV, film, etc.)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "picture"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "footage"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1245280",
+   "kanji": [
+    {
+     "common": true,
+     "text": "空",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "虚",
+     "tags": [
+      "rK"
+     ]
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "から",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "カラ",
+     "tags": [],
+     "appliesToKanji": []
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n",
+      "adj-no"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "emptiness"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "being empty"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "pref"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "not carrying anything"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "unburdened"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "empty-handed"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "pref"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "dishonoured (bill, promise, etc.)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "false"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "no-show (reservation)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "put-on (cheeriness, courage, etc.)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "empty (compliments)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "insincere"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1245290",
+   "kanji": [
+    {
+     "common": true,
+     "text": "空",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "虚",
+     "tags": [
+      "oK"
+     ]
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "そら",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "sky"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "the air"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "the heavens"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "weather"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "far-off place"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "distant place"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "often as 〜空もない"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "state of mind"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "feeling"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "usu. as 空で"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "(from) memory"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "(by) heart"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "falsehood"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "lie"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n-pref"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "before an adjective"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "somehow"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "vaguely"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n-pref"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "before a noun or a verb"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "fake"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1247250",
+   "kanji": [
+    {
+     "common": true,
+     "text": "君",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "公",
+     "tags": [
+      "rK"
+     ]
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "きみ",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "キミ",
+     "tags": [
+      "sk"
+     ],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "pn"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [
+      "fam"
+     ],
+     "info": [
+      "sometimes considered male language; referring to someone of equal or lower status"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "you"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "buddy"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "pal"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "orig. meaning"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "monarch"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "ruler"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "sovereign"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "(one's) master"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "pn"
+     ],
+     "appliesToKanji": [
+      "君"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [
+      "pol",
+      "obs"
+     ],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "he"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "she"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1247260",
+   "kanji": [
+    {
+     "common": true,
+     "text": "君",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "くん",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "suf"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "after the name of a male of equal or lower status"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "Mr"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "master"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "boy"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "suf"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "after the name of a female of lower status; used by males in formal settings"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "Ms"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "miss"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "suf"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [
+      "arch"
+     ],
+     "info": [
+      "still used among members of the Japanese Diet"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "sir"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "madam"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1272820",
+   "kanji": [
+    {
+     "common": true,
+     "text": "光る",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "ひかる",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "v5r",
+      "vi"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to shine"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to glitter"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to be bright"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1376310",
+   "kanji": [
+    {
+     "common": true,
+     "text": "星",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "ほし",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "ホシ",
+     "tags": [
+      "sk"
+     ],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "star (usu. excluding the Sun)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "planet (usu. excluding Earth)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "heavenly body"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "star (glyph, symbol, shape)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "asterisk"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "star (actor, player, etc.)"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "dot"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "spot"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "fleck"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "bullseye"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [
+      "sl"
+     ],
+     "info": [
+      "police slang; oft. written as ホシ"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "perp"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "perpetrator"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "culprit"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "offender"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "suspect"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "九星"
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "one's star (that determines one's fate)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "one's fortune"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [
+      "sumo"
+     ],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "point"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "score"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [
+      "go"
+     ],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "star point (intersection marked with a dot)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "hoshi"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "(pyrotechnic) star"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1380440",
+   "kanji": [
+    {
+     "common": true,
+     "text": "声",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "聲",
+     "tags": [
+      "oK"
+     ]
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "こえ",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "voice"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "singing (of a bird)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "chirping (of an insect)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "hoot"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "voice"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "opinion (as expressed in words)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "view"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "wish"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "attitude"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "will"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "sound"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "usu. as ～の声を聞く"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "sense (of something's arrival)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "feeling"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [
+      "ling"
+     ],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "voice"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "voiced sound"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1461140",
+   "kanji": [
+    {
+     "common": true,
+     "text": "二",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "２",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "弐",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "弍",
+     "tags": []
+    },
+    {
+     "common": false,
+     "text": "貳",
+     "tags": [
+      "oK"
+     ]
+    },
+    {
+     "common": false,
+     "text": "貮",
+     "tags": [
+      "oK"
+     ]
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "に",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "ふた",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "ふ",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "ふう",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "num"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "ふ and ふう used mainly when counting aloud; 弐, 貳 and 貮 are used in legal documents"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "two"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "2"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1536350",
+   "kanji": [
+    {
+     "common": true,
+     "text": "夜",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "よる",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "よ",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "n",
+      "adv"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "night"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "evening"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "n"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "よる"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "dinner"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1593670",
+   "kanji": [
+    {
+     "common": true,
+     "text": "探す",
+     "tags": []
+    },
+    {
+     "common": true,
+     "text": "捜す",
+     "tags": []
+    }
+   ],
+   "kana": [
+    {
+     "common": true,
+     "text": "さがす",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "v5s",
+      "vt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "esp. 探す for something desired and 捜す for something lost"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to search for"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to look for"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to hunt for"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to seek"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "v5s",
+      "vt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to search (a house, pocket, etc.)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to search through"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to rummage in (e.g. a drawer)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to fish around"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2028930",
+   "kanji": [],
+   "kana": [
+    {
+     "common": true,
+     "text": "が",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "ヶ",
+     "tags": [
+      "sk"
+     ],
+     "appliesToKanji": [
+      "*"
+     ]
+    },
+    {
+     "common": false,
+     "text": "ケ",
+     "tags": [
+      "sk"
+     ],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates the subject of a sentence"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "literary in modern Japanese; usu. written as ヶ in place names"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates possession"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "conj",
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "but"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "however"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "(and) yet"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "though"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "although"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "while"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "and"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "used after an introductory remark or explanation"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "after the volitional or -まい form of a verb"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "regardless of ..."
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "whether ... (or not)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "no matter ..."
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates a desire or hope"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "at sentence end"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "softens a statement"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "at sentence end"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates doubt"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "after a noun at the end of an interjection"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates scorn"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2028990",
+   "kanji": [],
+   "kana": [
+    {
+     "common": true,
+     "text": "に",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "indicates place or time"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "at"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "in"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "on"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "indicates direction"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "toward"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "into"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "for"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "indicates purpose"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "for"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "in order to"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "indicates reason or cause"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "because of"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "for"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "with"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "by"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "due to"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "e.g. 友達～伝える"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "marks the target of an action"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "marks the recipient of an action"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "as in 大人～なる"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "marks the outcome of a change"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "marks the result of an action"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "として",
+       1
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "as (i.e. in the role of; e.g. as a teacher, as a gift)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "for (as in \"in return for\")"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "on (i.e. on the occasion of)"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "from (e.g. the perspective of)"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "indicates place of departure or origin of action"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "by"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "from"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "per"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "in"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "for"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "a (as in \"once a month\")"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "marks the thing being compared to, or taken as a basis"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "with"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "to"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "indicates relation or domain"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "concerning"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "regarding"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "on (as in \"knowledgeable on\")"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "in"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "for (as in \"suitable for\")"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "as for"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "about"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "ずに"
+      ],
+      [
+       "一足飛びに"
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "e.g. ず～, 仰向け～, 一足飛び～"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates manner of action"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates a state"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "で",
+       3
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "indicates means of action"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "by"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "with"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "using"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "via"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "as ～する (or ～決める)"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "marks the item of a decision"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "marks the thing being decided on"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "ご覧になる",
+       1
+      ],
+      [
+       "お見えになる"
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "after a noun or the -masu stem of a verb; as（お／ご）...～なる"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "forms a honorific verb"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "after the -masu stem of a verb, followed by the same verb"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates that an action is happening intensively"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "emphaticizes an action"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "as ...に...（に）etc."
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "and"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "in addition to"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "as する～はするが, where する is any repeated verb; indicates concession"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "I did ..., but"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "while it is true that ..."
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "though there may be ..."
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "には",
+       3
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [
+      "hon"
+     ],
+     "info": [
+      "as ～は, or ～も; e.g. 皆様～は"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates respect toward the subject of the sentence"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "で",
+       1
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [
+      "form"
+     ],
+     "info": [
+      "indicates location of action"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "at"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "in"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt",
+      "conj"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "as する～できない or しよう～もできない, where する is any repeated verb; e.g. 泣く～泣けない or 泣こう～も泣けない"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "I can't ..., even if I wanted to"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt",
+      "conj"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "as ...（よう／う）～"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "although there should be ..."
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "even though one would expect ..."
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt",
+      "conj"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "思うに"
+      ],
+      [
+       "要するに"
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "mostly limited to set phrases in modern Japanese"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "when"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "if"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "on (e.g. reflection)"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt",
+      "conj"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "のに",
+       1
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [
+      "dated or dialectal"
+     ],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "although"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "despite"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "even though"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "and yet"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt",
+      "conj"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [
+      "arch"
+     ],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "because"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "as"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "since"
+      },
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "so"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2029010",
+   "kanji": [],
+   "kana": [
+    {
+     "common": true,
+     "text": "を",
+     "tags": [],
+     "appliesToKanji": [
+      "*"
+     ]
+    }
+   ],
+   "sense": [
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates direct object of action"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates subject of causative expression"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates an area traversed"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates time (period) over which action takes place"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates point of departure or separation of action"
+      }
+     ]
+    },
+    {
+     "partOfSpeech": [
+      "prt"
+     ],
+     "appliesToKanji": [
+      "*"
+     ],
+     "appliesToKana": [
+      "*"
+     ],
+     "related": [
+      [
+       "が",
+       1
+      ]
+     ],
+     "antonym": [],
+     "field": [],
+     "dialect": [],
+     "misc": [],
+     "info": [],
+     "languageSource": [],
+     "gloss": [
+      {
+       "lang": "eng",
+       "gender": null,
+       "type": null,
+       "text": "indicates object of desire, like, hate, etc."
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -5,17 +5,15 @@ import (
 	"unicode"
 )
 
-// ToHiragana turns katakana into hiragana: カタカナ becomes かたかな, ヴ becomes ゔ, small ッ and ャ become っ and ゃ,
-// and the iteration marks ヽ ヾ become ゝ ゞ. The long vowel mark ー, and anything else, is kept as written.
-// ヷ ヸ ヹ ヺ have no hiragana and are kept too.
+// ToHiragana returns s with every katakana letter that has a hiragana twin turned into it: カタカナ becomes かたかな,
+// ヴ becomes ゔ, small ッ and ャ become っ and ゃ, and the iteration marks ヽ ヾ become ゝ ゞ. The long vowel mark ー,
+// kanji, and characters with no hiragana twin, such as ヷ ヸ ヹ ヺ and the middle dot ・, are left as written.
 func ToHiragana(s string) string {
 	return strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'ァ' && r <= 'ヶ', r == 'ヽ', r == 'ヾ':
+		if (r >= 'ァ' && r <= 'ヶ') || r == 'ヽ' || r == 'ヾ' {
 			return r - ('ァ' - 'ぁ')
-		default:
-			return r
 		}
+		return r
 	}, s)
 }
 

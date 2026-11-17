@@ -61,6 +61,9 @@ type Config struct {
 	LogDir        string
 	DBPath        string
 	DBBusyTimeout time.Duration
+	// DictionaryPath is the read-only reference dictionary, dictionary.db. The app runs without it, with word meanings
+	// unavailable.
+	DictionaryPath string
 	// LyricsSources are the online lyrics sources that are on, in order. Empty means online search is off and
 	// nothing is sent to any lyrics service.
 	LyricsSources []string
@@ -75,8 +78,9 @@ type Server struct {
 
 // settings mirrors the user settings file. Every field is optional.
 type settings struct {
-	LogLevel      string `json:"log_level"`
-	DBBusyTimeout string `json:"db_busy_timeout"`
+	LogLevel       string `json:"log_level"`
+	DBBusyTimeout  string `json:"db_busy_timeout"`
+	DictionaryPath string `json:"dictionary_path"`
 	// A nil LyricsSources means the user hasn't chosen, so the build's default applies. An empty list turns every
 	// online source off.
 	LyricsSources *[]string `json:"lyrics_sources"`
@@ -121,6 +125,11 @@ func Load(p Platform) (Config, error) {
 		cfg.DBBusyTimeout = d
 	}
 
+	cfg.DictionaryPath, err = dictionaryPath(p.Dirs.Data, s.DictionaryPath)
+	if err != nil {
+		return Config{}, err
+	}
+
 	cfg.LyricsSources, err = lyricsSources(s.LyricsSources)
 	if err != nil {
 		return Config{}, err
@@ -159,10 +168,29 @@ func overrideFromEnv(s *settings, getenv func(string) string) {
 	if v := getenv("UTANABI_DB_BUSY_TIMEOUT"); v != "" {
 		s.DBBusyTimeout = v
 	}
+	if v := getenv("UTANABI_DICTIONARY_PATH"); v != "" {
+		s.DictionaryPath = v
+	}
 	if v := getenv("UTANABI_LYRICS_SOURCES"); v != "" {
 		list := splitList(v)
 		s.LyricsSources = &list
 	}
+}
+
+// dictionaryPath resolves the dictionary_path setting: dictionary.db in the data folder when unset, and a relative path
+// is taken from the data folder, so it means the same thing on every platform.
+func dictionaryPath(dataDir, path string) (string, error) {
+	if path == "" {
+		return filepath.Join(dataDir, "dictionary.db"), nil
+	}
+	if strings.ContainsRune(path, 0) || strings.TrimSpace(path) != path ||
+		strings.HasSuffix(path, "/") || strings.HasSuffix(path, string(filepath.Separator)) {
+		return "", fmt.Errorf("config: invalid dictionary_path (%q is not a file path)", path)
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(dataDir, path)
+	}
+	return filepath.Clean(path), nil
 }
 
 // lyricsSources resolves the lyrics_sources setting: the build's default when unset, nothing for "none" or an
