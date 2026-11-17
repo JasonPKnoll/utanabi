@@ -10,13 +10,14 @@ import (
 type Service struct {
 	repo     Repository
 	analyzer Analyzer
+	dict     Dictionary
 	sources  []LyricsSource
 }
 
-// NewService returns the songs service. It analyses lines with analyzer, and searches the given lyrics sources in
-// order.
-func NewService(repo Repository, analyzer Analyzer, sources ...LyricsSource) *Service {
-	return &Service{repo: repo, analyzer: analyzer, sources: sources}
+// NewService returns the songs service. It analyses lines with analyzer, explains their words with dict, and
+// searches the given lyrics sources in order.
+func NewService(repo Repository, analyzer Analyzer, dict Dictionary, sources ...LyricsSource) *Service {
+	return &Service{repo: repo, analyzer: analyzer, dict: dict, sources: sources}
 }
 
 // List returns every song, newest first.
@@ -25,16 +26,23 @@ func (s *Service) List(ctx context.Context) ([]Summary, error) {
 	return list, app.Fail(ctx, err)
 }
 
-// Get returns one song with its lines, their furigana, and their romaji.
+// Get returns one song with its lines: their furigana, romaji, words, and word-by-word gloss.
 func (s *Service) Get(ctx context.Context, id int64) (Song, error) {
-	song, err := GetSong(ctx, s.repo, s.analyzer, id)
+	song, err := GetSong(ctx, s.repo, s.analyzer, s.dict, id)
 	return song, app.Fail(ctx, err)
 }
 
 // Add saves a song with lyrics the user typed in.
 func (s *Service) Add(ctx context.Context, song NewSong) (Song, error) {
-	saved, err := AddSong(ctx, s.repo, s.analyzer, song)
+	saved, err := AddSong(ctx, s.repo, s.analyzer, s.dict, song)
 	return saved, app.Fail(ctx, err)
+}
+
+// LookupWord returns every meaning of a word, for the word sheet. entryID is the entry the word in the song points
+// at, or 0.
+func (s *Service) LookupWord(ctx context.Context, lemma, reading string, entryID int64) (Meanings, error) {
+	meanings, err := LookupWord(ctx, s.dict, lemma, reading, entryID)
+	return meanings, app.Fail(ctx, err)
 }
 
 // SearchSources returns the names of the online lyrics sources that are on, in the order search asks them. Empty
@@ -58,7 +66,7 @@ func (s *Service) Search(ctx context.Context, query string) (SearchResult, error
 
 // AddFromSource saves a song found by Search to the library, or returns it if it's already there.
 func (s *Service) AddFromSource(ctx context.Context, source, ref string) (Song, error) {
-	song, err := AddFromSource(ctx, s.repo, s.analyzer, s.sources, source, ref)
+	song, err := AddFromSource(ctx, s.repo, s.analyzer, s.dict, s.sources, source, ref)
 	return song, app.Fail(ctx, err)
 }
 

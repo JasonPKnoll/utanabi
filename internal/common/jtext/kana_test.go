@@ -10,24 +10,34 @@ func TestToHiragana(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		name string
 		in   string
 		want string
 	}{
-		{in: "カタカナ", want: "かたかな"},
-		{in: "ラーメン", want: "らーめん"},
-		{in: "ヴァイオリン", want: "ゔぁいおりん"},
-		{in: "マッチャ", want: "まっちゃ"},
-		{in: "ヵヶ", want: "ゕゖ"},
-		{in: "ヽヾ", want: "ゝゞ"},
-		{in: "ひらがな", want: "ひらがな"},
-		{in: "光るLOVE、", want: "光るLOVE、"},
-		{in: "ヷ", want: "ヷ"},
-		{in: "", want: ""},
+		{name: "hiragana is unchanged", in: "ひかる", want: "ひかる"},
+		{name: "katakana becomes hiragana", in: "カタカナ", want: "かたかな"},
+		{name: "short katakana word", in: "カラ", want: "から"},
+		{name: "long vowel mark stays", in: "ラーメン", want: "らーめん"},
+		{name: "long vowel mark at the end", in: "スター", want: "すたー"},
+		{name: "vu", in: "ヴ", want: "ゔ"},
+		{name: "vu with a small vowel", in: "ヴァイオリン", want: "ゔぁいおりん"},
+		{name: "small tsu and ya", in: "マッチャ", want: "まっちゃ"},
+		{name: "small ka and ke", in: "ヵヶ", want: "ゕゖ"},
+		{name: "small kana and the first and last letters", in: "ァッヵヶン", want: "ぁっゕゖん"},
+		{name: "iteration marks", in: "ヽヾ", want: "ゝゞ"},
+		{name: "letters with no hiragana twin stay", in: "ヷ・ヺ", want: "ヷ・ヺ"},
+		{name: "single letter with no hiragana twin", in: "ヷ", want: "ヷ"},
+		{name: "kanji, Latin, and punctuation stay", in: "光るLOVE、", want: "光るLOVE、"},
+		{name: "kanji and Latin stay around katakana", in: "光るLOVEテレビ", want: "光るLOVEてれび"},
+		{name: "empty", in: "", want: ""},
 	}
 	for _, tt := range tests {
-		if got := jtext.ToHiragana(tt.in); got != tt.want {
-			t.Errorf("ToHiragana(%q) = %q, want %q", tt.in, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := jtext.ToHiragana(tt.in); got != tt.want {
+				t.Errorf("ToHiragana(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
 	}
 }
 

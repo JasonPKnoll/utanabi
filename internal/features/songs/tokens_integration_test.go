@@ -86,10 +86,10 @@ func TestSQLiteSaveTokensFillsOnlyLinesWithoutTokens(t *testing.T) {
 		{Position: 1, Text: "love"},
 		{Position: 2, Text: "星が光る", Tokens: stars},
 	}
-	if err := repo.SaveTokens(t.Context(), song.ID, update); err != nil {
+	if err := repo.SaveAnalysis(t.Context(), song.ID, update); err != nil {
 		t.Fatalf("SaveTokens: %v", err)
 	}
-	if err := repo.SaveTokens(t.Context(), song.ID, update); err != nil {
+	if err := repo.SaveAnalysis(t.Context(), song.ID, update); err != nil {
 		t.Fatalf("SaveTokens again: %v", err)
 	}
 
@@ -110,10 +110,10 @@ func TestSQLiteSaveTokensForAMissingLineIsNotFound(t *testing.T) {
 	repo := newSQLite(t)
 	song := addSong(t, repo, "星の歌")
 	lines := []Line{{Position: 9, Text: "星", Tokens: []Token{{Surface: "星", Reading: "ほし"}}}}
-	if err := repo.SaveTokens(t.Context(), song.ID, lines); !errors.Is(err, fault.ErrNotFound) {
+	if err := repo.SaveAnalysis(t.Context(), song.ID, lines); !errors.Is(err, fault.ErrNotFound) {
 		t.Errorf("err = %v, want fault.ErrNotFound", err)
 	}
-	if err := repo.SaveTokens(t.Context(), song.ID+100, lines); !errors.Is(err, fault.ErrNotFound) {
+	if err := repo.SaveAnalysis(t.Context(), song.ID+100, lines); !errors.Is(err, fault.ErrNotFound) {
 		t.Errorf("missing song: err = %v, want fault.ErrNotFound", err)
 	}
 }
@@ -123,12 +123,12 @@ func TestSongsAreAnalysedWithTheRealAnalyzer(t *testing.T) {
 
 	repo := newSQLite(t)
 	analyzer := NewMorph(morph.New())
-	added, err := AddSong(t.Context(), repo, analyzer, NewSong{Title: "星の歌", Lyrics: "夜の空に星が光る\nlove you 君"})
+	added, err := AddSong(t.Context(), repo, analyzer, noMeanings(t), NewSong{Title: "星の歌", Lyrics: "夜の空に星が光る\nlove you 君"})
 	if err != nil {
 		t.Fatalf("AddSong: %v", err)
 	}
 
-	got, err := GetSong(t.Context(), repo, analyzer, added.ID)
+	got, err := GetSong(t.Context(), repo, analyzer, noMeanings(t), added.ID)
 	if err != nil {
 		t.Fatalf("GetSong: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestOpeningASongSavedBeforeAnalysisAnalysesIt(t *testing.T) {
 	repo := newSQLite(t)
 	old := addSong(t, repo, "星の歌")
 
-	got, err := GetSong(t.Context(), repo, NewMorph(morph.New()), old.ID)
+	got, err := GetSong(t.Context(), repo, NewMorph(morph.New()), noMeanings(t), old.ID)
 	if err != nil {
 		t.Fatalf("GetSong: %v", err)
 	}

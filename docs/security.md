@@ -47,6 +47,7 @@
 - Every request has a timeout, and responses are capped in size before they are read.
 - Everything from a source is untrusted: it is normalized, checked against the same limits as your own input, and shown as text.
 - A new source gets its own `<source>_api.go` and a line here.
+- **The app makes no request for the dictionary.** `dictionary.db` is a local file, opened read-only. Only the build step, `task dictionary`, goes online: it downloads one pinned jmdict-simplified release from GitHub (`https://github.com/scriptin/jmdict-simplified/releases`) and refuses it unless its SHA-256 matches the one pinned in `internal/dictionary/dictbuild/source.go`. A verified copy is kept in `.cache/dictionary`, so a rebuild works offline. The download has a time limit and a size cap.
 
 ## Server mode
 

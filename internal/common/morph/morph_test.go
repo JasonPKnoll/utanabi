@@ -84,8 +84,8 @@ func TestAnalyzeKeepsTheIPAFields(t *testing.T) {
 
 	tokens := analyze(t, morph.New(), "君を探している")
 	want := []morph.Token{
-		{Surface: "君", Reading: "きみ", POS: morph.Pronoun, POSDetail: "代名詞", BaseForm: "君", Pronunciation: "キミ"},
-		{Surface: "を", Reading: "を", POS: morph.Particle, POSDetail: "格助詞", BaseForm: "を", Pronunciation: "ヲ"},
+		{Surface: "君", Reading: "きみ", POS: morph.Pronoun, POSDetail: "代名詞", POSDetail2: "一般", BaseForm: "君", Pronunciation: "キミ"},
+		{Surface: "を", Reading: "を", POS: morph.Particle, POSDetail: "格助詞", POSDetail2: "一般", BaseForm: "を", Pronunciation: "ヲ"},
 		{Surface: "探し", Reading: "さがし", POS: morph.Verb, POSDetail: "自立", BaseForm: "探す", ConjType: "五段・サ行",
 			ConjForm: "連用形", Pronunciation: "サガシ"},
 		{Surface: "て", Reading: "て", POS: morph.Particle, POSDetail: "接続助詞", BaseForm: "て", Pronunciation: "テ"},
@@ -101,7 +101,7 @@ func TestAnalyzeHandlesWordsTheDictionaryDoesntKnow(t *testing.T) {
 	t.Parallel()
 
 	tokens := analyze(t, morph.New(), "love")
-	want := []morph.Token{{Surface: "love", POS: morph.Noun, POSDetail: "固有名詞"}}
+	want := []morph.Token{{Surface: "love", POS: morph.Noun, POSDetail: "固有名詞", POSDetail2: "組織"}}
 	if !reflect.DeepEqual(tokens, want) {
 		t.Errorf("got %+v, want %+v", tokens, want)
 	}

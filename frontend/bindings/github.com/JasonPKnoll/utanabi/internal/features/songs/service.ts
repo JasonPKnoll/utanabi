@@ -36,7 +36,7 @@ export function Delete(id: number): $CancellablePromise<void> {
 }
 
 /**
- * Get returns one song with its lines, their furigana, and their romaji.
+ * Get returns one song with its lines: their furigana, romaji, words, and word-by-word gloss.
  */
 export function Get(id: number): $CancellablePromise<$models.Song> {
     return $Call.ByID(2209303892, id);
@@ -47,6 +47,14 @@ export function Get(id: number): $CancellablePromise<$models.Song> {
  */
 export function List(): $CancellablePromise<$models.Summary[] | null> {
     return $Call.ByID(83748272);
+}
+
+/**
+ * LookupWord returns every meaning of a word, for the word sheet. entryID is the entry the word in the song points
+ * at, or 0.
+ */
+export function LookupWord(lemma: string, reading: string, entryID: number): $CancellablePromise<$models.Meanings> {
+    return $Call.ByID(403839386, lemma, reading, entryID);
 }
 
 /**

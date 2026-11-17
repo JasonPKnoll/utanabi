@@ -6,12 +6,21 @@ export {
     Service
 };
 
+export {
+    WordKind
+} from "./models.js";
+
 export type {
+    GrammarPoint,
     Line,
+    LinePiece,
     Match,
+    Meaning,
+    Meanings,
     NewSong,
     RubyPart,
     SearchResult,
     Song,
-    Summary
+    Summary,
+    Word
 } from "./models.js";

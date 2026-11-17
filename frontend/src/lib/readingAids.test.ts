@@ -23,14 +23,14 @@ function refusingStore() {
 }
 
 describe("loadReadingAids", () => {
-  it("starts with furigana on and romaji off", () => {
-    expect(loadReadingAids(() => memoryStore())).toEqual({ furigana: true, romaji: false });
+  it("starts with furigana on, and romaji and words off", () => {
+    expect(loadReadingAids(() => memoryStore())).toEqual({ furigana: true, romaji: false, words: false });
   });
 
   it("reads back what was saved", () => {
     const store = memoryStore();
-    expect(saveReadingAids({ furigana: false, romaji: true }, () => store)).toBe(true);
-    expect(loadReadingAids(() => store)).toEqual({ furigana: false, romaji: true });
+    expect(saveReadingAids({ furigana: false, romaji: true, words: true }, () => store)).toBe(true);
+    expect(loadReadingAids(() => store)).toEqual({ furigana: false, romaji: true, words: true });
   });
 
   it.each([
@@ -44,7 +44,7 @@ describe("loadReadingAids", () => {
 
   it("keeps a saved choice and defaults the one that's missing", () => {
     const store = memoryStore({ "utanabi.readingAids": '{"romaji":true}' });
-    expect(loadReadingAids(() => store)).toEqual({ furigana: true, romaji: true });
+    expect(loadReadingAids(() => store)).toEqual({ furigana: true, romaji: true, words: false });
   });
 
   it("falls back to the defaults when storage refuses", () => {
@@ -64,12 +64,12 @@ describe("loadReadingAids", () => {
 
 describe("saveReadingAids", () => {
   it("reports when storage refuses", () => {
-    expect(saveReadingAids({ furigana: true, romaji: true }, refusingStore)).toBe(false);
+    expect(saveReadingAids({ furigana: true, romaji: true, words: true }, refusingStore)).toBe(false);
   });
 });
 
 describe("hasRomaji", () => {
-  const line = { position: 0, stanza: 0, startMs: null, ruby: null };
+  const line = { position: 0, stanza: 0, startMs: null, ruby: null, words: null, pieces: null, gloss: "" };
 
   it.each([
     ["夜の空", "yoru no sora", true],

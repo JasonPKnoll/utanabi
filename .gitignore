@@ -7,3 +7,6 @@ data
 frontend/playwright-report
 frontend/test-results
 .env
+.cache
+dictionary.db
+jmdict-*.json.tgz

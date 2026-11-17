@@ -37,7 +37,21 @@ Every text colour has at least 4.5:1 contrast on the surfaces it sits on, in bot
 
 ## Reading aids
 
-The song view has two toggle pills at the top, "Furigana" (on at first) and "Romaji" (off at first). They are `<button aria-pressed>`, 44px tall; a pressed pill uses the accent. The choice is remembered on the device in `localStorage`, and the defaults stand in when storage is blocked.
+The song view has three toggle pills at the top, "Furigana" (on at first), "Romaji" (off at first), and "Words" (off at first). They are `<button aria-pressed>`, 44px tall, and wrap onto a second row if the screen is too narrow; a pressed pill uses the accent. The choice is remembered on the device in `localStorage`, and the defaults stand in when storage is blocked.
+
+"Words" shows each line's word-by-word gloss under it ("night · 's · sky · in · star · (subject) · shine"), at 16px in `--dim` (`--muted` on the current line), like romaji. Without the dictionary, content words show their dictionary form instead of a meaning, and particles still show theirs.
+
+## Tapping a word
+
+A tap on a line makes it the current line, as before. In the current line each word is its own button, at least 44px each way, marked with a dotted amber underline (`--link`) so it reads as tappable without hover. Punctuation between words is plain text. So the two taps never clash: the first tap picks the line, and a tap on a word in the current line opens the word sheet. Every word button works with a keyboard too.
+
+The word sheet (`frontend/src/components/WordSheet.svelte`) is a bottom sheet, after mockup A, "Ink reader". It is a native `<dialog>` opened with `showModal()`, so focus moves into it (to the Close button), stays there, and goes back to the word when it closes. Escape, the Close button, and a tap on the dimmed backdrop close it. It is padded for the safe areas and scrolls inside itself, up to 85% of the screen.
+
+It shows, top to bottom: the word large with its furigana; its dictionary form, reading, and romaji; a sentence about its conjugation ("探す, in the 〜ている form"); for a particle or set phrase, its grammar title, meaning, and explanation; for a content word, the meaning used in this song first, in a card outlined in `--link`, then the other meanings with their parts of speech in words; each conjugation step with its title and meaning; and the JMdict credit. When `dictionary.db` isn't installed, the meanings part says "Meanings aren't installed" instead of failing.
+
+## Credits
+
+The home screen ends with a "Credits" section, a `<details>` whose summary is a 44px tap target. It lists the credits the app's data asks for, from `AboutService.Info`: JMdict (EDRDG, CC BY-SA 4.0) and the IPA dictionary with its no-warranty notice. The song view shows the JMdict credit under the lyrics while "Words" is on, and the word sheet repeats it wherever it shows meanings, since the licence asks for it on every page that shows dictionary words.
 
 ## Shared pieces
 

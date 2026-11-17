@@ -12,10 +12,11 @@ import (
 )
 
 type fakeRepo struct {
-	added      []Song
-	songs      map[int64]Song
-	deleted    []int64
-	tokenSaves int
+	added        []Song
+	songs        map[int64]Song
+	deleted      []int64
+	tokenSaves   int
+	meaningSaves []WordAnalysis
 }
 
 func newFakeRepo() *fakeRepo {
@@ -50,7 +51,7 @@ func (f *fakeRepo) DeleteSong(_ context.Context, id int64) error {
 	return nil
 }
 
-func (f *fakeRepo) SaveTokens(_ context.Context, songID int64, lines []Line) error {
+func (f *fakeRepo) SaveAnalysis(_ context.Context, songID int64, lines []Line) error {
 	f.tokenSaves++
 	song, ok := f.songs[songID]
 	if !ok {
@@ -60,14 +61,35 @@ func (f *fakeRepo) SaveTokens(_ context.Context, songID int64, lines []Line) err
 	copy(saved, song.Lines)
 	for _, line := range lines {
 		for i := range saved {
-			if saved[i].Position == line.Position && saved[i].Tokens == nil {
+			if saved[i].Position != line.Position {
+				continue
+			}
+			if saved[i].Tokens == nil {
 				saved[i].Tokens = line.Tokens
+			}
+			if saved[i].Analysis == nil {
+				saved[i].Analysis = line.Analysis
 			}
 		}
 	}
 	song.Lines = saved
 	f.songs[songID] = song
 	return nil
+}
+
+func (f *fakeRepo) SaveMeanings(_ context.Context, words []WordAnalysis) error {
+	f.meaningSaves = append(f.meaningSaves, words...)
+	return nil
+}
+
+// noMeanings is the real dictionary adapter with no dictionary.db: grammar points work, meanings aren't installed.
+func noMeanings(t *testing.T) Dictionary {
+	t.Helper()
+	d, err := NewJMdict(nil)
+	if err != nil {
+		t.Fatalf("NewJMdict: %v", err)
+	}
+	return d
 }
 
 // fakeAnalyzer returns the tokens set for a text, or the whole text as one token without a reading.
@@ -133,7 +155,7 @@ func TestAddSongRejectsBadInput(t *testing.T) {
 			t.Parallel()
 
 			repo := newFakeRepo()
-			_, err := AddSong(t.Context(), repo, fakeAnalyzer{}, tt.in)
+			_, err := AddSong(t.Context(), repo, fakeAnalyzer{}, noMeanings(t), tt.in)
 
 			var invalid *fault.InvalidError
 			if !errors.As(err, &invalid) {
@@ -185,7 +207,7 @@ func TestAddSongSplitsLyricsIntoLinesAndStanzas(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := AddSong(t.Context(), newFakeRepo(), fakeAnalyzer{}, NewSong{Title: "星の歌", Lyrics: tt.lyrics})
+			got, err := AddSong(t.Context(), newFakeRepo(), fakeAnalyzer{}, noMeanings(t), NewSong{Title: "星の歌", Lyrics: tt.lyrics})
 			if err != nil {
 				t.Fatalf("AddSong: %v", err)
 			}
@@ -199,7 +221,7 @@ func TestAddSongSplitsLyricsIntoLinesAndStanzas(t *testing.T) {
 func TestAddSongCleansTitleAndMarksUserSource(t *testing.T) {
 	t.Parallel()
 
-	got, err := AddSong(t.Context(), newFakeRepo(), fakeAnalyzer{}, NewSong{Title: "  ﾗｲﾌﾞの歌 ", Artist: " Demo Artist ", Lyrics: "星"})
+	got, err := AddSong(t.Context(), newFakeRepo(), fakeAnalyzer{}, noMeanings(t), NewSong{Title: "  ﾗｲﾌﾞの歌 ", Artist: " Demo Artist ", Lyrics: "星"})
 	if err != nil {
 		t.Fatalf("AddSong: %v", err)
 	}
@@ -211,7 +233,7 @@ func TestAddSongCleansTitleAndMarksUserSource(t *testing.T) {
 func TestAddSongAllowsNoArtist(t *testing.T) {
 	t.Parallel()
 
-	got, err := AddSong(t.Context(), newFakeRepo(), fakeAnalyzer{}, NewSong{Title: "春の手紙", Lyrics: "春が来た"})
+	got, err := AddSong(t.Context(), newFakeRepo(), fakeAnalyzer{}, noMeanings(t), NewSong{Title: "春の手紙", Lyrics: "春が来た"})
 	if err != nil {
 		t.Fatalf("AddSong: %v", err)
 	}
@@ -228,11 +250,11 @@ func TestGetAndDeleteRejectBadID(t *testing.T) {
 		call func(repo *fakeRepo) error
 	}{
 		{name: "get zero", call: func(repo *fakeRepo) error {
-			_, err := GetSong(t.Context(), repo, fakeAnalyzer{}, 0)
+			_, err := GetSong(t.Context(), repo, fakeAnalyzer{}, noMeanings(t), 0)
 			return err
 		}},
 		{name: "get negative", call: func(repo *fakeRepo) error {
-			_, err := GetSong(t.Context(), repo, fakeAnalyzer{}, -3)
+			_, err := GetSong(t.Context(), repo, fakeAnalyzer{}, noMeanings(t), -3)
 			return err
 		}},
 		{name: "delete zero", call: func(repo *fakeRepo) error { return DeleteSong(t.Context(), repo, 0) }},
@@ -258,7 +280,7 @@ func TestGetAndDeleteRejectBadID(t *testing.T) {
 func TestGetSongPassesNotFoundThrough(t *testing.T) {
 	t.Parallel()
 
-	_, err := GetSong(t.Context(), newFakeRepo(), fakeAnalyzer{}, 42)
+	_, err := GetSong(t.Context(), newFakeRepo(), fakeAnalyzer{}, noMeanings(t), 42)
 	if !errors.Is(err, fault.ErrNotFound) {
 		t.Errorf("err = %v, want fault.ErrNotFound", err)
 	}

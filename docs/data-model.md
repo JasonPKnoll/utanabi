@@ -116,6 +116,8 @@ The learnable units of a line. Each covers a run of tokens.
 - The words of a line don't overlap.
 - Every token that isn't punctuation belongs to exactly one word.
 
+How the songs slice fills it is under "Finding words" below.
+
 ### `word_inflections`
 
 How a word got from its dictionary form to the form in the line. The steps are ordered, because Japanese stacks conjugations.
@@ -124,7 +126,7 @@ How a word got from its dictionary form to the form in the line. The steps are o
 | --- | --- | --- |
 | `word_id` | INTEGER, references `line_words`, cascade | |
 | `step` | INTEGER | 0, 1, 2 in the order they apply. Primary key `(word_id, step)`. |
-| `grammar_point_id` | TEXT | A `conjugation` grammar point: `te-form`, `teiru`, `past`, `negative`, `polite`, `potential`, `passive`, `causative`, `volitional`, `conditional-ba`, `conditional-tara`, `imperative`, and the rest of the list. |
+| `grammar_point_id` | TEXT | A `conjugation` grammar point: `te-form`, `teiru`, `past`, `negative`, `polite-masu`, `potential`, `passive`, `causative`, `volitional`, `conditional-ba`, `conditional-tara`, `imperative`, and the rest of the list. |
 
 Examples:
 
@@ -202,14 +204,42 @@ Review scheduling gets its own table when #12 decides how review works.
 
 ## Reference data: `dictionary.db`
 
-Built from JMdict and our own grammar list, shipped with the app, and replaced whole on update. Never written to by the app.
+Built from JMdict and our own grammar list, and replaced whole on update. The app opens it read-only and never writes to it. `internal/dictionary` reads it; `internal/dictionary/dictbuild` builds it.
+
+**Built.** The schema is `internal/dictionary/dictbuild/schema.sql`. Every table is `STRICT`, with `CHECK` limits, and every list column is checked to be a JSON array.
 
 | Table | Holds |
 | --- | --- |
-| `entries` | One row per JMdict entry. `id` is JMdict's own entry number. |
-| `entry_forms` | Every spelling of an entry, kanji and kana (光る, ひかる), with JMdict's priority, for lookup. |
-| `senses` | Each meaning of an entry: `(entry_id, sense_index)`, the English glosses, the part of speech and conjugation class codes (JMdict tags each sense, for example `v5r`), and notes such as "usually written in kana". |
-| `grammar_points` | Our own list, written by hand. One row per **use** of a particle, per conjugation, and per pattern. |
+| `meta` | `schema_version`, `jmdict_date` (the JMdict release, such as 2026-11-16), `jmdict_simplified_version`, and `built_at`. |
+| `tags` | JMdict's codes (`v5s`, `uk`, `rK`) with their descriptions, so the app can show a code in words. |
+| `entries` | One row per JMdict entry. `id` is JMdict's own entry number (`ent_seq`), stored in `utanabi.db` as `entry_id`. |
+| `entry_forms` | Every spelling of an entry paired with a reading: one row per reading of each kanji spelling (二 as に, ふた, ふ, ふう), then one row per kana spelling, in JMdict order (`position`). `reading` is hiragana, even for katakana words, so a tokenizer's reading matches. `is_kanji`, `common` (JMdict's priority mark; a kanji spelling is common only with a common reading), and `tags`. Indexed by `(form, reading)` and by `reading`. |
+| `senses` | Each meaning of an entry: `(entry_id, sense_index)`, with `sense_index` from 0 in JMdict order. `glosses` (English), `pos` (part of speech codes, such as `v5s`, `v1`, `vs-i`, `vk`, `adj-i`, `adj-na`, `n`, `prt`, `exp`, which double as conjugation classes), `misc` (such as `uk`, usually written in kana), `notes`, `fields`, `dialects`, and the spellings the sense is limited to (`applies_to_kanji`, `applies_to_kana`, where `["*"]` means all). |
+| `grammar_points` | Our own list, from `internal/dictionary/grammar.json`. One row per **use** of a particle, per conjugation, and per pattern. |
+
+`Lookup(form, reading)` finds the entries with a spelling that matches the form, and the reading when one is given (hiragana or katakana). Entries whose matching spelling is common come first, then by entry number, capped at 50. Each comes with all its spellings and senses.
+
+### Building it
+
+`task dictionary` (or `make dictionary`) downloads the pinned jmdict-simplified release, the English-only common-words JSON, checks its SHA-256, and builds `data/dictionary.db`, the server-mode default. `task dictionary OUT=<path>` writes elsewhere. The release, URL, and checksum are pinned together in `internal/dictionary/dictbuild/source.go`. The build writes a temporary file and renames it into place, so a failed build keeps the old dictionary.
+
+The release pinned now is `3.6.2+20261116213322` (JMdict of 2026-11-16). Built, it is 10.6 MB with 22,661 entries, 57,071 spellings, 37,261 senses, 266 tags, and 95 grammar points. The archive is 1.4 MB.
+
+The app finds the file through the `dictionary_path` setting (`UTANABI_DICTIONARY_PATH` in server mode): `dictionary.db` in the data folder by default, and a relative path is taken from the data folder. Without the file, the app runs with word meanings unavailable and logs one info line. A file built for another schema version stops startup with an error that says so.
+
+**Packaging is a follow-up.** Nothing ships `dictionary.db` with the desktop or mobile apps yet: for now, build it and put it in the data folder yourself. A later change will bundle it with each platform's package and replace it on update.
+
+### Licence and credit
+
+JMdict is the property of the Electronic Dictionary Research and Development Group (EDRDG), used under the Creative Commons Attribution-ShareAlike 4.0 licence. jmdict-simplified converts it to JSON under the same licence. The licence asks us to:
+
+- credit the source in the app's documentation and on its website;
+- in desktop and mobile apps, show the credit on a screen reached from a menu, such as About or Sources (a launch screen is not enough);
+- in server mode, show it on each page that displays dictionary words, for example in a footer;
+- link to the JMdict project page (https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) and the licence (https://www.edrdg.org/edrdg/licence.html);
+- never claim copyright over JMdict material, and share any changed copy of the data under the same licence.
+
+`dictionary.Attribution()` returns the credit text. The app shows it in the Credits section at the foot of the home screen (from `AboutService.Info`, in every build, server mode included), and again in the word sheet wherever it shows meanings. `internal/dictionary/testdata/jmdict-eng-common-fixture.json` holds 15 JMdict entries, under the same licence, for tests.
 
 ### `grammar_points`
 
@@ -226,7 +256,7 @@ Built from JMdict and our own grammar list, shipped with the app, and replaced w
 
 **A particle has one row per use,** because that is where its meaning lives. に has rows for place, time, target, and purpose. The word in the line points at the one it is.
 
-The first list covers the common particles, every conjugation, and the patterns songs use most: roughly 60 to 100 rows. It grows as songs need more.
+The list has 95 rows: 56 particle uses, 23 conjugations, and 16 patterns that songs use often. #9 added 22 so every common particle has a use to point at (ga-but, to-when, no-question, ka-some, the sentence-ending particles, and others) and the ja-nai pattern. The app has the list built in (`dictionary.Grammar`), so particles and conjugations are explained even without `dictionary.db`; the copy in `dictionary.db` is for other readers of the file. It grows as songs need more. A test (`internal/dictionary/dictbuild/grammar_test.go`) checks the file: unique IDs in the shape `utanabi.db` accepts, every required field, a formation for every conjugation, and every `standard_id` naming a standard point of the same kind.
 
 ## What is computed, and where
 
@@ -241,20 +271,51 @@ The first list covers the common particles, every conjugation, and the patterns 
 | Verse breaks | A change in `stanza` | The app |
 | Search | Titles, artists, line text, readings, dictionary forms | Later: an FTS5 index with the trigram tokenizer |
 
+## Finding words
+
+The songs slice fills `line_words` and `word_inflections` from kagome's tokens and their IPA fields (part of speech and its details, conjugation type and form, base form, reading). The grouping, the steps, and the particle rules are plain Go functions in `internal/features/songs` (`words.go`, `particles.go`), tested with lines run through the real analyzer. Every guess is saved with `analysis_source = 'auto'`.
+
+**When.** Words are found and saved in the same transaction as the tokens when a song is added. A song saved before this gets its words the first time it's opened, like tokens: the line is analysed again for the IPA fields, which `line_tokens` doesn't keep, and the stored readings are kept. When the new tokens don't match the stored ones, the line is left without words. Words found while `dictionary.db` wasn't installed get their entry and sense the first time the song is opened with it. A line that already has words, and any word marked `user`, is never rewritten.
+
+**Grouping.** A content word (noun, pronoun, verb, adjective, adverb, and so on) takes what attaches to it: suffixes (君たち, 食べさせる), the auxiliaries that conjugate it (ない, た, ます, たい, う, ぬ, ず), the particles て, で, and ば, and the helper verbs after the te form (いる, しまう, いく, くる, くれる, and the spoken てる and ちゃう). So 探し+て+いる is one word, 探す, and 食べ+させ+られ+なかっ+た is one word, 食べる. A な-adjective takes its copula (静かな, 好きだ), and a noun takes する (勉強する). Particles are words of their own. の or ん with だ (行くんだ) is the set phrase `n-da`, じゃ or では with ない is `ja-nai`, and だろう or でしょう is the grammar word `darou`. Punctuation, symbols, and spaces belong to no word. だ and です after a noun stand alone as `auxiliary` words.
+
+**Lemma and reading.** The lemma is the head token's base form, with a noun's prefix and suffixes joined on (お母さん, 田中さん). Its reading is the token's reading with the ending swapped (探し, さがし, and 探す give さがす); 来る is always くる. When the readings don't line up, the reading is left empty.
+
+**Conjugation class.** From kagome's conjugation type: 五段・サ行 is `v5s`, 五段・カ行促音便 (行く) is `v5k-s`, 一段 is `v1`, サ変・スル is `vs-i`, カ変 is `vk`, 形容詞 is `adj-i`, いい is `adj-ix`, a な-adjective is `adj-na`, a noun with する is `vs`, and so on. When the dictionary has the word, the class in its chosen sense wins.
+
+**Steps.** In order, from the attached pieces: させ/せ `causative`, られ `passive`, れ `passive` (or `ra-nuki` after an ichidan or kuru stem: 着れる), ない and ん `negative`, た `past`, たら `conditional-tara`, て/で `te-form`, いる after て `teiru`, てる `te-form` then `teru`, ます `polite-masu`, う/よう `volitional`, たい `tai-want`, ば `conditional-ba`, しまう after て `te-shimau`, ちゃう `chau`, ぬ `nu`, ず `zu`, そう `sou-looks`, な after a な-adjective `na-attributive`. A word that ends in a command form gets `imperative`, an adjective in its く form `adverbial`, and a verb stem standing alone (会いに) `continuative`. Pieces it doesn't know add no step.
+
+**Potential verbs.** kagome reads 会えない as 会える, an ichidan verb of its own, and ない. When the dictionary doesn't have 会える as an ichidan verb but has 会う as a godan verb, the word becomes 会う with `potential` as its first step. In the same way, 見れる becomes 見る with `ra-nuki`. Without the dictionary the word stays as kagome read it.
+
+**Particle uses.** From the tokens around the particle, falling back to the most common use: が is `ga-subject` (`ga-but` after a clause), は `wa-topic`, を `wo-object`, の `no-possession` (`no-nominalizer` when kagome marks it a noun, `no-question` at the end), から `kara-because` after a verb, adjective, or auxiliary and otherwise `kara-from`, と `to-quote` when kagome marks a quote or after a closing quote mark, `to-and` before a noun, `to-when` after a clause, and otherwise `to-with`, も after a te form `te-mo`, か after a question word `ka-some`, な after a plain verb `na-prohibition` and otherwise `na-feeling`. に is `ni-purpose` between a verb stem and 行く or 来る, `ni-change` before なる, `ni-time` after a noun kagome marks as a possible adverb (夜) unless it's a place word (上, 中, 前), `ni-target` after a pronoun or a person's name, `ni-destination` when the next verb is one of moving (行く, 帰る, 届く), and otherwise `ni-place`. で is `de-place`; `de-means` isn't guessed. The rest map one to one. A particle with no grammar point at all, which the database refuses, is saved as an `auxiliary` word instead.
+
+**Meaning.** For each content word: look up the lemma with its reading, then without, then the shorter form (勉強 for 勉強する, 君 for 君たち). Of the entries found, the one with a sense that fits the word's part of speech wins (verb codes for verbs, `n` and `pn` for nouns, `adj-i` for adjectives, and so on), then one whose senses name its conjugation class, then, for a word written in kana, one marked as usually written in kana (いる is 居る, not 射る), then the dictionary's order, most common first. The sense is the first that fits, or sense 0.
+
+**The gloss.** Never stored. Built in Go when a song is read: a content word's meaning without "to" ("shine"), a short English word for particles where one fits ("'s" for の, "in" for に of place), and otherwise the grammar title in parentheses ("(subject)"). Without the dictionary, content words show their dictionary form.
+
+**Known limits.** These are guesses, and the reason `analysis_source` exists:
+
+- られる is always `passive`, though it can be potential or respectful, and `causative-passive` is never chosen: 食べさせられる is causative, then passive.
+- Particle uses read only the neighbouring tokens. 空の上に is `ni-place` only because 上 is on the list of place words; に after a time word that kagome doesn't mark is `ni-place`; `wa-contrast`, `wo-through`, `ni-agent`, and `de-means` are never guessed.
+- The potential-verb check needs the dictionary, and trusts it: an ichidan verb missing from the common-words JMdict whose godan twin is in it would be read as a potential.
+- The meaning is the first sense that fits the part of speech, not the one the line means: 声 in a line about an opinion is still "voice".
+- kagome's own mistakes carry through: in 2人で it reads で as the copula, and it splits some compounds differently from JMdict.
+- A line whose tokens no longer match a new analysis keeps no words, and is tried again each time the song is opened. So is a line of only punctuation, which has no words to save.
+
 ## How it rolls out
 
 | Migration | Adds | Status |
 | --- | --- | --- |
 | 002 | `lyric_sources` (with its four rows), `songs`, `lyric_lines` | Built. The songs slice uses it. |
-| 003 | `line_translations`, `line_tokens`, `line_words`, `word_inflections`, `cards` | Built. The tables are ready, with their rules tested. The songs slice fills `line_tokens` (#8); the code for the rest comes with #9, #11, and #12. |
+| 003 | `line_translations`, `line_tokens`, `line_words`, `word_inflections`, `cards` | Built. The tables are ready, with their rules tested. The songs slice fills `line_tokens` (#8), `line_words`, and `word_inflections` (#9); the code for the rest comes with #11 and #12. |
 | 004 | `line_tokens.pos` | Built, with #8. The songs slice saves each token's part of speech for romaji. |
-| `dictionary.db` | `entries`, `entry_forms`, `senses`, `grammar_points` | With #9: it needs a JMdict importer and the grammar list. |
+| `dictionary.db` | `meta`, `tags`, `entries`, `entry_forms`, `senses`, `grammar_points` | Built (#9): `task dictionary` and the `internal/dictionary` lookup package, which the songs slice uses for word meanings and the word sheet. Packaging with the apps is a follow-up. |
 
-New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number, checked at startup.
+New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number (`dictionary.SchemaVersion`, stored in `meta`), checked at startup.
 
 ## Dependencies and content
 
 - `golang.org/x/text`, for Unicode normalization (`internal/common/jtext`). The standard library doesn't have it.
-- `github.com/ikawaha/kagome/v2` and its IPA dictionary `github.com/ikawaha/kagome-dict/ipa`, the tokenizer (`internal/common/morph`). Pure Go, with the dictionary embedded in the binary. It adds about 12 MB to the binary and takes about 145 MB of memory once loaded, so it loads on the first line analysed, never at startup. See [architecture](architecture.md). The dictionary comes from mecab-ipadic, whose licence asks that its no-warranty notice ship with copies, so it needs a line in the app's credits along with JMdict.
-- JMdict, under its licence (CC BY-SA 4.0), which requires credit in the app.
+- `github.com/ikawaha/kagome/v2` and its IPA dictionary `github.com/ikawaha/kagome-dict/ipa`, the tokenizer (`internal/common/morph`). Pure Go, with the dictionary embedded in the binary. It adds about 12 MB to the binary and takes about 145 MB of memory once loaded, so it loads on the first line analysed, never at startup. See [architecture](architecture.md). The dictionary comes from mecab-ipadic, whose licence asks that its no-warranty notice ship with copies; `morph.Attribution()` carries it, and the app's Credits show it next to JMdict.
+- JMdict, through jmdict-simplified, under its licence (CC BY-SA 4.0), which requires credit in the app. See "Licence and credit" above.
 - The `grammar_points` list, which we write ourselves.

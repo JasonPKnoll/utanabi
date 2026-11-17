@@ -90,7 +90,7 @@ func SearchSongs(ctx context.Context, repo Repository, sources []LyricsSource, q
 // AddFromSource saves a song from a lyrics source to the library, with synced lyrics when the source has them, and
 // analyses its lines. A song already in the library is returned as it is, so adding twice is safe.
 func AddFromSource(
-	ctx context.Context, repo Repository, analyzer Analyzer, sources []LyricsSource, source, ref string,
+	ctx context.Context, repo Repository, analyzer Analyzer, dict Dictionary, sources []LyricsSource, source, ref string,
 ) (Song, error) {
 	src := findSource(sources, source)
 	if src == nil {
@@ -101,7 +101,7 @@ func AddFromSource(
 		return Song{}, err
 	}
 
-	if song, ok, err := savedSong(ctx, repo, analyzer, source, ref); err != nil || ok {
+	if song, ok, err := savedSong(ctx, repo, analyzer, dict, source, ref); err != nil || ok {
 		return song, err
 	}
 
@@ -121,7 +121,7 @@ func AddFromSource(
 	if title == "" {
 		return Song{}, fault.Invalid("title", "is missing at the source")
 	}
-	if err := analyzeLines(ctx, analyzer, lines); err != nil {
+	if err := analyzeLines(ctx, analyzer, dict, lines); err != nil {
 		return Song{}, err
 	}
 	song, err := repo.AddSong(ctx, Song{
@@ -134,14 +134,14 @@ func AddFromSource(
 	})
 	if errors.Is(err, fault.ErrConflict) {
 		// Saved by another call between the check above and now.
-		if saved, ok, lookupErr := savedSong(ctx, repo, analyzer, source, ref); lookupErr == nil && ok {
+		if saved, ok, lookupErr := savedSong(ctx, repo, analyzer, dict, source, ref); lookupErr == nil && ok {
 			return saved, nil
 		}
 	}
 	if err != nil {
 		return Song{}, err
 	}
-	return withReadings(song), nil
+	return present(ctx, dict, song)
 }
 
 // linesFromSource prefers synced lyrics, for the timings, and takes the verse breaks from the plain lyrics when both
@@ -190,7 +190,9 @@ func markSaved(ctx context.Context, repo Repository, source string, matches []Ma
 	return nil
 }
 
-func savedSong(ctx context.Context, repo Repository, analyzer Analyzer, source, ref string) (Song, bool, error) {
+func savedSong(
+	ctx context.Context, repo Repository, analyzer Analyzer, dict Dictionary, source, ref string,
+) (Song, bool, error) {
 	saved, err := repo.SongIDsBySource(ctx, source, []string{ref})
 	if err != nil {
 		return Song{}, false, err
@@ -199,7 +201,7 @@ func savedSong(ctx context.Context, repo Repository, analyzer Analyzer, source, 
 	if !ok {
 		return Song{}, false, nil
 	}
-	song, err := loadSong(ctx, repo, analyzer, id)
+	song, err := loadSong(ctx, repo, analyzer, dict, id)
 	return song, err == nil, err
 }
 
