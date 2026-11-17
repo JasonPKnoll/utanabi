@@ -10,6 +10,7 @@ export type {
     Line,
     Match,
     NewSong,
+    RubyPart,
     SearchResult,
     Song,
     Summary

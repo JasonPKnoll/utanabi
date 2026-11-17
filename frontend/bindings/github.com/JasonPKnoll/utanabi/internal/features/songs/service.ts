@@ -36,7 +36,7 @@ export function Delete(id: number): $CancellablePromise<void> {
 }
 
 /**
- * Get returns one song with its lines.
+ * Get returns one song with its lines, their furigana, and their romaji.
  */
 export function Get(id: number): $CancellablePromise<$models.Song> {
     return $Call.ByID(2209303892, id);

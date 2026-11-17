@@ -9,6 +9,7 @@ import (
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
 	"github.com/JasonPKnoll/utanabi/internal/common/jtext"
+	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 )
 
 // SourceUser marks lyrics the user typed in themselves.
@@ -28,6 +29,32 @@ type Line struct {
 	Stanza   int    `json:"stanza"`
 	Text     string `json:"text"`
 	StartMS  *int64 `json:"startMs"`
+	// Ruby is the line in pieces, with furigana over the kanji, and Romaji is the line in Latin letters. Both are
+	// worked out from Tokens and never stored. A line without tokens is one piece with no reading, and no romaji.
+	Ruby   []RubyPart `json:"ruby"`
+	Romaji string     `json:"romaji"`
+	// Tokens are the line's stored analysis. Nil means the line hasn't been analysed, or its tokens didn't fit it.
+	Tokens []Token `json:"-"`
+}
+
+// RubyPart is a piece of a line, with the furigana that goes over it. Reading is empty for kana and anything else
+// that needs none.
+type RubyPart struct {
+	Text    string `json:"text"`
+	Reading string `json:"reading"`
+}
+
+// Token is one piece of a line from the analyzer: 探している is 探し, て, and いる. Surface is exactly as written, so a
+// line's surfaces join back into its text. Reading is hiragana, empty for punctuation and Latin text.
+type Token struct {
+	Surface string
+	Reading string
+	POS     morph.POS
+}
+
+// Analyzer splits a line into tokens with their readings and parts of speech.
+type Analyzer interface {
+	Analyze(ctx context.Context, text string) ([]Token, error)
 }
 
 // Song is one song with its lines. SourceRef is the lyrics source's own ID for the song, empty for your own lyrics.
@@ -66,10 +93,13 @@ type Repository interface {
 	DeleteSong(ctx context.Context, id int64) error
 	// SongIDsBySource returns the library's song ID for each of refs that is already saved from source.
 	SongIDsBySource(ctx context.Context, source string, refs []string) (map[string]int64, error)
+	// SaveTokens stores the tokens of a saved song's lines that have none yet, and leaves lines that already have
+	// tokens as they are.
+	SaveTokens(ctx context.Context, songID int64, lines []Line) error
 }
 
-// AddSong validates a song the user typed in, splits its lyrics into lines, and saves it.
-func AddSong(ctx context.Context, repo Repository, in NewSong) (Song, error) {
+// AddSong validates a song the user typed in, splits its lyrics into lines, analyses them, and saves it.
+func AddSong(ctx context.Context, repo Repository, analyzer Analyzer, in NewSong) (Song, error) {
 	title, err := oneLine("title", in.Title, maxTitleLen)
 	if err != nil {
 		return Song{}, err
@@ -85,7 +115,14 @@ func AddSong(ctx context.Context, repo Repository, in NewSong) (Song, error) {
 	if err != nil {
 		return Song{}, err
 	}
-	return repo.AddSong(ctx, Song{Title: title, Artist: artist, Source: SourceUser, Lines: lines})
+	if err := analyzeLines(ctx, analyzer, lines); err != nil {
+		return Song{}, err
+	}
+	song, err := repo.AddSong(ctx, Song{Title: title, Artist: artist, Source: SourceUser, Lines: lines})
+	if err != nil {
+		return Song{}, err
+	}
+	return withReadings(song), nil
 }
 
 // ListSongs returns every song, newest first.
@@ -93,12 +130,12 @@ func ListSongs(ctx context.Context, repo Repository) ([]Summary, error) {
 	return repo.Songs(ctx)
 }
 
-// GetSong returns one song with its lines.
-func GetSong(ctx context.Context, repo Repository, id int64) (Song, error) {
+// GetSong returns one song with its lines, their furigana, and their romaji.
+func GetSong(ctx context.Context, repo Repository, analyzer Analyzer, id int64) (Song, error) {
 	if id <= 0 {
 		return Song{}, fault.Invalid("id", "must be positive")
 	}
-	return repo.SongByID(ctx, id)
+	return loadSong(ctx, repo, analyzer, id)
 }
 
 // DeleteSong removes one song and everything that belongs to it.

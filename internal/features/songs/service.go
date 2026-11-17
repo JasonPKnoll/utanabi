@@ -8,13 +8,15 @@ import (
 
 // Service is the bound Wails service for songs. Every exported method here is callable by the frontend.
 type Service struct {
-	repo    Repository
-	sources []LyricsSource
+	repo     Repository
+	analyzer Analyzer
+	sources  []LyricsSource
 }
 
-// NewService returns the songs service, searching the given lyrics sources in order.
-func NewService(repo Repository, sources ...LyricsSource) *Service {
-	return &Service{repo: repo, sources: sources}
+// NewService returns the songs service. It analyses lines with analyzer, and searches the given lyrics sources in
+// order.
+func NewService(repo Repository, analyzer Analyzer, sources ...LyricsSource) *Service {
+	return &Service{repo: repo, analyzer: analyzer, sources: sources}
 }
 
 // List returns every song, newest first.
@@ -23,15 +25,15 @@ func (s *Service) List(ctx context.Context) ([]Summary, error) {
 	return list, app.Fail(ctx, err)
 }
 
-// Get returns one song with its lines.
+// Get returns one song with its lines, their furigana, and their romaji.
 func (s *Service) Get(ctx context.Context, id int64) (Song, error) {
-	song, err := GetSong(ctx, s.repo, id)
+	song, err := GetSong(ctx, s.repo, s.analyzer, id)
 	return song, app.Fail(ctx, err)
 }
 
 // Add saves a song with lyrics the user typed in.
 func (s *Service) Add(ctx context.Context, song NewSong) (Song, error) {
-	saved, err := AddSong(ctx, s.repo, song)
+	saved, err := AddSong(ctx, s.repo, s.analyzer, song)
 	return saved, app.Fail(ctx, err)
 }
 
@@ -56,7 +58,7 @@ func (s *Service) Search(ctx context.Context, query string) (SearchResult, error
 
 // AddFromSource saves a song found by Search to the library, or returns it if it's already there.
 func (s *Service) AddFromSource(ctx context.Context, source, ref string) (Song, error) {
-	song, err := AddFromSource(ctx, s.repo, s.sources, source, ref)
+	song, err := AddFromSource(ctx, s.repo, s.analyzer, s.sources, source, ref)
 	return song, app.Fail(ctx, err)
 }
 

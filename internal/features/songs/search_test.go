@@ -161,7 +161,7 @@ func TestAddFromSourceSavesSyncedLyricsWithVerseBreaks(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepo()
-	got, err := AddFromSource(t.Context(), repo, []LyricsSource{newLRCLIBFake()}, "lrclib", "11")
+	got, err := AddFromSource(t.Context(), repo, fakeAnalyzer{}, []LyricsSource{newLRCLIBFake()}, "lrclib", "11")
 	if err != nil {
 		t.Fatalf("AddFromSource: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestAddFromSourceSavesSyncedLyricsWithVerseBreaks(t *testing.T) {
 			{Position: 1, Stanza: 1, Text: "星が光る", StartMS: ms(15500)},
 		},
 	}
-	if !reflect.DeepEqual(got, want) {
+	if got := withoutAnalysis(got); !reflect.DeepEqual(got, want) {
 		t.Errorf("song = %+v %s, want %+v %s", got, describe(got.Lines), want, describe(want.Lines))
 	}
 }
@@ -181,7 +181,7 @@ func TestAddFromSourceSavesSyncedLyricsWithVerseBreaks(t *testing.T) {
 func TestAddFromSourceUsesPlainLyricsWhenNotSynced(t *testing.T) {
 	t.Parallel()
 
-	got, err := AddFromSource(t.Context(), newFakeRepo(), []LyricsSource{newLRCLIBFake()}, "lrclib", "12")
+	got, err := AddFromSource(t.Context(), newFakeRepo(), fakeAnalyzer{}, []LyricsSource{newLRCLIBFake()}, "lrclib", "12")
 	if err != nil {
 		t.Fatalf("AddFromSource: %v", err)
 	}
@@ -195,11 +195,11 @@ func TestAddFromSourceReturnsTheSavedSongWithoutFetchingAgain(t *testing.T) {
 
 	repo := newFakeRepo()
 	src := newLRCLIBFake()
-	first, err := AddFromSource(t.Context(), repo, []LyricsSource{src}, "lrclib", "11")
+	first, err := AddFromSource(t.Context(), repo, fakeAnalyzer{}, []LyricsSource{src}, "lrclib", "11")
 	if err != nil {
 		t.Fatalf("first AddFromSource: %v", err)
 	}
-	second, err := AddFromSource(t.Context(), repo, []LyricsSource{src}, "lrclib", "11")
+	second, err := AddFromSource(t.Context(), repo, fakeAnalyzer{}, []LyricsSource{src}, "lrclib", "11")
 	if err != nil {
 		t.Fatalf("second AddFromSource: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestAddFromSourceRejects(t *testing.T) {
 			t.Parallel()
 
 			repo := newFakeRepo()
-			_, err := AddFromSource(t.Context(), repo, []LyricsSource{newLRCLIBFake()}, tt.source, tt.ref)
+			_, err := AddFromSource(t.Context(), repo, fakeAnalyzer{}, []LyricsSource{newLRCLIBFake()}, tt.source, tt.ref)
 
 			if tt.wantErr != nil {
 				if !errors.Is(err, tt.wantErr) {
@@ -265,7 +265,7 @@ func TestAddFromSourceIsRefusedWhenItsSourceIsOff(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepo()
-	_, err := AddFromSource(t.Context(), repo, nil, "lrclib", "11")
+	_, err := AddFromSource(t.Context(), repo, fakeAnalyzer{}, nil, "lrclib", "11")
 	var invalid *fault.InvalidError
 	if !errors.As(err, &invalid) || invalid.Field != "source" {
 		t.Errorf("err = %v, want invalid source", err)
@@ -275,10 +275,10 @@ func TestAddFromSourceIsRefusedWhenItsSourceIsOff(t *testing.T) {
 func TestServiceListsTheSourcesThatAreOn(t *testing.T) {
 	t.Parallel()
 
-	if got := NewService(newFakeRepo()).SearchSources(); len(got) != 0 {
+	if got := NewService(newFakeRepo(), fakeAnalyzer{}).SearchSources(); len(got) != 0 {
 		t.Errorf("no sources = %v, want none", got)
 	}
-	got := NewService(newFakeRepo(), newLRCLIBFake()).SearchSources()
+	got := NewService(newFakeRepo(), fakeAnalyzer{}, newLRCLIBFake()).SearchSources()
 	if !reflect.DeepEqual(got, []string{"LRCLIB"}) {
 		t.Errorf("sources = %v, want [LRCLIB]", got)
 	}
@@ -289,12 +289,12 @@ func TestAddFromSourceSavesOneSongForEverySpellingOfItsID(t *testing.T) {
 
 	repo := newFakeRepo()
 	src := newLRCLIBFake()
-	first, err := AddFromSource(t.Context(), repo, []LyricsSource{src}, "lrclib", "11")
+	first, err := AddFromSource(t.Context(), repo, fakeAnalyzer{}, []LyricsSource{src}, "lrclib", "11")
 	if err != nil {
 		t.Fatalf("AddFromSource(11): %v", err)
 	}
 	for _, ref := range []string{"011", "+11", " 11 "} {
-		got, err := AddFromSource(t.Context(), repo, []LyricsSource{src}, "lrclib", ref)
+		got, err := AddFromSource(t.Context(), repo, fakeAnalyzer{}, []LyricsSource{src}, "lrclib", ref)
 		if err != nil {
 			t.Fatalf("AddFromSource(%q): %v", ref, err)
 		}
@@ -318,7 +318,7 @@ func TestAddFromSourceRefusesLyricsOverTheLimit(t *testing.T) {
 	src.fetched["50"] = Fetched{Match: Match{SourceRef: "50", Title: "Long"}, Synced: lrc.String()}
 
 	repo := newFakeRepo()
-	_, err := AddFromSource(t.Context(), repo, []LyricsSource{src}, "lrclib", "50")
+	_, err := AddFromSource(t.Context(), repo, fakeAnalyzer{}, []LyricsSource{src}, "lrclib", "50")
 	var invalid *fault.InvalidError
 	if !errors.As(err, &invalid) || invalid.Field != "lyrics" {
 		t.Fatalf("err = %v, want invalid lyrics", err)
@@ -336,7 +336,7 @@ func TestAddFromSourceKeepsTitleAndArtistOnOneLine(t *testing.T) {
 		Match: Match{SourceRef: "60", Title: "星の歌\r\nLive ", Artist: "Demo\nArtist"},
 		Plain: "星",
 	}
-	got, err := AddFromSource(t.Context(), newFakeRepo(), []LyricsSource{src}, "lrclib", "60")
+	got, err := AddFromSource(t.Context(), newFakeRepo(), fakeAnalyzer{}, []LyricsSource{src}, "lrclib", "60")
 	if err != nil {
 		t.Fatalf("AddFromSource: %v", err)
 	}

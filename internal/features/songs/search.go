@@ -87,9 +87,11 @@ func SearchSongs(ctx context.Context, repo Repository, sources []LyricsSource, q
 	return result, nil
 }
 
-// AddFromSource saves a song from a lyrics source to the library, with synced lyrics when the source has them. A song
-// already in the library is returned as it is, so adding twice is safe.
-func AddFromSource(ctx context.Context, repo Repository, sources []LyricsSource, source, ref string) (Song, error) {
+// AddFromSource saves a song from a lyrics source to the library, with synced lyrics when the source has them, and
+// analyses its lines. A song already in the library is returned as it is, so adding twice is safe.
+func AddFromSource(
+	ctx context.Context, repo Repository, analyzer Analyzer, sources []LyricsSource, source, ref string,
+) (Song, error) {
 	src := findSource(sources, source)
 	if src == nil {
 		return Song{}, fault.Invalid("source", "is not available")
@@ -99,7 +101,7 @@ func AddFromSource(ctx context.Context, repo Repository, sources []LyricsSource,
 		return Song{}, err
 	}
 
-	if song, ok, err := savedSong(ctx, repo, source, ref); err != nil || ok {
+	if song, ok, err := savedSong(ctx, repo, analyzer, source, ref); err != nil || ok {
 		return song, err
 	}
 
@@ -119,6 +121,9 @@ func AddFromSource(ctx context.Context, repo Repository, sources []LyricsSource,
 	if title == "" {
 		return Song{}, fault.Invalid("title", "is missing at the source")
 	}
+	if err := analyzeLines(ctx, analyzer, lines); err != nil {
+		return Song{}, err
+	}
 	song, err := repo.AddSong(ctx, Song{
 		Title:      title,
 		Artist:     sourceText(fetched.Artist, maxArtistLen),
@@ -129,11 +134,14 @@ func AddFromSource(ctx context.Context, repo Repository, sources []LyricsSource,
 	})
 	if errors.Is(err, fault.ErrConflict) {
 		// Saved by another call between the check above and now.
-		if saved, ok, lookupErr := savedSong(ctx, repo, source, ref); lookupErr == nil && ok {
+		if saved, ok, lookupErr := savedSong(ctx, repo, analyzer, source, ref); lookupErr == nil && ok {
 			return saved, nil
 		}
 	}
-	return song, err
+	if err != nil {
+		return Song{}, err
+	}
+	return withReadings(song), nil
 }
 
 // linesFromSource prefers synced lyrics, for the timings, and takes the verse breaks from the plain lyrics when both
@@ -182,7 +190,7 @@ func markSaved(ctx context.Context, repo Repository, source string, matches []Ma
 	return nil
 }
 
-func savedSong(ctx context.Context, repo Repository, source, ref string) (Song, bool, error) {
+func savedSong(ctx context.Context, repo Repository, analyzer Analyzer, source, ref string) (Song, bool, error) {
 	saved, err := repo.SongIDsBySource(ctx, source, []string{ref})
 	if err != nil {
 		return Song{}, false, err
@@ -191,7 +199,7 @@ func savedSong(ctx context.Context, repo Repository, source, ref string) (Song, 
 	if !ok {
 		return Song{}, false, nil
 	}
-	song, err := repo.SongByID(ctx, id)
+	song, err := loadSong(ctx, repo, analyzer, id)
 	return song, err == nil, err
 }
 
