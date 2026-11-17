@@ -155,3 +155,76 @@ func TestSQLiteNeverReusesADeletedID(t *testing.T) {
 		t.Errorf("new song got the deleted song's ID %d", first.ID)
 	}
 }
+
+func addOnlineSong(t *testing.T, repo *SQLite, ref string) Song {
+	t.Helper()
+	start := int64(12000)
+	song, err := repo.AddSong(t.Context(), Song{
+		Title: "星の歌", Artist: "Demo Artist", Source: "lrclib", SourceRef: ref, DurationMS: 215000,
+		Lines: []Line{
+			{Position: 0, Stanza: 0, Text: "夜の空に", StartMS: &start},
+			{Position: 1, Stanza: 0, Text: "星が光る"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddSong(lrclib %s): %v", ref, err)
+	}
+	return song
+}
+
+func TestSQLiteKeepsSourceDetailsAndLineTimes(t *testing.T) {
+	t.Parallel()
+
+	repo := newSQLite(t)
+	added := addOnlineSong(t, repo, "11")
+
+	got, err := repo.SongByID(t.Context(), added.ID)
+	if err != nil {
+		t.Fatalf("SongByID: %v", err)
+	}
+	if !reflect.DeepEqual(got, added) {
+		t.Errorf("got %+v %s, want %+v %s", got, describe(got.Lines), added, describe(added.Lines))
+	}
+}
+
+func TestSQLiteSongIDsBySource(t *testing.T) {
+	t.Parallel()
+
+	repo := newSQLite(t)
+	eleven := addOnlineSong(t, repo, "11")
+	twelve := addOnlineSong(t, repo, "12")
+	addSong(t, repo, "your own lyrics")
+
+	got, err := repo.SongIDsBySource(t.Context(), "lrclib", []string{"11", "12", "99"})
+	if err != nil {
+		t.Fatalf("SongIDsBySource: %v", err)
+	}
+	want := map[string]int64{"11": eleven.ID, "12": twelve.ID}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	other, err := repo.SongIDsBySource(t.Context(), "netease", []string{"11"})
+	if err != nil {
+		t.Fatalf("SongIDsBySource(netease): %v", err)
+	}
+	if len(other) != 0 {
+		t.Errorf("another source's IDs matched: %v", other)
+	}
+
+	none, err := repo.SongIDsBySource(t.Context(), "lrclib", nil)
+	if err != nil || len(none) != 0 {
+		t.Errorf("no refs = %v, %v, want an empty map", none, err)
+	}
+}
+
+func TestSQLiteSameOnlineSongTwiceIsAConflict(t *testing.T) {
+	t.Parallel()
+
+	repo := newSQLite(t)
+	addOnlineSong(t, repo, "11")
+	_, err := repo.AddSong(t.Context(), Song{Title: "again", Source: "lrclib", SourceRef: "11", Lines: sampleLines()})
+	if !errors.Is(err, fault.ErrConflict) {
+		t.Errorf("err = %v, want fault.ErrConflict", err)
+	}
+}

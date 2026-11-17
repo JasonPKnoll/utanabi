@@ -8,7 +8,9 @@ export {
 
 export type {
     Line,
+    Match,
     NewSong,
+    SearchResult,
     Song,
     Summary
 } from "./models.js";

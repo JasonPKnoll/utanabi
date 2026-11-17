@@ -113,6 +113,7 @@ rt {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
   gap: 8px;
   min-height: 52px;
   padding: 0 20px;
@@ -178,4 +179,49 @@ rt {
   border-radius: 12px;
   background: var(--surface);
   color: var(--danger);
+}
+
+/* A field's error under it. The message comes from Go in lower case, so its first letter is raised here. */
+.error {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--danger);
+}
+
+.error::first-letter {
+  text-transform: uppercase;
+}
+
+/* An empty state: a card with a bold title and a line of help. */
+.empty {
+  padding: 24px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+
+.empty p {
+  margin: 0;
+}
+
+.empty-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.empty .empty-title {
+  margin-bottom: 4px;
+}
+
+/* Text for screen readers only, such as a label the layout shows in another way. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

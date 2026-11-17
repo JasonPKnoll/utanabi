@@ -6,19 +6,28 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
   import { initial } from "../lib/lyrics";
-  import { addHref, songHref } from "../lib/route";
+  import { addHref, searchHref, songHref } from "../lib/route";
+  import { sourceLabel } from "../lib/sources";
 
   let songs = $state<Summary[] | null>(null);
   let about = $state<About | null>(null);
   let failure = $state<AppError | null>(null);
+  // Online search can be switched off in settings. Until the answer arrives, assume it's on, the usual case.
+  let searchOn = $state(true);
 
   Songs.List()
     .then((list) => (songs = list ?? []))
     .catch((err: unknown) => (failure = toAppError(err)));
 
+  // These two only decide whether a button and the version line show, so a failure keeps the library on screen:
+  // search stays offered (the search screen reports its own errors), and the version line is left out.
+  Songs.SearchSources()
+    .then((names) => (searchOn = (names ?? []).length > 0))
+    .catch(() => (searchOn = true));
+
   AboutService.Info()
     .then((info) => (about = info))
-    .catch((err: unknown) => (failure ??= toAppError(err)));
+    .catch(() => (about = null));
 </script>
 
 <div class="screen">
@@ -39,7 +48,11 @@
     {:else if songs.length === 0}
       <div class="empty">
         <p class="empty-title">No songs yet</p>
-        <p class="muted">Add a song with your own lyrics to start learning from it.</p>
+        <p class="muted">
+          {searchOn
+            ? "Find a song to start learning from it, or add one with your own lyrics."
+            : "Add a song with your own lyrics to start learning from it."}
+        </p>
       </div>
     {:else}
       <ul>
@@ -49,7 +62,7 @@
               <span class="tile" aria-hidden="true">{initial(song.title)}</span>
               <span class="text">
                 <span class="title">{song.title}</span>
-                <span class="sub">{song.artist || "Unknown artist"} · your lyrics</span>
+                <span class="sub">{song.artist || "Unknown artist"} · {sourceLabel(song.source)}</span>
               </span>
               <svg
                 width="20"
@@ -74,19 +87,24 @@
   </main>
 
   <div class="actions">
-    <a class="button primary" href={addHref}>
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.5"
-        stroke-linecap="round"
-        aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg
-      >
-      Add your own lyrics
-    </a>
+    {#if !searchOn}
+      <a class="button primary" href={addHref}>Add your own lyrics</a>
+    {:else}
+      <a class="button" href={addHref}>Add your own</a>
+      <a class="button primary" href={searchHref}>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+        >
+        Find a song
+      </a>
+    {/if}
   </div>
 </div>
 
@@ -194,27 +212,18 @@
     color: var(--muted);
   }
 
-  .empty {
-    padding: 28px 20px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    text-align: center;
-  }
-
-  .empty p {
-    margin: 0;
-  }
-
-  .empty-title {
-    margin-bottom: 4px !important;
-    font-size: 1.1rem;
-    font-weight: 700;
-  }
-
   .about {
     margin: 24px 0 0;
     font-size: 0.8rem;
     color: var(--muted);
+  }
+
+  /* The secondary button takes only the room it needs, so "Find a song" stays on one line at 360px. */
+  .actions .button:not(.primary) {
+    flex: none;
+  }
+
+  .actions .button {
+    white-space: nowrap;
   }
 </style>

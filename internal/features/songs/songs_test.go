@@ -48,6 +48,18 @@ func (f *fakeRepo) DeleteSong(_ context.Context, id int64) error {
 	return nil
 }
 
+func (f *fakeRepo) SongIDsBySource(_ context.Context, source string, refs []string) (map[string]int64, error) {
+	found := map[string]int64{}
+	for _, ref := range refs {
+		for id, s := range f.songs {
+			if s.Source == source && s.SourceRef == ref {
+				found[ref] = id
+			}
+		}
+	}
+	return found, nil
+}
+
 func TestAddSongRejectsBadInput(t *testing.T) {
 	t.Parallel()
 

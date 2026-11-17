@@ -3,6 +3,7 @@
   import { toAppError, type AppError } from "../lib/errors";
   import { startsStanza } from "../lib/lyrics";
   import { homeHref } from "../lib/route";
+  import { sourceLabel } from "../lib/sources";
 
   let { id }: { id: number } = $props();
 
@@ -70,7 +71,12 @@
     <main class="center"><p class="muted">Loading…</p></main>
   {:else}
     <main>
-      <p class="hint muted">Tap a line to follow along.</p>
+      <p class="hint muted">
+        Tap a line to follow along.
+        {#if song.source !== "user"}
+          <br />Lyrics from {sourceLabel(song.source)}{song.lines?.some((l) => l.startMs !== null) ? ", synced" : ""}.
+        {/if}
+      </p>
       <ol class="lyrics" lang="ja">
         {#each lines as line, i (line.position)}
           <li class:stanza-start={startsStanza(lines, i)}>
@@ -149,12 +155,6 @@
     align-items: center;
     gap: 16px;
     text-align: center;
-  }
-
-  .empty-title {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
   }
 
   .center .button {

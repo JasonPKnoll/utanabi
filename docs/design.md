@@ -43,6 +43,11 @@ All in `frontend/src/app.css`:
 - `.button`, `.button.primary`, `.button.danger`: buttons and button-styled links, at least 52px tall.
 - `.icon-button`: a 44px round button for an icon, such as Back. It always has an `aria-label`.
 - `.alert`, `.muted`: an error message, and secondary text.
+- `.error`: a field's error message, shown under the field.
+- `.empty`, `.empty-title`: an empty state, a card with a bold title and a line of help.
+- `.visually-hidden`: text for screen readers only, such as a label the layout shows another way.
+
+Use these instead of styling the same thing again in a component.
 
 ## Mockups
 

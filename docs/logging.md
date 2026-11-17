@@ -41,6 +41,8 @@ Wails's own messages go through the same logger with `"component": "wails"`.
 
 Only the boundaries log errors: `app.Fail`, the Wails panic handler, the Wails error handler, background job runners, and `main`. Everything else returns its error.
 
+A call that recovers from a failure, such as a search where one lyrics source didn't answer, still returns a result. The use case hands the failure back next to the result, and the service method logs it with `app.Note(ctx, err)`, at the level `app.Fail` would use.
+
 ## Secrets
 
 Never log a secret. Carry it as a `redact.Secret`. Its `LogValue` prints `[REDACTED]`.

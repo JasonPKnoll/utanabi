@@ -154,3 +154,82 @@ func TestLoadRequiresDataFolder(t *testing.T) {
 		t.Fatal("Load() error = nil, want an error")
 	}
 }
+
+func TestLoadLyricsSources(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		platform string
+		settings string
+		env      map[string]string
+		want     []string
+	}{
+		{name: "on by default", platform: "desktop", want: []string{"lrclib"}},
+		{name: "an empty list turns them off", platform: "desktop", settings: `{"lyrics_sources":[]}`, want: []string{}},
+		{name: "none turns them off", platform: "desktop", settings: `{"lyrics_sources":["none"]}`, want: []string{}},
+		{name: "named sources are on", platform: "desktop", settings: `{"lyrics_sources":["lrclib"]}`,
+			want: []string{"lrclib"}},
+		{name: "none written twice still turns them off", platform: "desktop",
+			settings: `{"lyrics_sources":["none","none"]}`, want: []string{}},
+		{name: "none with a blank entry still turns them off", platform: "desktop",
+			settings: `{"lyrics_sources":["none",""]}`, want: []string{}},
+		{name: "server env none, padded, turns them off", platform: "server",
+			env: map[string]string{"UTANABI_LYRICS_SOURCES": " none , none "}, want: []string{}},
+		{name: "names are trimmed, lowercased, and deduplicated", platform: "desktop",
+			settings: `{"lyrics_sources":[" LRCLIB ","lrclib"]}`, want: []string{"lrclib"}},
+		{name: "server env none turns them off", platform: "server",
+			env: map[string]string{"UTANABI_LYRICS_SOURCES": "none"}, want: []string{}},
+		{name: "server env overrides the settings file", platform: "server", settings: `{"lyrics_sources":[]}`,
+			env: map[string]string{"UTANABI_LYRICS_SOURCES": "lrclib"}, want: []string{"lrclib"}},
+		{name: "an empty server env var leaves the settings file in charge", platform: "server",
+			settings: `{"lyrics_sources":[]}`, env: map[string]string{"UTANABI_LYRICS_SOURCES": ""}, want: []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := platform(t, tt.platform, tt.env)
+			if tt.settings != "" {
+				writeSettings(t, p, tt.settings)
+			}
+			cfg, err := config.Load(p)
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if !slices.Equal(cfg.LyricsSources, tt.want) || cfg.LyricsSources == nil {
+				t.Errorf("LyricsSources = %#v, want %#v", cfg.LyricsSources, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsBadLyricsSources(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		platform string
+		settings string
+		env      map[string]string
+	}{
+		{name: "a source this build doesn't have", platform: "desktop", settings: `{"lyrics_sources":["spotify"]}`},
+		{name: "none with a source", platform: "desktop", settings: `{"lyrics_sources":["none","lrclib"]}`},
+		{name: "not a list", platform: "desktop", settings: `{"lyrics_sources":"lrclib"}`},
+		{name: "bad server env", platform: "server", env: map[string]string{"UTANABI_LYRICS_SOURCES": "lrclib,genius"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := platform(t, tt.platform, tt.env)
+			if tt.settings != "" {
+				writeSettings(t, p, tt.settings)
+			}
+			_, err := config.Load(p)
+			if err == nil || !strings.Contains(err.Error(), "lyrics_sources") {
+				t.Errorf("err = %v, want an error naming lyrics_sources", err)
+			}
+		})
+	}
+}

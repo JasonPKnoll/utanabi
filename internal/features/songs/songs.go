@@ -21,20 +21,25 @@ const (
 	maxLineLen   = 500
 )
 
-// Line is one sung line. Stanza goes up by one at each verse break.
+// Line is one sung line. Stanza goes up by one at each verse break. StartMS is when the line starts, in milliseconds
+// from the start of the song, and is set only for synced lyrics.
 type Line struct {
 	Position int    `json:"position"`
 	Stanza   int    `json:"stanza"`
 	Text     string `json:"text"`
+	StartMS  *int64 `json:"startMs"`
 }
 
-// Song is one song with its lines.
+// Song is one song with its lines. SourceRef is the lyrics source's own ID for the song, empty for your own lyrics.
+// DurationMS is 0 when the length isn't known.
 type Song struct {
-	ID     int64  `json:"id"`
-	Title  string `json:"title"`
-	Artist string `json:"artist"`
-	Source string `json:"source"`
-	Lines  []Line `json:"lines"`
+	ID         int64  `json:"id"`
+	Title      string `json:"title"`
+	Artist     string `json:"artist"`
+	Source     string `json:"source"`
+	SourceRef  string `json:"sourceRef"`
+	DurationMS int64  `json:"durationMs"`
+	Lines      []Line `json:"lines"`
 }
 
 // Summary is a song without its lines, for lists.
@@ -59,6 +64,8 @@ type Repository interface {
 	Songs(ctx context.Context) ([]Summary, error)
 	SongByID(ctx context.Context, id int64) (Song, error)
 	DeleteSong(ctx context.Context, id int64) error
+	// SongIDsBySource returns the library's song ID for each of refs that is already saved from source.
+	SongIDsBySource(ctx context.Context, source string, refs []string) (map[string]int64, error)
 }
 
 // AddSong validates a song the user typed in, splits its lyrics into lines, and saves it.
