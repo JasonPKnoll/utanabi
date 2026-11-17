@@ -1,10 +1,22 @@
+/* Night stage: the app's look. A dark stage where the sung line is bright and the rest of the song stays dim.
+   Screens are built for a 360px phone first (see "Mobile first" in AGENTS.md). */
 :root {
-  --bg: #faf8f5;
-  --fg: #1f1d1a;
-  --muted: #6b655c;
-  --danger: #b42318;
+  --bg: #0f1420;
+  --surface: #18202f;
+  --surface-strong: #273044;
+  --border: #273044;
+  --fg: #f2f4f8;
+  --muted: #a3acbe;
+  --dim: #8a93a6;
+  --accent: #f5b544;
+  --accent-strong: #ffd27f;
+  --on-accent: #0f1420;
+  --danger: #ff8a80;
 
-  color-scheme: light dark;
+  --radius: 16px;
+  --tap: 44px;
+
+  color-scheme: dark;
   font-family:
     system-ui,
     -apple-system,
@@ -12,20 +24,133 @@
     "Noto Sans JP",
     "Yu Gothic UI",
     sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   background: var(--bg);
   color: var(--fg);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #16151a;
-    --fg: #efece6;
-    --muted: #a39d93;
-    --danger: #f97066;
-  }
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   background: var(--bg);
+}
+
+a {
+  color: var(--accent);
+}
+
+a:hover {
+  color: var(--accent-strong);
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+rt {
+  font-size: 0.45em;
+  color: var(--muted);
+}
+
+/* A screen: one column on a phone, a centered column on wider screens. */
+.screen {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0
+    max(16px, env(safe-area-inset-left));
+}
+
+/* The bottom action bar, inside thumb reach. */
+.actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  padding: 12px 0 max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, transparent, var(--bg) 24px);
+}
+
+.button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 20px;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:hover {
+  color: var(--fg);
+  background: var(--surface-strong);
+}
+
+.button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.button.primary:hover {
+  background: var(--accent-strong);
+  color: var(--on-accent);
+}
+
+.button.danger {
+  color: var(--danger);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: 22px;
+  color: var(--fg);
+}
+
+.icon-button:hover {
+  color: var(--fg);
+  background: var(--surface);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.alert {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--danger);
 }
