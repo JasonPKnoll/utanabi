@@ -209,6 +209,12 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/huandu/xstrings v1.5.0 h1:2ag3IFq9ZDANvthTwTiqSSZLjDc+BedvHPAp5tJy2TI=
 github.com/huandu/xstrings v1.5.0/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
+github.com/ikawaha/kagome-dict v1.1.7 h1:O/uAL+WCGhp6kT0+szxBSPaSM4i+vdArSefFvJE4Nug=
+github.com/ikawaha/kagome-dict v1.1.7/go.mod h1:9tvk7/jZkvYt40foxkB9CqSAAknoQrIPfzqQd05UkFw=
+github.com/ikawaha/kagome-dict/ipa v1.2.6 h1:Bcvm4jgxAAnTIKb6ckqUKBiFDN0wuanFfycMuYt7xGQ=
+github.com/ikawaha/kagome-dict/ipa v1.2.6/go.mod h1:ONdTMUAKMCq9yx4s69QRtPcJLEMVM0BNNYQrMCJLWb0=
+github.com/ikawaha/kagome/v2 v2.11.1 h1:7NQ2QyzNcbKD3/3EVA959fcvo1PhXx8CpUChqjYmi0Y=
+github.com/ikawaha/kagome/v2 v2.11.1/go.mod h1:6mYPezBou+iNVnX9uNa00Sfu6S6t2zcM8Nv1EW9Y9so=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOlocH6Fxy8MmwDt+yVQYULKfN0RoTN8A=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99/go.mod h1:1lJo3i6rXxKeerYnT8Nvf0QmHCRC1n8sfWVwXF2Frvo=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
