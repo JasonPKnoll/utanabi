@@ -3,6 +3,7 @@ package songs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -21,6 +22,15 @@ type fakeSource struct {
 
 func (f *fakeSource) Code() string { return f.code }
 func (f *fakeSource) Name() string { return f.name }
+
+// CanonicalRef drops leading zeros and a plus sign, the way LRCLIB's integer IDs do.
+func (f *fakeSource) CanonicalRef(ref string) (string, error) {
+	ref = strings.TrimLeft(ref, "+0")
+	if ref == "" {
+		return "", fault.Invalid("ref", "must be a song ID")
+	}
+	return ref, nil
+}
 
 func (f *fakeSource) Search(_ context.Context, query string) ([]Match, error) {
 	f.queries = append(f.queries, query)
@@ -271,5 +281,66 @@ func TestServiceListsTheSourcesThatAreOn(t *testing.T) {
 	got := NewService(newFakeRepo(), newLRCLIBFake()).SearchSources()
 	if !reflect.DeepEqual(got, []string{"LRCLIB"}) {
 		t.Errorf("sources = %v, want [LRCLIB]", got)
+	}
+}
+
+func TestAddFromSourceSavesOneSongForEverySpellingOfItsID(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeRepo()
+	src := newLRCLIBFake()
+	first, err := AddFromSource(t.Context(), repo, []LyricsSource{src}, "lrclib", "11")
+	if err != nil {
+		t.Fatalf("AddFromSource(11): %v", err)
+	}
+	for _, ref := range []string{"011", "+11", " 11 "} {
+		got, err := AddFromSource(t.Context(), repo, []LyricsSource{src}, "lrclib", ref)
+		if err != nil {
+			t.Fatalf("AddFromSource(%q): %v", ref, err)
+		}
+		if got.ID != first.ID || got.SourceRef != "11" {
+			t.Errorf("AddFromSource(%q) = song %d ref %q, want song %d ref 11", ref, got.ID, got.SourceRef, first.ID)
+		}
+	}
+	if len(repo.added) != 1 || len(src.fetches) != 1 {
+		t.Errorf("saved %d and fetched %d times, want once each", len(repo.added), len(src.fetches))
+	}
+}
+
+func TestAddFromSourceRefusesLyricsOverTheLimit(t *testing.T) {
+	t.Parallel()
+
+	var lrc strings.Builder
+	for i := range 101 {
+		fmt.Fprintf(&lrc, "[%02d:%02d.00]%s\n", i/60, i%60, strings.Repeat("歌", 200))
+	}
+	src := newLRCLIBFake()
+	src.fetched["50"] = Fetched{Match: Match{SourceRef: "50", Title: "Long"}, Synced: lrc.String()}
+
+	repo := newFakeRepo()
+	_, err := AddFromSource(t.Context(), repo, []LyricsSource{src}, "lrclib", "50")
+	var invalid *fault.InvalidError
+	if !errors.As(err, &invalid) || invalid.Field != "lyrics" {
+		t.Fatalf("err = %v, want invalid lyrics", err)
+	}
+	if len(repo.added) != 0 {
+		t.Errorf("saved %d songs, want none", len(repo.added))
+	}
+}
+
+func TestAddFromSourceKeepsTitleAndArtistOnOneLine(t *testing.T) {
+	t.Parallel()
+
+	src := newLRCLIBFake()
+	src.fetched["60"] = Fetched{
+		Match: Match{SourceRef: "60", Title: "星の歌\r\nLive ", Artist: "Demo\nArtist"},
+		Plain: "星",
+	}
+	got, err := AddFromSource(t.Context(), newFakeRepo(), []LyricsSource{src}, "lrclib", "60")
+	if err != nil {
+		t.Fatalf("AddFromSource: %v", err)
+	}
+	if got.Title != "星の歌 Live" || got.Artist != "Demo Artist" {
+		t.Errorf("title %q artist %q, want each on one line", got.Title, got.Artist)
 	}
 }

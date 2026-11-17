@@ -217,25 +217,6 @@
     flex: none;
   }
 
-  .error {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--danger);
-  }
-
-  .error::first-letter {
-    text-transform: uppercase;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
   main {
     flex: 1;
     display: flex;
@@ -322,24 +303,6 @@
     min-height: var(--tap);
     padding: 0 16px;
     font-size: 0.95rem;
-  }
-
-  .empty {
-    padding: 24px 20px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    text-align: center;
-  }
-
-  .empty p {
-    margin: 0;
-  }
-
-  .empty-title {
-    margin-bottom: 4px !important;
-    font-weight: 700;
-    overflow-wrap: anywhere;
   }
 
   .actions .button {

@@ -3,6 +3,7 @@ package songs
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -33,9 +34,12 @@ type Fetched struct {
 }
 
 // LyricsSource is an online place to find song lyrics, such as LRCLIB. Search returns only songs that have lyrics.
+// CanonicalRef turns a song ID into the one form the source uses (LRCLIB's "011" is "11"), or fails for an ID the
+// source can't have, so the library never saves the same song twice under different spellings.
 type LyricsSource interface {
 	Code() string
 	Name() string
+	CanonicalRef(ref string) (string, error)
 	Search(ctx context.Context, query string) ([]Match, error)
 	Lyrics(ctx context.Context, ref string) (Fetched, error)
 }
@@ -90,9 +94,9 @@ func AddFromSource(ctx context.Context, repo Repository, sources []LyricsSource,
 	if src == nil {
 		return Song{}, fault.Invalid("source", "is not available")
 	}
-	ref = strings.TrimSpace(ref)
-	if ref == "" || utf8.RuneCountInString(ref) > 200 {
-		return Song{}, fault.Invalid("ref", "must be the source's ID for the song")
+	ref, err := src.CanonicalRef(strings.TrimSpace(ref))
+	if err != nil {
+		return Song{}, err
 	}
 
 	if song, ok, err := savedSong(ctx, repo, source, ref); err != nil || ok {
@@ -107,14 +111,17 @@ func AddFromSource(ctx context.Context, repo Repository, sources []LyricsSource,
 	if len(lines) == 0 {
 		return Song{}, fault.Invalid("lyrics", "aren't available for this song")
 	}
+	if lyricsLen(lines) > maxLyricsLen {
+		return Song{}, fault.Invalid("lyrics", "are too long to save (over "+strconv.Itoa(maxLyricsLen)+" characters)")
+	}
 
-	title := clip(strings.TrimSpace(jtext.Normalize(fetched.Title)), maxTitleLen)
+	title := sourceText(fetched.Title, maxTitleLen)
 	if title == "" {
 		return Song{}, fault.Invalid("title", "is missing at the source")
 	}
 	song, err := repo.AddSong(ctx, Song{
 		Title:      title,
-		Artist:     clip(strings.TrimSpace(jtext.Normalize(fetched.Artist)), maxArtistLen),
+		Artist:     sourceText(fetched.Artist, maxArtistLen),
 		Source:     source,
 		SourceRef:  ref,
 		DurationMS: fetched.DurationMS,
@@ -195,6 +202,22 @@ func findSource(sources []LyricsSource, code string) LyricsSource {
 		}
 	}
 	return nil
+}
+
+// sourceText cleans a title or artist from a source the way a typed one is cleaned, but fixes what a person would be
+// asked to fix: a line break becomes a space, and text over the limit is shortened.
+func sourceText(s string, maxLen int) string {
+	s = strings.Join(strings.Split(jtext.Normalize(s), "\n"), " ")
+	return clip(strings.TrimSpace(s), maxLen)
+}
+
+// lyricsLen counts the characters in a song's lines, the same measure as the limit on lyrics a person types.
+func lyricsLen(lines []Line) int {
+	n := 0
+	for _, l := range lines {
+		n += utf8.RuneCountInString(l.Text)
+	}
+	return n
 }
 
 // clip shortens s to at most n characters, for text from a source that is longer than the library allows.

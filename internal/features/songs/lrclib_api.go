@@ -34,10 +34,24 @@ type LRCLIB struct {
 // NewLRCLIB returns the LRCLIB source at base (LRCLIBURL, or a test server). LRCLIB asks clients to name themselves
 // in the User-Agent, and allows identified clients more requests.
 func NewLRCLIB(base, version string) *LRCLIB {
+	base = strings.TrimRight(base, "/")
+	host := ""
+	if u, err := url.Parse(base); err == nil {
+		host = u.Host
+	}
 	return &LRCLIB{
-		base:      strings.TrimRight(base, "/"),
+		base:      base,
 		userAgent: "Utanabi " + version + " (https://github.com/JasonPKnoll/utanabi)",
-		client:    &http.Client{Timeout: lrclibTimeout},
+		client: &http.Client{
+			Timeout: lrclibTimeout,
+			// The app talks only to LRCLIB, so a redirect that leaves its host is refused rather than followed.
+			CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+				if req.URL.Host != host {
+					return fmt.Errorf("songs: lrclib redirected to another host (%s)", req.URL.Host)
+				}
+				return nil
+			},
+		},
 	}
 }
 
@@ -75,14 +89,23 @@ func (l *LRCLIB) Search(ctx context.Context, query string) ([]Match, error) {
 	return matches, nil
 }
 
-// Lyrics returns one song with its lyrics, by its LRCLIB ID.
-func (l *LRCLIB) Lyrics(ctx context.Context, ref string) (Fetched, error) {
+// CanonicalRef returns an LRCLIB song ID in its one standard form, plain decimal digits: "011" and "+11" are "11".
+func (l *LRCLIB) CanonicalRef(ref string) (string, error) {
 	id, err := strconv.ParseInt(ref, 10, 64)
 	if err != nil || id <= 0 {
-		return Fetched{}, fault.Invalid("ref", "must be an LRCLIB song ID")
+		return "", fault.Invalid("ref", "must be an LRCLIB song ID")
+	}
+	return strconv.FormatInt(id, 10), nil
+}
+
+// Lyrics returns one song with its lyrics, by its LRCLIB ID.
+func (l *LRCLIB) Lyrics(ctx context.Context, ref string) (Fetched, error) {
+	ref, err := l.CanonicalRef(ref)
+	if err != nil {
+		return Fetched{}, err
 	}
 	var r lrclibRecord
-	if err := l.get(ctx, "/api/get/"+strconv.FormatInt(id, 10), &r); err != nil {
+	if err := l.get(ctx, "/api/get/"+ref, &r); err != nil {
 		return Fetched{}, err
 	}
 	if !r.hasLyrics() {

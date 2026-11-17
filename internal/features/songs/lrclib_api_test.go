@@ -169,3 +169,70 @@ func TestLRCLIBCanceled(t *testing.T) {
 		t.Errorf("err = %v, want fault.ErrCanceled", err)
 	}
 }
+
+func TestLRCLIBCanonicalRef(t *testing.T) {
+	t.Parallel()
+
+	l := NewLRCLIB("http://unused.invalid", "1.2.3")
+	tests := []struct {
+		ref     string
+		want    string
+		wantErr bool
+	}{
+		{ref: "11", want: "11"},
+		{ref: "011", want: "11"},
+		{ref: "+11", want: "11"},
+		{ref: "0", wantErr: true},
+		{ref: "-3", wantErr: true},
+		{ref: "eleven", wantErr: true},
+		{ref: "../11", wantErr: true},
+		{ref: "", wantErr: true},
+	}
+	for _, tt := range tests {
+		got, err := l.CanonicalRef(tt.ref)
+		if tt.wantErr {
+			var invalid *fault.InvalidError
+			if !errors.As(err, &invalid) {
+				t.Errorf("CanonicalRef(%q) = %q, %v, want invalid ref", tt.ref, got, err)
+			}
+			continue
+		}
+		if err != nil || got != tt.want {
+			t.Errorf("CanonicalRef(%q) = %q, %v, want %q", tt.ref, got, err, tt.want)
+		}
+	}
+}
+
+func TestLRCLIBRefusesRedirectsToAnotherHost(t *testing.T) {
+	t.Parallel()
+
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("followed a redirect to another host")
+	}))
+	t.Cleanup(elsewhere.Close)
+
+	l := lrclibServer(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, elsewhere.URL+"/api/search", http.StatusFound)
+	})
+	_, err := l.Search(t.Context(), "星")
+	if err == nil || !strings.Contains(err.Error(), "another host") {
+		t.Errorf("err = %v, want the redirect refused", err)
+	}
+}
+
+func TestLRCLIBFollowsRedirectsOnItsOwnHost(t *testing.T) {
+	t.Parallel()
+
+	l := lrclibServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/search" {
+			http.Redirect(w, r, "/api/search2", http.StatusFound)
+			return
+		}
+		if _, err := w.Write([]byte("[]")); err != nil {
+			t.Errorf("write response: %v", err)
+		}
+	})
+	if _, err := l.Search(t.Context(), "星"); err != nil {
+		t.Errorf("Search: %v, want a redirect on the same host followed", err)
+	}
+}

@@ -167,14 +167,4 @@
   textarea[aria-invalid="true"] {
     border-color: var(--danger);
   }
-
-  .error {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--danger);
-  }
-
-  .error::first-letter {
-    text-transform: uppercase;
-  }
 </style>

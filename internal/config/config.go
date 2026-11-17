@@ -32,8 +32,10 @@ var version = "dev"
 // -ldflags "-X github.com/JasonPKnoll/utanabi/internal/config.defaultLyricsSources=none".
 var defaultLyricsSources = "lrclib"
 
-// LyricsSources are the online lyrics sources this build has an adapter for, in the order search asks them.
-var LyricsSources = []string{"lrclib"}
+// LyricsSources returns the online lyrics sources this build has an adapter for, in the order search asks them.
+func LyricsSources() []string {
+	return []string{"lrclib"}
+}
 
 // Dirs are the OS folders the app writes to. An empty Log means log to stderr.
 type Dirs struct {
@@ -164,31 +166,39 @@ func overrideFromEnv(s *settings, getenv func(string) string) {
 }
 
 // lyricsSources resolves the lyrics_sources setting: the build's default when unset, nothing for "none" or an
-// empty list, and otherwise the named sources, which must be ones this build has.
+// empty list, and otherwise the named sources, which must be ones this build has. Names are trimmed and lowercased,
+// and blanks and repeats are ignored.
 func lyricsSources(chosen *[]string) ([]string, error) {
 	names := splitList(defaultLyricsSources)
 	if chosen != nil {
 		names = *chosen
 	}
 
-	on := []string{}
+	var picked []string
 	for _, name := range names {
 		name = strings.ToLower(strings.TrimSpace(name))
-		switch {
-		case name == "" || slices.Contains(on, name):
-			continue
-		case name == "none":
-			if len(names) > 1 {
-				return nil, errors.New("config: invalid lyrics_sources (none can't be combined with a source)")
-			}
-			return []string{}, nil
-		case !slices.Contains(LyricsSources, name):
-			return nil, fmt.Errorf("config: invalid lyrics_sources (%q is not one of %s, or none)",
-				name, strings.Join(LyricsSources, ", "))
+		if name != "" && !slices.Contains(picked, name) {
+			picked = append(picked, name)
 		}
-		on = append(on, name)
 	}
-	return on, nil
+
+	if slices.Contains(picked, "none") {
+		if len(picked) > 1 {
+			return nil, errors.New("config: invalid lyrics_sources (none can't be combined with a source)")
+		}
+		return []string{}, nil
+	}
+	known := LyricsSources()
+	for _, name := range picked {
+		if !slices.Contains(known, name) {
+			return nil, fmt.Errorf("config: invalid lyrics_sources (%q is not one of %s, or none)",
+				name, strings.Join(known, ", "))
+		}
+	}
+	if picked == nil {
+		return []string{}, nil
+	}
+	return picked, nil
 }
 
 func splitList(s string) []string {
@@ -211,11 +221,7 @@ func loadServer(getenv func(string) string) (Server, error) {
 	}
 
 	var srv Server
-	for origin := range strings.SplitSeq(getenv("UTANABI_ALLOWED_ORIGINS"), ",") {
-		origin = strings.TrimSpace(origin)
-		if origin == "" {
-			continue
-		}
+	for _, origin := range splitList(getenv("UTANABI_ALLOWED_ORIGINS")) {
 		if origin == "*" {
 			return Server{}, errors.New("config: invalid UTANABI_ALLOWED_ORIGINS (a bare * allows every origin)")
 		}

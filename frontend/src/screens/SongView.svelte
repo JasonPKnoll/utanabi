@@ -157,12 +157,6 @@
     text-align: center;
   }
 
-  .empty-title {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-  }
-
   .center .button {
     flex: none;
   }

@@ -19,13 +19,15 @@
     .then((list) => (songs = list ?? []))
     .catch((err: unknown) => (failure = toAppError(err)));
 
+  // These two only decide whether a button and the version line show, so a failure keeps the library on screen:
+  // search stays offered (the search screen reports its own errors), and the version line is left out.
   Songs.SearchSources()
     .then((names) => (searchOn = (names ?? []).length > 0))
-    .catch((err: unknown) => (failure ??= toAppError(err)));
+    .catch(() => (searchOn = true));
 
   AboutService.Info()
     .then((info) => (about = info))
-    .catch((err: unknown) => (failure ??= toAppError(err)));
+    .catch(() => (about = null));
 </script>
 
 <div class="screen">
@@ -208,24 +210,6 @@
   .sub {
     font-size: 0.85rem;
     color: var(--muted);
-  }
-
-  .empty {
-    padding: 28px 20px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    text-align: center;
-  }
-
-  .empty p {
-    margin: 0;
-  }
-
-  .empty-title {
-    margin-bottom: 4px !important;
-    font-size: 1.1rem;
-    font-weight: 700;
   }
 
   .about {

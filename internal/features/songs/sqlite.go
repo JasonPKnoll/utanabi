@@ -73,32 +73,38 @@ func (s *SQLite) Songs(ctx context.Context) ([]Summary, error) {
 
 // SongByID returns one song with its lines in order, or fault.ErrNotFound.
 func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
-	q := s.db.Querier()
-	var song Song
-	var ref sql.NullString
-	var duration sql.NullInt64
-	err := q.QueryRowContext(ctx,
-		`SELECT id, title, artist, source, source_ref, duration_ms FROM songs WHERE id = ?`, id,
-	).Scan(&song.ID, &song.Title, &song.Artist, &song.Source, &ref, &duration)
-	if err != nil {
-		return Song{}, store.Translate(err)
-	}
-	song.SourceRef, song.DurationMS = ref.String, duration.Int64
-
-	rows, err := q.QueryContext(ctx,
-		`SELECT position, stanza, text, start_ms FROM lyric_lines WHERE song_id = ? ORDER BY position`, id)
+	// One statement reads the song and its lines, so a delete can't land between them and leave a song with no lines.
+	rows, err := s.db.Querier().QueryContext(ctx,
+		`SELECT s.id, s.title, s.artist, s.source, s.source_ref, s.duration_ms,
+		        l.position, l.stanza, l.text, l.start_ms
+		 FROM songs s LEFT JOIN lyric_lines l ON l.song_id = s.id
+		 WHERE s.id = ?
+		 ORDER BY l.position`, id)
 	if err != nil {
 		return Song{}, store.Translate(err)
 	}
 	defer rows.Close()
 
-	song.Lines = []Line{}
+	var song Song
+	found := false
 	for rows.Next() {
-		var line Line
-		var start sql.NullInt64
-		if err := rows.Scan(&line.Position, &line.Stanza, &line.Text, &start); err != nil {
+		var ref sql.NullString
+		var duration, position, stanza, start sql.NullInt64
+		var text sql.NullString
+		err := rows.Scan(&song.ID, &song.Title, &song.Artist, &song.Source, &ref, &duration,
+			&position, &stanza, &text, &start)
+		if err != nil {
 			return Song{}, store.Translate(err)
 		}
+		if !found {
+			found = true
+			song.SourceRef, song.DurationMS = ref.String, duration.Int64
+			song.Lines = []Line{}
+		}
+		if !position.Valid {
+			continue
+		}
+		line := Line{Position: int(position.Int64), Stanza: int(stanza.Int64), Text: text.String}
 		if start.Valid {
 			line.StartMS = &start.Int64
 		}
@@ -106,6 +112,9 @@ func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return Song{}, store.Translate(err)
+	}
+	if !found {
+		return Song{}, fault.ErrNotFound
 	}
 	return song, nil
 }
