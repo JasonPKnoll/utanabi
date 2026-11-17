@@ -13,6 +13,7 @@ import (
 
 	"github.com/JasonPKnoll/utanabi/internal/app"
 	"github.com/JasonPKnoll/utanabi/internal/config"
+	"github.com/JasonPKnoll/utanabi/internal/features/songs"
 	"github.com/JasonPKnoll/utanabi/internal/logger"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 )
@@ -60,6 +61,7 @@ func run() (err error) {
 
 	a := app.New(cfg, log, dist,
 		application.NewService(app.NewAboutService(cfg)),
+		application.NewService(songs.NewService(songs.NewSQLite(db))),
 		app.CloseOnShutdown(db),
 	)
 

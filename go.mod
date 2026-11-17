@@ -4,6 +4,7 @@ go 1.27.4
 
 require (
 	github.com/wailsapp/wails/v3 v3.1.0
+	golang.org/x/text v0.43.0
 	modernc.org/sqlite v1.61.1
 )
 
@@ -138,7 +139,6 @@ require (
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
