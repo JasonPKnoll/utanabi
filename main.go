@@ -12,6 +12,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/JasonPKnoll/utanabi/internal/app"
+	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 	"github.com/JasonPKnoll/utanabi/internal/config"
 	"github.com/JasonPKnoll/utanabi/internal/features/songs"
 	"github.com/JasonPKnoll/utanabi/internal/logger"
@@ -65,7 +66,7 @@ func run() (err error) {
 
 	a := app.New(cfg, log, dist,
 		application.NewService(app.NewAboutService(cfg)),
-		application.NewService(songs.NewService(songs.NewSQLite(db), sources...)),
+		application.NewService(songs.NewService(songs.NewSQLite(db), songs.NewMorph(morph.New()), sources...)),
 		app.CloseOnShutdown(db),
 	)
 

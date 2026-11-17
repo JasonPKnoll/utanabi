@@ -77,8 +77,24 @@ To change the schema, add a file numbered one past the highest. Never edit a fil
 
 There are no down migrations. Undo a change with a new file.
 
+## Japanese text analysis
+
+`internal/common/morph` splits a line into tokens with [kagome](https://github.com/ikawaha/kagome) (`github.com/ikawaha/kagome/v2`), a pure Go morphological analyzer, and its IPA dictionary (`github.com/ikawaha/kagome-dict/ipa`). Each token has its surface, a hiragana reading, a coarse part of speech, and the IPA fields a later step needs (base form, conjugation type and form, pronunciation).
+
+The dictionary is the expensive part:
+
+- **Binary size:** it is embedded, and adds about 12 MB (the server build went from 23.8 MB to 36.4 MB).
+- **Memory:** loading it takes about 145 MB, kept for the life of the app.
+
+So `morph.New` loads nothing. The dictionary loads on the first line analysed, once, safely for concurrent callers, and never at startup. Opening a song whose lines all have tokens doesn't load it.
+
+The songs slice reaches it through its own `Analyzer` port. `main.go` wires `songs.NewMorph(morph.New())` into the service. A song's lines are analysed when it is saved, in the same transaction, and a song saved before analysis existed is analysed the first time it's opened. Furigana and romaji are computed from the stored tokens in `internal/common/jtext` (`Ruby`, `RomajiLine`), never stored.
+
+UniDic was tried and is far too heavy for a phone. The IPA dictionary dates from 2007, so it misreads some modern words and song readings. Readings are stored per token so a later issue can let you correct them.
+
 ## Why these choices
 
 - **Pure Go SQLite:** one driver for desktop, server, and mobile cross-compiles.
+- **kagome with the IPA dictionary:** pure Go, so it cross-compiles like the rest, and works offline with nothing to download. Loading it lazily keeps its memory off devices that don't need it yet.
 - **`app.Fail` in every service method:** Wails copies `err.Error()` into the message it sends to the frontend. Mapping the error before Wails sees it is the only way to keep internal detail out.
 - **wails3 pinned as a Go tool:** `go install tool` installs exactly the CLI version that matches the `github.com/wailsapp/wails/v3` module in `go.mod`.

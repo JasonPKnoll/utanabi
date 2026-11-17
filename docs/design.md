@@ -33,6 +33,11 @@ Every text colour has at least 4.5:1 contrast on the surfaces it sits on, in bot
 - The system font stack, with Hiragino Sans, Noto Sans JP, or Yu Gothic for Japanese. No web fonts yet: fonts must be bundled, never loaded from a CDN, and the system fonts already cover Japanese well.
 - Body text and form fields are at least 16px.
 - Lyrics: other lines at about 18px, the current line at about 26px and bold. Leave line height for furigana.
+- Furigana (`<rt>`) is half the size of its line, never under 10px, in the line's own colour (`--muted` on the current line). Romaji sits under its line at 16px in `--dim` (`--muted` on the current line).
+
+## Reading aids
+
+The song view has two toggle pills at the top, "Furigana" (on at first) and "Romaji" (off at first). They are `<button aria-pressed>`, 44px tall; a pressed pill uses the accent. The choice is remembered on the device in `localStorage`, and the defaults stand in when storage is blocked.
 
 ## Shared pieces
 

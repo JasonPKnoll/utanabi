@@ -3,6 +3,8 @@ module github.com/JasonPKnoll/utanabi
 go 1.27.4
 
 require (
+	github.com/ikawaha/kagome-dict/ipa v1.2.6
+	github.com/ikawaha/kagome/v2 v2.11.1
 	github.com/wailsapp/wails/v3 v3.1.0
 	golang.org/x/text v0.43.0
 	modernc.org/sqlite v1.61.1
@@ -78,6 +80,7 @@ require (
 	github.com/goreleaser/nfpm/v2 v2.44.1 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
+	github.com/ikawaha/kagome-dict v1.1.7 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/kevinburke/ssh_config v1.4.0 // indirect

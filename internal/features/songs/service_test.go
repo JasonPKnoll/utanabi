@@ -29,7 +29,7 @@ func TestServiceReturnsFrontendErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tt.call(NewService(newFakeRepo()))
+			err := tt.call(NewService(newFakeRepo(), fakeAnalyzer{}))
 
 			var fe *app.Error
 			if !errors.As(err, &fe) {
@@ -45,7 +45,7 @@ func TestServiceReturnsFrontendErrors(t *testing.T) {
 func TestServiceAddReturnsSavedSong(t *testing.T) {
 	t.Parallel()
 
-	got, err := NewService(newFakeRepo()).Add(t.Context(), NewSong{Title: "星の歌", Lyrics: "星が光る"})
+	got, err := NewService(newFakeRepo(), fakeAnalyzer{}).Add(t.Context(), NewSong{Title: "星の歌", Lyrics: "星が光る"})
 	if err != nil {
 		t.Fatalf("Add: %v", err)
 	}

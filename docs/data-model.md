@@ -33,7 +33,7 @@ Words and tokens are different because a tokenizer cuts finer than a learner thi
 8. **Rules that span rows are triggers.** A word must end on a token that exists, words in a line must not overlap, and conjugation steps must count up from 0 with no gaps. Triggers in the migration refuse anything else.
 9. **IDs that others point at are never reused.** `songs`, `lyric_lines`, `line_words`, and `cards` use `AUTOINCREMENT`, so an old link or reference can't land on a different row.
 
-The schema is in `internal/store/migrations/002_songs.sql` and `003_learning.sql`. `internal/store/schema_integration_test.go` proves each rule: it fills in one fully analysed line, then checks that each kind of bad row is refused for the right reason, and that deleting a song removes everything learned from it.
+The schema is in `internal/store/migrations/002_songs.sql`, `003_learning.sql`, and `004_token_pos.sql`. `internal/store/schema_integration_test.go` proves each rule: it fills in one fully analysed line, then checks that each kind of bad row is refused for the right reason, and that deleting a song removes everything learned from it.
 
 ## Your data: `utanabi.db`
 
@@ -80,17 +80,18 @@ erDiagram
 
 ### `line_tokens`
 
-Only what furigana needs.
+Only what furigana and romaji need. The tokenizer (kagome, in `internal/common/morph`) fills it when a song is saved, in the same transaction. A song saved before that gets its tokens the first time it's opened.
 
 | Column | Type | Rules |
 | --- | --- | --- |
 | `line_id` | INTEGER, references `lyric_lines`, cascade | |
 | `position` | INTEGER | `UNIQUE (line_id, position)`. |
 | `surface` | TEXT | Exactly as written in the line. |
-| `reading` | TEXT, nullable | Hiragana. Null for punctuation and Latin text. |
+| `reading` | TEXT, nullable | Hiragana. Null for punctuation, Latin text, and numbers. |
 | `reading_source` | TEXT | `auto` or `user`. |
+| `pos` | TEXT, nullable | The part of speech, a coarse code: `noun`, `pronoun`, `verb`, `adjective`, `adverb`, `particle`, `auxiliary`, `prefix`, `suffix`, `conjunction`, `interjection`, `symbol`, or `other`. Romaji needs it to read は, へ, and を as wa, e, and o when they are particles, and to know which tokens join the word before them. Null when it isn't known. Added in 004. |
 
-**Always true:** a line's token surfaces, in order, join back into exactly its `text`.
+**Always true:** a line's token surfaces, in order, join back into exactly its `text`. The app checks this before saving; a line whose tokens don't fit is saved without tokens, and shows without furigana, instead of failing the song.
 
 ### `line_words`
 
@@ -231,8 +232,8 @@ The first list covers the common particles, every conjugation, and the patterns 
 
 | Shown | Computed from | Where |
 | --- | --- | --- |
-| Furigana | Each token's `surface` and `reading` (kana at the end is matched and left bare) | Go, sent to the app as ruby pieces |
-| Romaji | Token readings | One Hepburn function in Go, unit-tested |
+| Furigana | Each token's `surface` and `reading` (kana in the word is matched in the reading and left bare) | `jtext.Ruby` in Go, sent to the app as ruby pieces (`Line.ruby`) |
+| Romaji | Token readings and parts of speech | `jtext.RomajiLine` in Go (modified Hepburn), sent to the app as `Line.romaji` |
 | Every form of a verb or adjective | `lemma` and `conj_class` | A conjugator in Go, tested against a table that includes the irregular verbs (する, 来る, 行く, ある, いい) and song forms (〜てる, 〜ちゃう, ら抜き, 〜ぬ) |
 | "探す in the 〜ている form" | `lemma` and `word_inflections` in order | Go |
 | Example lines for a card | `line_words` with the same entry and sense, or the same grammar point | A query |
@@ -245,7 +246,8 @@ The first list covers the common particles, every conjugation, and the patterns 
 | Migration | Adds | Status |
 | --- | --- | --- |
 | 002 | `lyric_sources` (with its four rows), `songs`, `lyric_lines` | Built. The songs slice uses it. |
-| 003 | `line_translations`, `line_tokens`, `line_words`, `word_inflections`, `cards` | Built. The tables are ready, with their rules tested; the code that fills them comes with #8, #9, #11, and #12. |
+| 003 | `line_translations`, `line_tokens`, `line_words`, `word_inflections`, `cards` | Built. The tables are ready, with their rules tested. The songs slice fills `line_tokens` (#8); the code for the rest comes with #9, #11, and #12. |
+| 004 | `line_tokens.pos` | Built, with #8. The songs slice saves each token's part of speech for romaji. |
 | `dictionary.db` | `entries`, `entry_forms`, `senses`, `grammar_points` | With #9: it needs a JMdict importer and the grammar list. |
 
 New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number, checked at startup.
@@ -253,6 +255,6 @@ New columns or tables only come in a new migration file. A merged migration is n
 ## Dependencies and content
 
 - `golang.org/x/text`, for Unicode normalization (`internal/common/jtext`). The standard library doesn't have it.
-- A tokenizer for #8 (for example kagome, pure Go, with its dictionary bundled).
+- `github.com/ikawaha/kagome/v2` and its IPA dictionary `github.com/ikawaha/kagome-dict/ipa`, the tokenizer (`internal/common/morph`). Pure Go, with the dictionary embedded in the binary. It adds about 12 MB to the binary and takes about 145 MB of memory once loaded, so it loads on the first line analysed, never at startup. See [architecture](architecture.md). The dictionary comes from mecab-ipadic, whose licence asks that its no-warranty notice ship with copies, so it needs a line in the app's credits along with JMdict.
 - JMdict, under its licence (CC BY-SA 4.0), which requires credit in the app.
 - The `grammar_points` list, which we write ourselves.

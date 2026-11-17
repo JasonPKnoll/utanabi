@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 )
 
@@ -20,7 +21,7 @@ func NewSQLite(db *store.DB) *SQLite {
 	return &SQLite{db: db}
 }
 
-// AddSong inserts the song and its lines in one transaction, and returns the song with its new ID.
+// AddSong inserts the song, its lines, and their tokens in one transaction, and returns the song with its new ID.
 func (s *SQLite) AddSong(ctx context.Context, song Song) (Song, error) {
 	now := time.Now().UnixMilli()
 	err := s.db.WithTx(ctx, func(q store.Querier) error {
@@ -33,12 +34,16 @@ func (s *SQLite) AddSong(ctx context.Context, song Song) (Song, error) {
 			return store.Translate(err)
 		}
 		for _, line := range song.Lines {
-			_, err := q.ExecContext(ctx,
-				`INSERT INTO lyric_lines (song_id, position, stanza, text, start_ms) VALUES (?, ?, ?, ?, ?)`,
+			var lineID int64
+			err := q.QueryRowContext(ctx,
+				`INSERT INTO lyric_lines (song_id, position, stanza, text, start_ms) VALUES (?, ?, ?, ?, ?) RETURNING id`,
 				song.ID, line.Position, line.Stanza, line.Text, line.StartMS,
-			)
+			).Scan(&lineID)
 			if err != nil {
 				return store.Translate(err)
+			}
+			if err := insertTokens(ctx, q, lineID, line.Tokens); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -71,15 +76,18 @@ func (s *SQLite) Songs(ctx context.Context) ([]Summary, error) {
 	return list, nil
 }
 
-// SongByID returns one song with its lines in order, or fault.ErrNotFound.
+// SongByID returns one song with its lines and their tokens in order, or fault.ErrNotFound.
 func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
-	// One statement reads the song and its lines, so a delete can't land between them and leave a song with no lines.
+	// One statement reads the song, its lines, and their tokens, so a delete can't land between them and leave a song
+	// with no lines. Each row is one token, or one line when it has no tokens.
 	rows, err := s.db.Querier().QueryContext(ctx,
 		`SELECT s.id, s.title, s.artist, s.source, s.source_ref, s.duration_ms,
-		        l.position, l.stanza, l.text, l.start_ms
-		 FROM songs s LEFT JOIN lyric_lines l ON l.song_id = s.id
+		        l.position, l.stanza, l.text, l.start_ms, t.surface, t.reading, t.pos
+		 FROM songs s
+		 LEFT JOIN lyric_lines l ON l.song_id = s.id
+		 LEFT JOIN line_tokens t ON t.line_id = l.id
 		 WHERE s.id = ?
-		 ORDER BY l.position`, id)
+		 ORDER BY l.position, t.position`, id)
 	if err != nil {
 		return Song{}, store.Translate(err)
 	}
@@ -88,11 +96,10 @@ func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 	var song Song
 	found := false
 	for rows.Next() {
-		var ref sql.NullString
+		var ref, text, surface, reading, pos sql.NullString
 		var duration, position, stanza, start sql.NullInt64
-		var text sql.NullString
 		err := rows.Scan(&song.ID, &song.Title, &song.Artist, &song.Source, &ref, &duration,
-			&position, &stanza, &text, &start)
+			&position, &stanza, &text, &start, &surface, &reading, &pos)
 		if err != nil {
 			return Song{}, store.Translate(err)
 		}
@@ -104,11 +111,19 @@ func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 		if !position.Valid {
 			continue
 		}
-		line := Line{Position: int(position.Int64), Stanza: int(stanza.Int64), Text: text.String}
-		if start.Valid {
-			line.StartMS = &start.Int64
+		n := len(song.Lines)
+		if n == 0 || song.Lines[n-1].Position != int(position.Int64) {
+			line := Line{Position: int(position.Int64), Stanza: int(stanza.Int64), Text: text.String}
+			if start.Valid {
+				line.StartMS = &start.Int64
+			}
+			song.Lines = append(song.Lines, line)
+			n++
 		}
-		song.Lines = append(song.Lines, line)
+		if surface.Valid {
+			song.Lines[n-1].Tokens = append(song.Lines[n-1].Tokens,
+				Token{Surface: surface.String, Reading: reading.String, POS: morph.POS(pos.String)})
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return Song{}, store.Translate(err)
@@ -117,6 +132,50 @@ func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 		return Song{}, fault.ErrNotFound
 	}
 	return song, nil
+}
+
+// SaveTokens stores the tokens of each of lines that has none yet, matching lines by position, in one transaction.
+// Lines that already have tokens keep them, so two calls at once, or a reading you corrected, are never overwritten.
+// It returns fault.ErrNotFound if a line isn't there.
+func (s *SQLite) SaveTokens(ctx context.Context, songID int64, lines []Line) error {
+	return s.db.WithTx(ctx, func(q store.Querier) error {
+		for _, line := range lines {
+			if len(line.Tokens) == 0 {
+				continue
+			}
+			var lineID int64
+			var analysed bool
+			err := q.QueryRowContext(ctx,
+				`SELECT l.id, EXISTS (SELECT 1 FROM line_tokens t WHERE t.line_id = l.id)
+				 FROM lyric_lines l WHERE l.song_id = ? AND l.position = ?`,
+				songID, line.Position,
+			).Scan(&lineID, &analysed)
+			if err != nil {
+				return store.Translate(err)
+			}
+			if analysed {
+				continue
+			}
+			if err := insertTokens(ctx, q, lineID, line.Tokens); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func insertTokens(ctx context.Context, q store.Querier, lineID int64, tokens []Token) error {
+	for i, t := range tokens {
+		_, err := q.ExecContext(ctx,
+			`INSERT INTO line_tokens (line_id, position, surface, reading, reading_source, pos)
+			 VALUES (?, ?, ?, ?, 'auto', ?)`,
+			lineID, i, t.Surface, nullString(t.Reading), nullString(string(t.POS)),
+		)
+		if err != nil {
+			return store.Translate(err)
+		}
+	}
+	return nil
 }
 
 // SongIDsBySource returns the library's song ID for each of refs already saved from source.

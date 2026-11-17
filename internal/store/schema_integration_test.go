@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 	"github.com/JasonPKnoll/utanabi/internal/store/storetest"
 )
@@ -82,6 +83,10 @@ func TestSchemaAcceptsGoodRows(t *testing.T) {
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading) VALUES (11, 0, 'ラーメン', 'らーめんゞ')`},
 		{name: "a token without a reading",
 			sql: `INSERT INTO line_tokens (line_id, position, surface) VALUES (11, 0, '、')`},
+		{name: "a token with its part of speech",
+			sql: `INSERT INTO line_tokens (line_id, position, surface, reading, pos) VALUES (11, 0, '夜', 'よる', 'noun')`},
+		{name: "a token without a part of speech",
+			sql: `INSERT INTO line_tokens (line_id, position, surface, reading, pos) VALUES (11, 0, '夜', 'よる', NULL)`},
 		{name: "a word in Latin letters without a reading",
 			sql: `INSERT INTO line_tokens (line_id, position, surface) VALUES (11, 0, 'love');
 			      INSERT INTO line_words (line_id, first_token, last_token, kind, lemma) VALUES (11, 0, 0, 'content', 'love')`},
@@ -152,6 +157,14 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading) VALUES (11, 0, '夜', 'ヨル')`},
 		{name: "reading with kanji in it", wantErr: "CHECK",
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading) VALUES (11, 0, '夜', '夜る')`},
+		{name: "token with an unknown part of speech", wantErr: "CHECK",
+			sql: `INSERT INTO line_tokens (line_id, position, surface, reading, pos) VALUES (11, 0, '夜', 'よる', '名詞')`},
+		{name: "token with a part of speech in capitals", wantErr: "CHECK",
+			sql: `INSERT INTO line_tokens (line_id, position, surface, reading, pos) VALUES (11, 0, '夜', 'よる', 'Noun')`},
+		{name: "token with an empty part of speech", wantErr: "CHECK",
+			sql: `INSERT INTO line_tokens (line_id, position, surface, reading, pos) VALUES (11, 0, '夜', 'よる', '')`},
+		{name: "existing token changed to an unknown part of speech", wantErr: "CHECK",
+			sql: `UPDATE line_tokens SET pos = 'determiner' WHERE line_id = 10 AND position = 0`},
 		{name: "word that overlaps another word", wantErr: "overlap",
 			sql: `INSERT INTO line_words (line_id, first_token, last_token, kind, lemma, lemma_reading) VALUES (10, 3, 4, 'content', 'を探', 'をさが')`},
 		{name: "word that ends past the last token", wantErr: "past the last token",
@@ -219,6 +232,19 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 				t.Errorf("got %v, want an error containing %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestSchemaAcceptsEveryPartOfSpeechCode(t *testing.T) {
+	t.Parallel()
+
+	db := newSchemaDB(t)
+	for i, pos := range morph.AllPOS() {
+		_, err := db.Querier().ExecContext(t.Context(),
+			`INSERT INTO line_tokens (line_id, position, surface, pos) VALUES (11, ?, '夜', ?)`, i, string(pos))
+		if err != nil {
+			t.Errorf("pos %q: got %v, want the row accepted", pos, err)
+		}
 	}
 }
 

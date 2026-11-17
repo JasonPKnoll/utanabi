@@ -10,6 +10,13 @@ export interface Line {
     "stanza": number;
     "text": string;
     "startMs": number | null;
+
+    /**
+     * Ruby is the line in pieces, with furigana over the kanji, and Romaji is the line in Latin letters. Both are
+     * worked out from Tokens and never stored. A line without tokens is one piece with no reading, and no romaji.
+     */
+    "ruby": RubyPart[] | null;
+    "romaji": string;
 }
 
 /**
@@ -35,6 +42,15 @@ export interface NewSong {
     "title": string;
     "artist": string;
     "lyrics": string;
+}
+
+/**
+ * RubyPart is a piece of a line, with the furigana that goes over it. Reading is empty for kana and anything else
+ * that needs none.
+ */
+export interface RubyPart {
+    "text": string;
+    "reading": string;
 }
 
 /**
