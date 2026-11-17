@@ -1,12 +1,14 @@
 import type { Line } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
 
-// What the song view shows with each line: furigana over the kanji, and romaji under the line.
+// What the song view shows with each line: furigana over the kanji, romaji under the line, and the word-by-word
+// gloss under that.
 export interface ReadingAids {
   furigana: boolean;
   romaji: boolean;
+  words: boolean;
 }
 
-export const defaultReadingAids: ReadingAids = { furigana: true, romaji: false };
+export const defaultReadingAids: ReadingAids = { furigana: true, romaji: false, words: false };
 
 const storageKey = "utanabi.readingAids";
 
@@ -24,10 +26,11 @@ export function loadReadingAids(store: () => Store = () => window.localStorage):
     if (typeof saved !== "object" || saved === null) {
       return { ...defaultReadingAids };
     }
-    const { furigana, romaji } = saved as Partial<Record<keyof ReadingAids, unknown>>;
+    const { furigana, romaji, words } = saved as Partial<Record<keyof ReadingAids, unknown>>;
     return {
       furigana: typeof furigana === "boolean" ? furigana : defaultReadingAids.furigana,
       romaji: typeof romaji === "boolean" ? romaji : defaultReadingAids.romaji,
+      words: typeof words === "boolean" ? words : defaultReadingAids.words,
     };
   } catch {
     return { ...defaultReadingAids };

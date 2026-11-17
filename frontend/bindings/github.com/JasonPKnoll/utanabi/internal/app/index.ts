@@ -7,5 +7,6 @@ export {
 };
 
 export type {
-    About
+    About,
+    Credit
 } from "./models.js";

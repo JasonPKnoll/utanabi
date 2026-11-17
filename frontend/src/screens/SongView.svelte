@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { Service as Songs, type Song } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
+  import {
+    Service as Songs,
+    type RubyPart,
+    type Song,
+    type Word,
+  } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
+  import { AboutService } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
+  import WordSheet from "../components/WordSheet.svelte";
   import { toAppError, type AppError } from "../lib/errors";
   import { startsStanza } from "../lib/lyrics";
   import { hasRomaji, loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
@@ -14,6 +21,9 @@
   let confirmDelete = $state(false);
   let deleting = $state(false);
   let aids = $state(loadReadingAids());
+  // JMdict's licence asks for its credit on every page that shows its words, so it sits under the glosses.
+  let jmdictCredit = $state("");
+  let open = $state<{ word: Word; ruby: RubyPart[] } | null>(null);
 
   let lines = $derived(song?.lines ?? []);
 
@@ -22,6 +32,12 @@
     // When storage refuses, the choice still holds until the screen closes, which is all that can be done.
     saveReadingAids(aids);
   }
+
+  $effect(() => {
+    AboutService.Info()
+      .then((about) => (jmdictCredit = about.credits?.find((c) => c.name === "JMdict")?.text ?? ""))
+      .catch(() => (jmdictCredit = ""));
+  });
 
   $effect(() => {
     Songs.Get(id)
@@ -84,9 +100,10 @@
           Furigana
         </button>
         <button type="button" class="pill" aria-pressed={aids.romaji} onclick={() => toggle("romaji")}>Romaji</button>
+        <button type="button" class="pill" aria-pressed={aids.words} onclick={() => toggle("words")}>Words</button>
       </div>
       <p class="hint muted">
-        Tap a line to follow along.
+        Tap a line to follow along, then tap a word in it to see what it means.
         {#if song.source !== "user"}
           <br />Lyrics from {sourceLabel(song.source)}{song.lines?.some((l) => l.startMs !== null) ? ", synced" : ""}.
         {/if}
@@ -94,24 +111,47 @@
       <ol class="lyrics" class:furigana={aids.furigana} lang="ja">
         {#each lines as line, i (line.position)}
           <li class:stanza-start={startsStanza(lines, i)}>
-            <button
-              type="button"
-              class="line"
-              class:current={i === current}
-              aria-current={i === current}
-              aria-label={line.text}
-              onclick={() => (current = i)}
-            >
-              <!-- prettier-ignore -->
-              <span class="sung">{#each line.ruby ?? [{ text: line.text, reading: "" }] as part, j (j)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</span>
-              {#if aids.romaji && hasRomaji(line)}
-                <span class="romaji" lang="ja-Latn">{line.romaji}</span>
-              {/if}
-            </button>
+            {#if i === current && (line.words ?? []).length > 0}
+              <div class="line current" role="group" aria-label={line.text} aria-current="true">
+                <!-- prettier-ignore -->
+                <span class="sung">{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [] })}>{#each piece.ruby ?? [] as part, k (k)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</button>{:else}{#each piece.ruby ?? [] as part, k (k)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}{/if}{/each}</span>
+                {#if aids.romaji && hasRomaji(line)}
+                  <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                {/if}
+                {#if aids.words && line.gloss}
+                  <span class="gloss" lang="en">{line.gloss}</span>
+                {/if}
+              </div>
+            {:else}
+              <button
+                type="button"
+                class="line"
+                class:current={i === current}
+                aria-current={i === current}
+                aria-label={line.text}
+                onclick={() => (current = i)}
+              >
+                <!-- prettier-ignore -->
+                <span class="sung">{#each line.ruby ?? [{ text: line.text, reading: "" }] as part, j (j)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</span>
+                {#if aids.romaji && hasRomaji(line)}
+                  <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                {/if}
+                {#if aids.words && line.gloss}
+                  <span class="gloss" lang="en">{line.gloss}</span>
+                {/if}
+              </button>
+            {/if}
           </li>
         {/each}
       </ol>
+      {#if aids.words && jmdictCredit}
+        <p class="credit">{jmdictCredit}</p>
+      {/if}
     </main>
+
+    {#if open}
+      <WordSheet word={open.word} ruby={open.ruby} onclose={() => (open = null)} />
+    {/if}
 
     <div class="actions">
       {#if confirmDelete}
@@ -184,15 +224,16 @@
 
   .aids {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    gap: 12px;
+    gap: 8px;
     margin: 4px 0 8px;
   }
 
   .pill {
     min-height: var(--tap);
-    min-width: 96px;
-    padding: 0 18px;
+    min-width: 88px;
+    padding: 0 16px;
     border: 1px solid var(--border);
     border-radius: 22px;
     background: var(--surface);
@@ -206,6 +247,13 @@
     border-color: var(--accent);
     background: var(--accent);
     color: var(--on-accent);
+  }
+
+  .credit {
+    margin: 24px 0 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
   }
 
   .hint {
@@ -283,6 +331,44 @@
 
   .line.current .romaji {
     color: var(--muted);
+  }
+
+  .gloss {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--dim);
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .line.current .gloss {
+    color: var(--muted);
+  }
+
+  /* The words of the current line. Each is a real button, at least 44px each way, marked with an amber underline so
+     it reads as tappable without hover. */
+  .word {
+    display: inline-block;
+    min-width: var(--tap);
+    min-height: var(--tap);
+    margin: 0 1px;
+    padding: 0 2px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    text-decoration: underline dotted var(--link);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 6px;
+    cursor: pointer;
+  }
+
+  .word:hover {
+    background: var(--surface);
   }
 
   @media (prefers-reduced-motion: reduce) {

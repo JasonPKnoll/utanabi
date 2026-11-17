@@ -4,9 +4,39 @@ import { initial, startsStanza } from "./lyrics";
 
 describe("startsStanza", () => {
   const lines = [
-    { position: 0, stanza: 0, text: "夜の空に", startMs: null, ruby: null, romaji: "" },
-    { position: 1, stanza: 0, text: "星が光る", startMs: null, ruby: null, romaji: "" },
-    { position: 2, stanza: 1, text: "君の声を探している", startMs: null, ruby: null, romaji: "" },
+    {
+      position: 0,
+      stanza: 0,
+      text: "夜の空に",
+      startMs: null,
+      ruby: null,
+      romaji: "",
+      words: null,
+      pieces: null,
+      gloss: "",
+    },
+    {
+      position: 1,
+      stanza: 0,
+      text: "星が光る",
+      startMs: null,
+      ruby: null,
+      romaji: "",
+      words: null,
+      pieces: null,
+      gloss: "",
+    },
+    {
+      position: 2,
+      stanza: 1,
+      text: "君の声を探している",
+      startMs: null,
+      ruby: null,
+      romaji: "",
+      words: null,
+      pieces: null,
+      gloss: "",
+    },
   ];
 
   it.each([

@@ -83,6 +83,14 @@
 
     {#if about}
       <p class="about" data-testid="about">{about.name} {about.version} · {about.platform}</p>
+      {#if (about.credits ?? []).length > 0}
+        <details class="credits">
+          <summary>Credits</summary>
+          {#each about.credits ?? [] as credit (credit.name)}
+            <p><strong>{credit.name}.</strong> {credit.text}</p>
+          {/each}
+        </details>
+      {/if}
     {/if}
   </main>
 
@@ -216,6 +224,27 @@
     margin: 24px 0 0;
     font-size: 0.8rem;
     color: var(--muted);
+  }
+
+  .credits {
+    font-size: 0.8rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  .credits summary {
+    display: flex;
+    align-items: center;
+    min-height: var(--tap);
+    width: fit-content;
+    color: var(--link);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .credits p {
+    margin: 0 0 8px;
   }
 
   /* The secondary button takes only the room it needs, so "Find a song" stays on one line at 360px. */
