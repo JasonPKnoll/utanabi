@@ -4,7 +4,11 @@
 package dictionary
 
 import (
+	_ "embed"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -80,6 +84,27 @@ type GrammarPoint struct {
 	Formation string `json:"formation,omitempty"`
 	// StandardID points a spoken, short, or old form at the standard form it stands for: teru at teiru.
 	StandardID string `json:"standard_id,omitempty"`
+}
+
+//go:embed grammar.json
+var grammarJSON []byte
+
+var builtInGrammar = sync.OnceValues(func() ([]GrammarPoint, error) {
+	var list []GrammarPoint
+	if err := json.Unmarshal(grammarJSON, &list); err != nil {
+		return nil, fmt.Errorf("dictionary: read the built-in grammar list failed (%v)", err)
+	}
+	return list, nil
+})
+
+// Grammar returns the grammar list built into the app from grammar.json, in file order. It needs no dictionary.db,
+// so grammar points can be explained even when word meanings aren't installed. dictbuild's test keeps the file valid.
+func Grammar() ([]GrammarPoint, error) {
+	list, err := builtInGrammar()
+	if err != nil {
+		return nil, err
+	}
+	return append([]GrammarPoint(nil), list...), nil
 }
 
 // MaxGrammarIDLength is the longest grammar point ID, the same limit utanabi.db checks.

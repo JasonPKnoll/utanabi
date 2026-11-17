@@ -300,6 +300,60 @@ func TestGrammarPointsMatchesTheList(t *testing.T) {
 	}
 }
 
+func TestEntriesReturnsEntriesByID(t *testing.T) {
+	t.Parallel()
+
+	d := openFixture(t)
+	entries, err := d.Entries(t.Context(), []int64{1593670, 999999999, 1272820, 1593670})
+	if err != nil {
+		t.Fatalf("Entries: %v", err)
+	}
+	if want := []int64{1593670, 1272820}; !slices.Equal(ids(entries), want) {
+		t.Fatalf("Entries = %v, want %v, in the order asked and without the unknown ID", ids(entries), want)
+	}
+	if got := entries[0].Senses[0].Glosses[0]; got != "to search for" {
+		t.Errorf("探す first gloss = %q, want %q", got, "to search for")
+	}
+	if len(entries[1].Forms) != 2 {
+		t.Errorf("光る has %d forms, want 2", len(entries[1].Forms))
+	}
+
+	none, err := d.Entries(t.Context(), nil)
+	if err != nil || len(none) != 0 {
+		t.Errorf("Entries(nil) = %v, %v, want nothing and no error", none, err)
+	}
+}
+
+func TestEntriesRejectsTooManyIDs(t *testing.T) {
+	t.Parallel()
+
+	d := openFixture(t)
+	_, err := d.Entries(t.Context(), make([]int64, 2001))
+	var invalid *fault.InvalidError
+	if !errors.As(err, &invalid) || invalid.Field != "ids" {
+		t.Errorf("Entries error = %v, want invalid input on ids", err)
+	}
+}
+
+func TestTagsDescribesKnownCodes(t *testing.T) {
+	t.Parallel()
+
+	d := openFixture(t)
+	tags, err := d.Tags(t.Context(), []string{"pref", "suf", "no-such-code"})
+	if err != nil {
+		t.Fatalf("Tags: %v", err)
+	}
+	want := map[string]string{"pref": "prefix", "suf": "suffix"}
+	if !reflect.DeepEqual(tags, want) {
+		t.Errorf("Tags = %v, want %v", tags, want)
+	}
+
+	var invalid *fault.InvalidError
+	if _, err := d.Tags(t.Context(), make([]string, 501)); !errors.As(err, &invalid) {
+		t.Errorf("Tags with 501 codes error = %v, want invalid input", err)
+	}
+}
+
 func TestOpenMissingFile(t *testing.T) {
 	t.Parallel()
 

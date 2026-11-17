@@ -8,6 +8,14 @@
     "explanation": "が comes after the subject of a verb or adjective. It often brings in new information or answers the question \"who?\" or \"what?\": 星が光る, the stars shine. Compare は, which marks what the sentence is about. Inside a longer sentence, the subject of a smaller clause usually takes が, not は."
   },
   {
+    "id": "ga-but",
+    "kind": "particle",
+    "pattern": "が",
+    "title": "But",
+    "meaning": "After a clause, joins it to a contrasting one: \"but\", \"and yet\".",
+    "explanation": "が after a full clause, not a noun, sets up a contrast with what follows: 会いたいが、会えない, I want to see you, but I can't. It sounds a little more formal or old-fashioned than けど. At the end of a line it can soften a statement and leave the rest unsaid."
+  },
+  {
     "id": "wa-topic",
     "kind": "particle",
     "pattern": "は",
@@ -144,6 +152,14 @@
     "explanation": "と comes after the words of a quote or a thought, before verbs like 言う, 思う, and 聞く: 好きだと言った, I said that I love you. The quote can be exact words in 「」 or reported speech."
   },
   {
+    "id": "to-when",
+    "kind": "particle",
+    "pattern": "〜と",
+    "title": "When, if",
+    "meaning": "After the plain form of a verb, says that when one thing happens, another always or naturally follows.",
+    "explanation": "と after a plain verb or adjective links a condition to a result that follows from it: 目を閉じると君が見える, when I close my eyes, I see you. It's used for natural results and things that always happen, not for wishes or requests."
+  },
+  {
     "id": "tte-quote",
     "kind": "particle",
     "pattern": "って",
@@ -169,12 +185,44 @@
     "explanation": "の after a verb or adjective turns the phrase into a noun, so a particle can follow it: 歌うのが好き, I like singing. It can also stand for a thing already known: 赤いの, the red one."
   },
   {
+    "id": "no-question",
+    "kind": "particle",
+    "pattern": "の",
+    "title": "Soft question or explanation",
+    "meaning": "At the end of a sentence, asks gently, or explains: \"is it that...?\", \"you see\".",
+    "explanation": "の at the end of a line, with a rising voice, asks a soft, personal question: どこへ行くの, where are you going? Said flat, it explains or insists: 好きなの, I love you, that's all. It's casual and often sounds gentle."
+  },
+  {
     "id": "mo-also",
     "kind": "particle",
     "pattern": "も",
     "title": "Also",
     "meaning": "Means \"too\" or \"also\", and replaces が, は, or を.",
     "explanation": "も adds a thing to what was said before: 僕も, me too. It takes the place of が, は, and を, but follows other particles: 夢にも, even in dreams. With a negative it means \"neither\", and after a question word it means \"every\" or \"none\": 何も, nothing."
+  },
+  {
+    "id": "demo-even",
+    "kind": "particle",
+    "pattern": "でも",
+    "title": "Even, or something",
+    "meaning": "After a noun, means \"even\", or offers a loose example: \"or something\".",
+    "explanation": "でも after a noun stretches it: 子供でもわかる, even a child understands. After a question word it means \"any\": いつでも, any time; 何度でも, as many times as it takes. It can also offer something as an example: お茶でも飲もう, let's have tea or something."
+  },
+  {
+    "id": "sae-even",
+    "kind": "particle",
+    "pattern": "さえ",
+    "title": "Even",
+    "meaning": "Marks something surprising or extreme: \"even\". With a condition, \"if only\".",
+    "explanation": "さえ picks out the least expected case: 名前さえ知らない, I don't even know your name. In a condition it means that one thing is enough: 君さえいれば, if only you are here."
+  },
+  {
+    "id": "koso-emphasis",
+    "kind": "particle",
+    "pattern": "こそ",
+    "title": "Exactly this",
+    "meaning": "Stresses the word before it: \"this, above all\", \"it is ... that\".",
+    "explanation": "こそ singles out one thing as the one that matters: 今こそ, now, of all times; 君こそ, it's you, not me. In lyrics it often adds weight to a promise or a turning point."
   },
   {
     "id": "kara-from",
@@ -191,6 +239,30 @@
     "title": "Because",
     "meaning": "After a clause, gives the reason: \"because\", \"so\".",
     "explanation": "から after a full clause gives the reason for what follows: 好きだから, because I love you. Lyrics often end a line with it and leave the result unsaid. ので is a softer, more formal way to say the same."
+  },
+  {
+    "id": "node-because",
+    "kind": "particle",
+    "pattern": "ので",
+    "title": "Because (gentle)",
+    "meaning": "After a clause, gives the reason in a softer, more matter-of-fact way: \"since\", \"so\".",
+    "explanation": "ので gives a reason like から, but sounds softer and more objective: 雨なので, since it's raining. After a noun or な-adjective it takes な: 静かなので."
+  },
+  {
+    "id": "noni-although",
+    "kind": "particle",
+    "pattern": "のに",
+    "title": "Even though",
+    "meaning": "After a clause, sets it against an outcome that goes the other way: \"even though\", \"and yet\".",
+    "explanation": "のに shows that things turned out against what you'd expect, often with regret or frustration: 好きなのに、言えない, I love you, and yet I can't say it. At the end of a line it means \"if only\": 会えたらいいのに, if only we could meet."
+  },
+  {
+    "id": "shi-and",
+    "kind": "particle",
+    "pattern": "し",
+    "title": "And also",
+    "meaning": "After a clause, adds one reason or fact to another: \"and\", \"and besides\".",
+    "explanation": "し lists reasons or facts side by side, hinting there are more: 雨も降るし、寒いし, it's raining, and it's cold, too. A single し at the end of a line can give a reason and leave the rest unsaid."
   },
   {
     "id": "made-until",
@@ -217,12 +289,52 @@
     "explanation": "や between nouns gives a sample, not the full list: 花や星, flowers, stars, and things like that. なんか or など can follow the last item to make the \"and so on\" clear."
   },
   {
+    "id": "toka-like",
+    "kind": "particle",
+    "pattern": "とか",
+    "title": "Things like",
+    "meaning": "Gives examples, or makes a statement vague: \"things like\", \"or something\".",
+    "explanation": "とか lists a few examples out of many: 歌とか絵とか, songs, pictures, things like that. After a phrase it makes it less direct: 好きとか言わないで, don't say things like \"I love you\"."
+  },
+  {
+    "id": "nado-and-so-on",
+    "kind": "particle",
+    "pattern": "など",
+    "title": "And so on",
+    "meaning": "After an example, means \"and so on\", or plays it down: \"the likes of\".",
+    "explanation": "など after one or more examples says there are others: 花や星など, flowers, stars, and so on. It can also play something down: 涙など見せない, I won't show anything like tears. なんて and なんか are casual forms."
+  },
+  {
+    "id": "nanka-casual",
+    "kind": "particle",
+    "pattern": "なんか / なんて",
+    "title": "Things like (casual)",
+    "meaning": "In casual speech, plays a word down or shows surprise: \"the likes of\", \"something like\".",
+    "explanation": "なんか and なんて after a word make it small, or show feeling about it: 僕なんか, someone like me; 涙なんて, tears, of all things. なんて can also show surprise at a whole clause: 会えるなんて, to think we could meet."
+  },
+  {
+    "id": "tari-and",
+    "kind": "particle",
+    "pattern": "〜たり〜たり",
+    "title": "Doing things like",
+    "meaning": "After a verb in the た form, lists a few actions among others: \"doing things like ... and ...\".",
+    "explanation": "たり (だり after some verbs) lists actions as examples, not in order: 笑ったり泣いたり, laughing and crying. It usually comes in pairs and ends with する. A single 〜たり hints at other things left unsaid."
+  },
+  {
     "id": "ka-question",
     "kind": "particle",
     "pattern": "か",
     "title": "Question",
     "meaning": "At the end of a sentence, makes it a question.",
     "explanation": "か at the end turns a statement into a question: 会えるか, can we meet? Inside a sentence it marks an embedded question: 何をすればいいか分からない, I don't know what I should do. Casual speech often drops it and uses rising intonation instead."
+  },
+  {
+    "id": "ka-some",
+    "kind": "particle",
+    "pattern": "か",
+    "title": "Some",
+    "meaning": "After a question word, makes it indefinite: 何か, something; 誰か, someone; どこか, somewhere.",
+    "explanation": "か after a question word turns the question into \"some\": 何か, something; 誰か, someone; いつか, some day. いつか and どこか are favourite words in lyrics for a hoped-for day and a faraway place."
   },
   {
     "id": "ne-agreement",
@@ -239,6 +351,38 @@
     "title": "Emphasis",
     "meaning": "At the end of a sentence, stresses something the listener should know: \"you know\", \"I tell you\".",
     "explanation": "よ adds weight to a statement or tells the listener something new: 大丈夫だよ, it's all right, really. After a command or invitation it makes it more urgent: 行こうよ, come on, let's go. よね joins the two particles: telling, and checking you agree."
+  },
+  {
+    "id": "zo-emphasis",
+    "kind": "particle",
+    "pattern": "ぞ / ぜ",
+    "title": "Strong emphasis",
+    "meaning": "At the end of a sentence, says something forcefully: \"I tell you\", \"let's go\".",
+    "explanation": "ぞ and ぜ end a sentence with energy and confidence: 行くぞ, here we go! ぜ is friendlier and invites the listener in. Both sound rough and casual, and are common in rock and anime songs."
+  },
+  {
+    "id": "sa-emphasis",
+    "kind": "particle",
+    "pattern": "さ",
+    "title": "Casual emphasis",
+    "meaning": "At the end of a phrase or sentence, adds a light, casual stress: \"you know\".",
+    "explanation": "さ adds a relaxed, matter-of-fact stress: 大丈夫さ, it's fine, you know. In the middle of a sentence it works as a filler, like \"like\" or \"so\" in English."
+  },
+  {
+    "id": "wa-feeling",
+    "kind": "particle",
+    "pattern": "わ",
+    "title": "Soft emphasis",
+    "meaning": "At the end of a sentence, adds feeling or a soft stress.",
+    "explanation": "わ at the end of a sentence shares a feeling or gently stresses a statement: 行くわ, I'll go. In standard Tokyo speech it sounds feminine; in western Japan anyone uses it. Don't confuse it with the topic particle は, which is also read wa."
+  },
+  {
+    "id": "na-feeling",
+    "kind": "particle",
+    "pattern": "な / なあ",
+    "title": "Feeling",
+    "meaning": "At the end of a sentence, shows the speaker's feeling or a wish, often to themselves: \"I really...\", \"how...\".",
+    "explanation": "な (or a long なあ) at the end of a sentence voices a feeling, often to yourself: きれいだな, how beautiful; 会いたいな, I wish I could see you. After the plain form of a verb, without any feeling, it is a command not to: see 〜な, Don't."
   },
   {
     "id": "na-prohibition",
@@ -271,6 +415,30 @@
     "title": "Only",
     "meaning": "Means \"only\" or \"just\", with a plain or positive verb.",
     "explanation": "だけ limits something to what it follows: 君だけ, only you; 少しだけ, just a little. It doesn't need a negative verb, unlike しか."
+  },
+  {
+    "id": "bakari-only",
+    "kind": "particle",
+    "pattern": "ばかり / ばっかり",
+    "title": "Nothing but",
+    "meaning": "After a word, says it's all there is: \"nothing but\", \"only\". After the た form, \"just did\".",
+    "explanation": "ばかり says there is too much of one thing: 涙ばかり, nothing but tears. After the た form it means something just happened: 出会ったばかり, we've only just met. ばっかり is a spoken form."
+  },
+  {
+    "id": "hodo-extent",
+    "kind": "particle",
+    "pattern": "ほど",
+    "title": "To the point of",
+    "meaning": "Shows how far something goes: \"so much that\", \"as ... as\", \"about\".",
+    "explanation": "ほど measures degree: 泣きたいほど, so much I want to cry. In a comparison with a negative it means \"not as ... as\": 君ほど強くない, not as strong as you. After a number it means \"about\"."
+  },
+  {
+    "id": "kurai-about",
+    "kind": "particle",
+    "pattern": "くらい / ぐらい",
+    "title": "About, at least",
+    "meaning": "After a number, means \"about\". After other words, \"at least\" or \"to the point that\".",
+    "explanation": "くらい (or ぐらい) gives a rough amount: 三日くらい, about three days. It also means \"at least this much\": 名前くらい教えて, at least tell me your name. And like ほど it shows degree: 苦しいくらい, so much it hurts."
   },
   {
     "id": "shika-only",
@@ -571,6 +739,15 @@
     "meaning": "\"Maybe\" or \"might\": a fair chance, not certain.",
     "explanation": "かもしれない says something is possible: 会えるかもしれない, we might meet. Casual speech shortens it to かも, often at the end of a line. The polite form is かもしれません.",
     "formation": "After the plain form of a verb or い-adjective (来るかもしれない), and straight after a noun or な-adjective (夢かもしれない)."
+  },
+  {
+    "id": "ja-nai",
+    "kind": "pattern",
+    "pattern": "〜じゃない / 〜ではない",
+    "title": "Is not",
+    "meaning": "The negative of だ: \"is not\". As a question, \"isn't it?\".",
+    "explanation": "じゃない says a noun or な-adjective is not something: 夢じゃない, it's not a dream. ではない is the fuller, more written form. With a rising voice, じゃない asks for agreement instead: きれいじゃない?, isn't it beautiful?",
+    "formation": "Straight after a noun or a な-adjective: 夢じゃない, 静かじゃない. It conjugates like ない: じゃなかった, not was; じゃなくて, isn't and."
   },
   {
     "id": "darou",

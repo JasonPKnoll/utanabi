@@ -40,17 +40,28 @@ func AllPOS() []POS {
 // Token is one piece of analysed text. Surface is exactly as written, so a text's surfaces join back into it.
 // Reading is hiragana, empty for punctuation, Latin text, numbers, and words the dictionary has no reading for.
 // The other fields are the IPA dictionary's own, empty where it has none: POSDetail is the first sub-category
-// (格助詞), BaseForm the dictionary form (探す), ConjType and ConjForm how the word conjugates and the form used here
+// (格助詞), POSDetail2 the second (引用, for a と that quotes), BaseForm the dictionary form (探す), ConjType and ConjForm how the word conjugates and the form used here
 // (五段・サ行, 連用形), and Pronunciation how it is said, in katakana (お母さん is オカーサン).
 type Token struct {
 	Surface       string
 	Reading       string
 	POS           POS
 	POSDetail     string
+	POSDetail2    string
 	BaseForm      string
 	ConjType      string
 	ConjForm      string
 	Pronunciation string
+}
+
+// Attribution is the credit the IPA dictionary's licence asks for: its source, and the no-warranty notice that must
+// ship with every copy.
+func Attribution() string {
+	return "Word boundaries and readings come from the IPA dictionary (mecab-ipadic 2.7.0-20070801), copyright the " +
+		"Nara Institute of Science and Technology (NAIST), with many entries from ICOT Free Software, through " +
+		"kagome and kagome-dict by ikawaha (MIT licence). NO WARRANTY: the dictionary is provided as is, without " +
+		"any warranty whatsoever, and NAIST, ICOT, and everyone involved in making it disclaim all warranties and " +
+		"are not liable for any damages arising from its use."
 }
 
 // Analyzer splits text into tokens. The dictionary takes about 145 MB of memory, so it is loaded on the first call,
@@ -92,6 +103,7 @@ func token(r tokenizer.Token) Token {
 		Surface:       r.Surface,
 		POS:           coarsePOS(field(f, 0), field(f, 1)),
 		POSDetail:     field(f, 1),
+		POSDetail2:    field(f, 2),
 		ConjType:      field(f, ipa.InflectionalType),
 		ConjForm:      field(f, ipa.InflectionalForm),
 		BaseForm:      field(f, ipa.BaseForm),
