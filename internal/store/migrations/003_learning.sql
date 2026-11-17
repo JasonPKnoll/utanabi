@@ -5,14 +5,27 @@
 -- grammar_point_id (our grammar list). They aren't foreign keys, because SQLite can't enforce those across files;
 -- the CHECKs here only make sure they are well formed.
 
--- A translation of one line. One per line, language, and source; the user's own wins when both exist.
+-- A translation of one line, written as a sentence. style says how close it stays to the Japanese: 'literal' follows
+-- its words and order ("Night's sky in, the stars shine"), 'natural' reads as fluent English ("Stars shine in the
+-- night sky"). origin says who wrote it: 'user' (you), 'ai' (a language model, named in model), or 'source' (a lyrics
+-- source, named in source). A word-by-word gloss is never stored here: it is computed from line_words and the
+-- dictionary, so it always matches the analysis.
 CREATE TABLE line_translations (
-    id      INTEGER PRIMARY KEY,
-    line_id INTEGER NOT NULL REFERENCES lyric_lines (id) ON DELETE CASCADE,
-    lang    TEXT    NOT NULL CHECK (length(lang) BETWEEN 2 AND 8 AND lang NOT GLOB '*[^a-z-]*'),
-    text    TEXT    NOT NULL CHECK (length(text) BETWEEN 1 AND 1000),
-    source  TEXT    NOT NULL REFERENCES lyric_sources (code),
-    UNIQUE (line_id, lang, source)
+    id         INTEGER PRIMARY KEY,
+    line_id    INTEGER NOT NULL REFERENCES lyric_lines (id) ON DELETE CASCADE,
+    lang       TEXT    NOT NULL CHECK (length(lang) BETWEEN 2 AND 8 AND lang NOT GLOB '*[^a-z-]*'),
+    style      TEXT    NOT NULL CHECK (style IN ('literal', 'natural')),
+    origin     TEXT    NOT NULL CHECK (origin IN ('user', 'ai', 'source')),
+    model      TEXT    CHECK (model IS NULL OR length(model) BETWEEN 1 AND 100),
+    source     TEXT    REFERENCES lyric_sources (code),
+    text       TEXT    NOT NULL CHECK (length(text) BETWEEN 1 AND 1000),
+    created_at INTEGER NOT NULL CHECK (created_at > 0),
+    -- An AI translation always names its model, a source's always names the source, and yours names neither, so one
+    -- kind can never pass for another.
+    CHECK ((origin = 'ai') = (model IS NOT NULL)),
+    CHECK ((origin = 'source') = (source IS NOT NULL)),
+    -- One of each per line and language. When several exist the app shows yours first, then a source's, then AI.
+    UNIQUE (line_id, lang, style, origin)
 ) STRICT;
 
 -- The tokenizer's pieces of a line, kept only for furigana. The surfaces of a line, in order, join back into exactly

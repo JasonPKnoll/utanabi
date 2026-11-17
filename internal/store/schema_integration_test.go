@@ -11,7 +11,8 @@ import (
 )
 
 // fixture is one user song and one online song, with the line 君の声を探している fully analysed: tokens, words with
-// meanings and grammar, two conjugation steps, an English translation, and one card of each kind.
+// meanings and grammar, two conjugation steps, your natural English translation and an AI literal one, and one card
+// of each kind.
 const fixture = `
 INSERT INTO songs (id, title, artist, source, created_at, updated_at) VALUES (1, '星の歌', 'Demo Artist', 'user', 1, 1);
 INSERT INTO songs (id, title, source, source_ref, created_at, updated_at) VALUES (2, 'Online song', 'lrclib', '123', 1, 1);
@@ -28,7 +29,10 @@ INSERT INTO line_words (id, line_id, first_token, last_token, kind, lemma, lemma
     (103, 10, 3, 3, 'particle', 'を', 'を', NULL, NULL, NULL, 'wo-object'),
     (104, 10, 4, 6, 'content', '探す', 'さがす', 'v5s', 3, 0, NULL);
 INSERT INTO word_inflections (word_id, step, grammar_point_id) VALUES (104, 0, 'te-form'), (104, 1, 'teiru');
-INSERT INTO line_translations (line_id, lang, text, source) VALUES (10, 'en', 'I am searching for your voice', 'user');
+INSERT INTO line_translations (line_id, lang, style, origin, text, created_at) VALUES
+    (10, 'en', 'natural', 'user', 'I am searching for your voice', 1);
+INSERT INTO line_translations (line_id, lang, style, origin, model, text, created_at) VALUES
+    (10, 'en', 'literal', 'ai', 'claude-sonnet-5-5', 'Your voice, I am searching', 1);
 INSERT INTO cards (id, kind, entry_id, sense_index, context_line_id, label, label_reading, created_at)
     VALUES (1000, 'word', 3, 0, 10, '探す', 'さがす', 1);
 INSERT INTO cards (id, kind, grammar_point_id, context_line_id, label, created_at)
@@ -89,6 +93,12 @@ func TestSchemaAcceptsGoodRows(t *testing.T) {
 			sql: `INSERT INTO cards (kind, entry_id, sense_index, label, created_at) VALUES ('word', 3, 1, '探す', 1)`},
 		{name: "a third conjugation step",
 			sql: `INSERT INTO word_inflections (word_id, step, grammar_point_id) VALUES (104, 2, 'past')`},
+		{name: "a natural AI translation next to your natural one",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, model, text, created_at) VALUES (10, 'en', 'natural', 'ai', 'claude-sonnet-5-5', 'I keep looking for your voice', 1)`},
+		{name: "your literal translation next to the AI's literal one",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, text, created_at) VALUES (10, 'en', 'literal', 'user', 'Your voice searching', 1)`},
+		{name: "a translation from a lyrics source",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, source, text, created_at) VALUES (10, 'en', 'natural', 'source', 'netease', 'Looking for your voice', 1)`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -163,9 +173,25 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 		{name: "two conjugations in the same step", wantErr: "UNIQUE",
 			sql: `INSERT INTO word_inflections (word_id, step, grammar_point_id) VALUES (104, 1, 'past')`},
 		{name: "translation with a badly formed language code", wantErr: "CHECK",
-			sql: `INSERT INTO line_translations (line_id, lang, text, source) VALUES (11, 'EN', 'Stars', 'user')`},
-		{name: "a second translation from the same source", wantErr: "UNIQUE",
-			sql: `INSERT INTO line_translations (line_id, lang, text, source) VALUES (10, 'en', 'again', 'user')`},
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, text, created_at) VALUES (11, 'EN', 'natural', 'user', 'Stars', 1)`},
+		{name: "translation in an unknown style", wantErr: "CHECK",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, text, created_at) VALUES (11, 'en', 'poetic', 'user', 'Stars', 1)`},
+		{name: "translation from an unknown origin", wantErr: "CHECK",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, text, created_at) VALUES (11, 'en', 'natural', 'machine', 'Stars', 1)`},
+		{name: "AI translation without its model", wantErr: "CHECK",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, text, created_at) VALUES (11, 'en', 'natural', 'ai', 'Stars', 1)`},
+		{name: "your translation claiming a model", wantErr: "CHECK",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, model, text, created_at) VALUES (11, 'en', 'natural', 'user', 'claude-sonnet-5-5', 'Stars', 1)`},
+		{name: "a source's translation without the source", wantErr: "CHECK",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, text, created_at) VALUES (11, 'en', 'natural', 'source', 'Stars', 1)`},
+		{name: "AI translation claiming a source", wantErr: "CHECK",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, model, source, text, created_at) VALUES (11, 'en', 'natural', 'ai', 'claude-sonnet-5-5', 'lrclib', 'Stars', 1)`},
+		{name: "translation from an unknown lyrics source", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, source, text, created_at) VALUES (11, 'en', 'natural', 'source', 'genius', 'Stars', 1)`},
+		{name: "a second natural translation of yours", wantErr: "UNIQUE",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, text, created_at) VALUES (10, 'en', 'natural', 'user', 'again', 1)`},
+		{name: "a second literal AI translation, even from another model", wantErr: "UNIQUE",
+			sql: `INSERT INTO line_translations (line_id, lang, style, origin, model, text, created_at) VALUES (10, 'en', 'literal', 'ai', 'another-model', 'again', 1)`},
 		{name: "word card without a meaning", wantErr: "CHECK",
 			sql: `INSERT INTO cards (kind, entry_id, label, created_at) VALUES ('word', 5, 'x', 1)`},
 		{name: "grammar card with a dictionary entry", wantErr: "CHECK",

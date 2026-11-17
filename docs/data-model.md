@@ -142,12 +142,30 @@ An unconjugated word has no rows here.
 
 ### `line_translations`
 
+A translation of a line, written as a sentence. There are three kinds of English for a line, and the database keeps them apart:
+
+| Kind | Example for 夜の空に星が光る | Where it lives |
+| --- | --- | --- |
+| **Word-by-word gloss** | 夜 night · の 's · 空 sky · に in · 星 star · が (subject) · 光る shine | **Never stored.** Computed from `line_words` and the dictionary, so it always matches the analysis. |
+| **Literal translation** | Night's sky in, the stars shine | A row with `style = 'literal'`: a sentence that follows the Japanese words and order. |
+| **Natural translation** | Stars shine in the night sky | A row with `style = 'natural'`: fluent English. |
+
+Each row also says who wrote it, so an AI translation can never pass for yours:
+
 | Column | Type | Rules |
 | --- | --- | --- |
 | `line_id` | INTEGER, references `lyric_lines`, cascade | |
 | `lang` | TEXT | `en` for now. |
+| `style` | TEXT | `literal` or `natural`. |
+| `origin` | TEXT | `user` (you), `ai` (a language model), or `source` (a lyrics source, such as NetEase, which has translated lyrics). |
+| `model` | TEXT, nullable | The AI model that wrote it. Set exactly when `origin` is `ai`, so it can be traced and redone with a better model. |
+| `source` | TEXT, nullable, references `lyric_sources` | The lyrics source it came from. Set exactly when `origin` is `source`. |
 | `text` | TEXT | 1 to 1000 characters. |
-| `source` | TEXT, references `lyric_sources` | `user` for your own. `UNIQUE (line_id, lang, source)`. |
+| `created_at` | INTEGER | UTC milliseconds. |
+
+`UNIQUE (line_id, lang, style, origin)`: one of each per line and language. A line can have your natural translation, an AI literal one, and an AI natural one side by side. When more than one of the same style exists, the app shows yours first, then a source's, then the AI's, and labels which it is.
+
+AI translation itself (which model, where its key lives, and its off switch, like `lyrics_sources`) comes with its own issue. A key can't ship in the app, so it needs a server we run or the user's own key in the OS keychain.
 
 ### `cards`
 
@@ -177,7 +195,7 @@ What a card shows:
 | --- | --- | --- |
 | `word` | 光る, highlighted in a line from your songs | Reading and romaji, the meaning used in the song, the other meanings, and its conjugation class |
 | `grammar` | The line, with に or 〜ている highlighted | What it does ("place: where something happens"), with the rule for forming it |
-| `line` | 夜の空に星が光る | The English line, the words in it, and its conjugations explained |
+| `line` | 夜の空に星が光る | The natural English, the literal English, the word-by-word gloss, and its conjugations explained, each labelled with who wrote it |
 
 Review scheduling gets its own table when #12 decides how review works.
 
@@ -218,6 +236,7 @@ The first list covers the common particles, every conjugation, and the patterns 
 | Every form of a verb or adjective | `lemma` and `conj_class` | A conjugator in Go, tested against a table that includes the irregular verbs (する, 来る, 行く, ある, いい) and song forms (〜てる, 〜ちゃう, ら抜き, 〜ぬ) |
 | "探す in the 〜ている form" | `lemma` and `word_inflections` in order | Go |
 | Example lines for a card | `line_words` with the same entry and sense, or the same grammar point | A query |
+| Word-by-word gloss of a line | Each word's `entry_id` and `sense_index` (the meaning used here), and each particle's grammar point | Go, from `line_words` and `dictionary.db` |
 | Verse breaks | A change in `stanza` | The app |
 | Search | Titles, artists, line text, readings, dictionary forms | Later: an FTS5 index with the trigram tokenizer |
 
