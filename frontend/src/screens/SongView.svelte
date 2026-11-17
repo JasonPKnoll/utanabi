@@ -2,6 +2,7 @@
   import { Service as Songs, type Song } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
   import { startsStanza } from "../lib/lyrics";
+  import { hasRomaji, loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
   import { homeHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
 
@@ -12,8 +13,15 @@
   let current = $state(0);
   let confirmDelete = $state(false);
   let deleting = $state(false);
+  let aids = $state(loadReadingAids());
 
   let lines = $derived(song?.lines ?? []);
+
+  function toggle(aid: keyof ReadingAids) {
+    aids[aid] = !aids[aid];
+    // When storage refuses, the choice still holds until the screen closes, which is all that can be done.
+    saveReadingAids(aids);
+  }
 
   $effect(() => {
     Songs.Get(id)
@@ -71,13 +79,19 @@
     <main class="center"><p class="muted">Loading…</p></main>
   {:else}
     <main>
+      <div class="aids" role="group" aria-label="Reading aids">
+        <button type="button" class="pill" aria-pressed={aids.furigana} onclick={() => toggle("furigana")}>
+          Furigana
+        </button>
+        <button type="button" class="pill" aria-pressed={aids.romaji} onclick={() => toggle("romaji")}>Romaji</button>
+      </div>
       <p class="hint muted">
         Tap a line to follow along.
         {#if song.source !== "user"}
           <br />Lyrics from {sourceLabel(song.source)}{song.lines?.some((l) => l.startMs !== null) ? ", synced" : ""}.
         {/if}
       </p>
-      <ol class="lyrics" lang="ja">
+      <ol class="lyrics" class:furigana={aids.furigana} lang="ja">
         {#each lines as line, i (line.position)}
           <li class:stanza-start={startsStanza(lines, i)}>
             <button
@@ -85,8 +99,15 @@
               class="line"
               class:current={i === current}
               aria-current={i === current}
-              onclick={() => (current = i)}>{line.text}</button
+              aria-label={line.text}
+              onclick={() => (current = i)}
             >
+              <!-- prettier-ignore -->
+              <span class="sung">{#each line.ruby ?? [{ text: line.text, reading: "" }] as part, j (j)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</span>
+              {#if aids.romaji && hasRomaji(line)}
+                <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+              {/if}
+            </button>
           </li>
         {/each}
       </ol>
@@ -161,6 +182,32 @@
     flex: none;
   }
 
+  .aids {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 4px 0 8px;
+  }
+
+  .pill {
+    min-height: var(--tap);
+    min-width: 96px;
+    padding: 0 18px;
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .pill[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
   .hint {
     margin: 4px 0 12px;
     font-size: 0.85rem;
@@ -203,6 +250,39 @@
     color: var(--fg);
     font-size: 1.6rem;
     font-weight: 700;
+  }
+
+  .sung {
+    display: block;
+  }
+
+  /* Furigana sits above the line inside its line height, so the rows need room for it. */
+  .furigana .line {
+    line-height: 2.2;
+  }
+
+  .line rt {
+    font-size: max(0.5em, 10px);
+    font-weight: 400;
+    line-height: 1;
+    color: inherit;
+  }
+
+  .line.current rt {
+    color: var(--muted);
+  }
+
+  .romaji {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--dim);
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .line.current .romaji {
+    color: var(--muted);
   }
 
   @media (prefers-reduced-motion: reduce) {

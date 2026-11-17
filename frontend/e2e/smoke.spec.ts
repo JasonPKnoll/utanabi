@@ -37,6 +37,23 @@ test("a song with your own lyrics can be added, read, and deleted", async ({ pag
   await page.getByRole("button", { name: "星が光る" }).click();
   await expect(page.getByRole("button", { name: "星が光る" })).toHaveAttribute("aria-current", "true");
 
+  const night = page.getByRole("button", { name: "夜の空に" });
+  await expect(night.locator("ruby").first()).toBeVisible();
+  await expect(night.locator("rt").first()).toHaveText("よる");
+  await expect(page.getByRole("button", { name: "Romaji" })).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "Romaji" }).click();
+  await expect(night.getByText("yoru no sora ni")).toBeVisible();
+  await page.getByRole("button", { name: "Furigana" }).click();
+  await expect(page.getByRole("button", { name: "Furigana" })).toHaveAttribute("aria-pressed", "false");
+  await expect(night.locator("rt")).toHaveCount(0);
+  await expect(night).toContainText("夜の空に");
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Romaji" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Furigana" })).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "Furigana" }).click();
+  await expect(night.locator("rt").first()).toHaveText("よる");
+
   await page.getByRole("link", { name: "Back to your songs" }).click();
   await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
 
