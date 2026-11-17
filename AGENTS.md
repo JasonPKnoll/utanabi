@@ -16,9 +16,10 @@ Utanabi is an app for learning Japanese through song lyrics. It is a Go app buil
 | `internal/app` | The Wails wiring (options, window, platform folders per build target), `app.Fail` (the one frontend error mapping), the example `AboutService`, and the shutdown hook. |
 | `internal/common/fault` | The project's error sentinels (`ErrNotFound`, `ErrConflict`, `ErrCanceled`, `ErrTimeout`) and `InvalidError`. |
 | `internal/common/redact` | The `Secret` type, which never prints its value. |
-| `internal/common/jtext` | Japanese text normalization (NFC, full-width katakana) and the hiragana check for readings. |
+| `internal/common/jtext` | Japanese text normalization (NFC, full-width katakana), the hiragana check for readings, katakana to hiragana, furigana alignment (`Ruby`), and modified Hepburn romaji (`Romaji`, `RomajiLine`). |
+| `internal/common/morph` | The morphological analyzer: kagome with the IPA dictionary, loaded on first use. Splits text into tokens with a hiragana reading, a coarse part of speech, and the raw IPA fields. |
 | `internal/features` | Feature slices, one folder each. |
-| `internal/features/songs` | The songs the user is learning: search online lyrics sources (LRCLIB in `lrclib_api.go`) and add a match, or add a song with your own lyrics; list, read, and delete. Synced (LRC) lyrics keep each line's start time. |
+| `internal/features/songs` | The songs the user is learning: search online lyrics sources (LRCLIB in `lrclib_api.go`) and add a match, or add a song with your own lyrics; list, read, and delete. Synced (LRC) lyrics keep each line's start time. Each line is analysed into tokens when saved (through the `Analyzer` port, `morph.go` wraps `internal/common/morph`), and its furigana and romaji are computed from them. |
 | `internal/store` | The SQLite database: open, `Migrate`, `WithTx`, `Querier`, and `Translate` for driver errors. |
 | `internal/store/migrations` | The schema: numbered `.sql` files, embedded in the binary and applied at startup. |
 | `internal/store/storetest` | A fresh database file per test, for integration tests. |
