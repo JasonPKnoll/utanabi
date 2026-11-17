@@ -51,8 +51,11 @@ type SearchResult struct {
 }
 
 // SearchSongs asks each source in turn for songs matching query, and marks the ones already in the library. A source
-// that fails is listed in Unavailable instead of failing the search.
+// that fails is listed in Unavailable instead of failing the search. With no sources on, search is turned off.
 func SearchSongs(ctx context.Context, repo Repository, sources []LyricsSource, query string) (SearchResult, error) {
+	if len(sources) == 0 {
+		return SearchResult{}, fault.Invalid("search", "is turned off")
+	}
 	query = strings.TrimSpace(jtext.Normalize(query))
 	if query == "" {
 		return SearchResult{}, fault.Invalid("query", "is required")

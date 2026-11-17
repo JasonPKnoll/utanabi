@@ -35,6 +35,16 @@ func (s *Service) Add(ctx context.Context, song NewSong) (Song, error) {
 	return saved, app.Fail(ctx, err)
 }
 
+// SearchSources returns the names of the online lyrics sources that are on, in the order search asks them. Empty
+// means online search is turned off.
+func (s *Service) SearchSources() []string {
+	names := make([]string, len(s.sources))
+	for i, src := range s.sources {
+		names[i] = src.Name()
+	}
+	return names
+}
+
 // Search finds songs with lyrics at the online lyrics sources.
 func (s *Service) Search(ctx context.Context, query string) (SearchResult, error) {
 	result, err := SearchSongs(ctx, s.repo, s.sources, query)

@@ -37,6 +37,10 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
+	sources, err := lyricsSources(cfg)
+	if err != nil {
+		return err
+	}
 
 	log, logFile, err := logger.Open(cfg.LogDir, cfg.LogLevel)
 	if err != nil {
@@ -61,13 +65,29 @@ func run() (err error) {
 
 	a := app.New(cfg, log, dist,
 		application.NewService(app.NewAboutService(cfg)),
-		application.NewService(songs.NewService(songs.NewSQLite(db), songs.NewLRCLIB(songs.LRCLIBURL, cfg.Version))),
+		application.NewService(songs.NewService(songs.NewSQLite(db), sources...)),
 		app.CloseOnShutdown(db),
 	)
 
-	log.InfoContext(ctx, "starting", slog.String("version", cfg.Version), slog.String("platform", cfg.Platform))
+	log.InfoContext(ctx, "starting", slog.String("version", cfg.Version), slog.String("platform", cfg.Platform),
+		slog.Any("lyrics_sources", cfg.LyricsSources))
 	if err := a.Run(); err != nil {
 		return fmt.Errorf("run app: %w", err)
 	}
 	return nil
+}
+
+// lyricsSources builds the online lyrics sources that config turns on, in order. The lyrics_sources setting is the
+// switch: with it empty, the app sends nothing to any lyrics service.
+func lyricsSources(cfg config.Config) ([]songs.LyricsSource, error) {
+	sources := make([]songs.LyricsSource, 0, len(cfg.LyricsSources))
+	for _, name := range cfg.LyricsSources {
+		switch name {
+		case "lrclib":
+			sources = append(sources, songs.NewLRCLIB(songs.LRCLIBURL, cfg.Version))
+		default:
+			return nil, fmt.Errorf("build lyrics sources: config allows %q but main.go has no adapter for it", name)
+		}
+	}
+	return sources, nil
 }

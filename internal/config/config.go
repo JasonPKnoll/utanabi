@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,14 @@ const SettingsFile = "settings.json"
 // version is set at build time: -ldflags "-X github.com/JasonPKnoll/utanabi/internal/config.version=1.2.3".
 // Production builds stamp info.version from build/config.yml through VERSION_LDFLAG in the Taskfiles.
 var version = "dev"
+
+// defaultLyricsSources is the comma-separated list of online lyrics sources a build turns on when the user hasn't
+// chosen, or "none". A build can ship with them off:
+// -ldflags "-X github.com/JasonPKnoll/utanabi/internal/config.defaultLyricsSources=none".
+var defaultLyricsSources = "lrclib"
+
+// LyricsSources are the online lyrics sources this build has an adapter for, in the order search asks them.
+var LyricsSources = []string{"lrclib"}
 
 // Dirs are the OS folders the app writes to. An empty Log means log to stderr.
 type Dirs struct {
@@ -50,6 +59,9 @@ type Config struct {
 	LogDir        string
 	DBPath        string
 	DBBusyTimeout time.Duration
+	// LyricsSources are the online lyrics sources that are on, in order. Empty means online search is off and
+	// nothing is sent to any lyrics service.
+	LyricsSources []string
 	Server        Server
 }
 
@@ -63,6 +75,9 @@ type Server struct {
 type settings struct {
 	LogLevel      string `json:"log_level"`
 	DBBusyTimeout string `json:"db_busy_timeout"`
+	// A nil LyricsSources means the user hasn't chosen, so the build's default applies. An empty list turns every
+	// online source off.
+	LyricsSources *[]string `json:"lyrics_sources"`
 }
 
 // Load reads the settings file and env vars for the platform, and validates the result.
@@ -104,6 +119,11 @@ func Load(p Platform) (Config, error) {
 		cfg.DBBusyTimeout = d
 	}
 
+	cfg.LyricsSources, err = lyricsSources(s.LyricsSources)
+	if err != nil {
+		return Config{}, err
+	}
+
 	if p.Name == "server" {
 		cfg.Server, err = loadServer(getenv)
 		if err != nil {
@@ -137,6 +157,48 @@ func overrideFromEnv(s *settings, getenv func(string) string) {
 	if v := getenv("UTANABI_DB_BUSY_TIMEOUT"); v != "" {
 		s.DBBusyTimeout = v
 	}
+	if v := getenv("UTANABI_LYRICS_SOURCES"); v != "" {
+		list := splitList(v)
+		s.LyricsSources = &list
+	}
+}
+
+// lyricsSources resolves the lyrics_sources setting: the build's default when unset, nothing for "none" or an
+// empty list, and otherwise the named sources, which must be ones this build has.
+func lyricsSources(chosen *[]string) ([]string, error) {
+	names := splitList(defaultLyricsSources)
+	if chosen != nil {
+		names = *chosen
+	}
+
+	on := []string{}
+	for _, name := range names {
+		name = strings.ToLower(strings.TrimSpace(name))
+		switch {
+		case name == "" || slices.Contains(on, name):
+			continue
+		case name == "none":
+			if len(names) > 1 {
+				return nil, errors.New("config: invalid lyrics_sources (none can't be combined with a source)")
+			}
+			return []string{}, nil
+		case !slices.Contains(LyricsSources, name):
+			return nil, fmt.Errorf("config: invalid lyrics_sources (%q is not one of %s, or none)",
+				name, strings.Join(LyricsSources, ", "))
+		}
+		on = append(on, name)
+	}
+	return on, nil
+}
+
+func splitList(s string) []string {
+	var list []string
+	for item := range strings.SplitSeq(s, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			list = append(list, item)
+		}
+	}
+	return list
 }
 
 func loadServer(getenv func(string) string) (Server, error) {

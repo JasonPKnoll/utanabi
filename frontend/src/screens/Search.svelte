@@ -11,6 +11,12 @@
   let unavailable = $state<string[]>([]);
   let failure = $state<AppError | null>(null);
   let adding = $state<string | null>(null);
+  // The online sources that are on. Null until the app answers; empty when search is switched off in settings.
+  let sourceNames = $state<string[] | null>(null);
+
+  Songs.SearchSources()
+    .then((names) => (sourceNames = names ?? []))
+    .catch((err: unknown) => (failure = toAppError(err)));
 
   let queryError = $derived(failure?.code === "invalid_input" && failure.field === "query" ? failure.message : null);
 
@@ -73,82 +79,95 @@
     <h1>Find a song</h1>
   </header>
 
-  <form onsubmit={search} role="search" novalidate>
-    <label for="search-query" class="visually-hidden">Song title or artist</label>
-    <div class="search-row">
-      <input
-        id="search-query"
-        type="search"
-        bind:value={query}
-        placeholder="Song title or artist"
-        enterkeyhint="search"
-        autocomplete="off"
-        aria-invalid={queryError !== null}
-        aria-describedby={queryError ? "search-query-error" : undefined}
-      />
-      <button class="button primary" type="submit" disabled={searching}>{searching ? "Searching…" : "Search"}</button>
-    </div>
-    {#if queryError}
-      <p id="search-query-error" class="error">{queryError}</p>
-    {/if}
-  </form>
-
-  <main aria-live="polite">
-    {#if failure && failure.code !== "invalid_input"}
-      <p class="alert" role="alert">{failure.message}</p>
-    {:else if failure?.code === "invalid_input" && failure.field !== "query"}
-      <p class="alert" role="alert">{failure.message}</p>
-    {/if}
-
-    {#if unavailable.length > 0}
-      <p class="notice">
-        {unavailable.join(", ")}
-        {unavailable.length === 1 ? "isn't" : "aren't"} answering right now. Try again in a moment, or add your own lyrics.
-      </p>
-    {/if}
-
-    {#if searched !== ""}
-      {#if matches.length === 0 && unavailable.length === 0}
-        <div class="empty">
-          <p class="empty-title">No songs found for “{searched}”</p>
-          <p class="muted">Try the title in Japanese or in rōmaji, or add the lyrics yourself.</p>
-        </div>
-      {:else if matches.length > 0}
-        <ul>
-          {#each matches as match (match.source + match.sourceRef)}
-            <li class="result">
-              <div class="text">
-                <span class="title">{match.title}</span>
-                <span class="sub">{details(match)}</span>
-                <span class="tags">
-                  {#if match.synced}<span class="tag">Synced</span>{/if}
-                  <span class="tag plain">{match.sourceName}</span>
-                </span>
-              </div>
-              {#if match.songId > 0}
-                <a class="button small" href={songHref(match.songId)}>In library</a>
-              {:else}
-                <button
-                  type="button"
-                  class="button primary small"
-                  onclick={() => add(match)}
-                  disabled={adding !== null}
-                  aria-label={`Add ${match.title} to your library`}
-                >
-                  {adding === match.sourceRef ? "Adding…" : "Add"}
-                </button>
-              {/if}
-            </li>
-          {/each}
-        </ul>
+  {#if sourceNames !== null && sourceNames.length === 0}
+    <main class="off">
+      <p class="empty-title">Online lyrics search is turned off</p>
+      <p class="muted">You can still add songs with your own lyrics.</p>
+    </main>
+  {:else}
+    <form onsubmit={search} role="search" novalidate>
+      <label for="search-query" class="visually-hidden">Song title or artist</label>
+      <div class="search-row">
+        <input
+          id="search-query"
+          type="search"
+          bind:value={query}
+          placeholder="Song title or artist"
+          enterkeyhint="search"
+          autocomplete="off"
+          aria-invalid={queryError !== null}
+          aria-describedby={queryError ? "search-query-error" : undefined}
+        />
+        <button class="button primary" type="submit" disabled={searching}>{searching ? "Searching…" : "Search"}</button>
+      </div>
+      {#if queryError}
+        <p id="search-query-error" class="error">{queryError}</p>
       {/if}
-    {/if}
-  </main>
+    </form>
+
+    <main aria-live="polite">
+      {#if failure && failure.code !== "invalid_input"}
+        <p class="alert" role="alert">{failure.message}</p>
+      {:else if failure?.code === "invalid_input" && failure.field !== "query"}
+        <p class="alert" role="alert">{failure.message}</p>
+      {/if}
+
+      {#if unavailable.length > 0}
+        <p class="notice">
+          {unavailable.join(", ")}
+          {unavailable.length === 1 ? "isn't" : "aren't"} answering right now. Try again in a moment, or add your own lyrics.
+        </p>
+      {/if}
+
+      {#if searched !== ""}
+        {#if matches.length === 0 && unavailable.length === 0}
+          <div class="empty">
+            <p class="empty-title">No songs found for “{searched}”</p>
+            <p class="muted">Try the title in Japanese or in rōmaji, or add the lyrics yourself.</p>
+          </div>
+        {:else if matches.length > 0}
+          <ul>
+            {#each matches as match (match.source + match.sourceRef)}
+              <li class="result">
+                <div class="text">
+                  <span class="title">{match.title}</span>
+                  <span class="sub">{details(match)}</span>
+                  <span class="tags">
+                    {#if match.synced}<span class="tag">Synced</span>{/if}
+                    <span class="tag plain">{match.sourceName}</span>
+                  </span>
+                </div>
+                {#if match.songId > 0}
+                  <a class="button small" href={songHref(match.songId)}>In library</a>
+                {:else}
+                  <button
+                    type="button"
+                    class="button primary small"
+                    onclick={() => add(match)}
+                    disabled={adding !== null}
+                    aria-label={`Add ${match.title} to your library`}
+                  >
+                    {adding === match.sourceRef ? "Adding…" : "Add"}
+                  </button>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      {/if}
+    </main>
+  {/if}
 
   <div class="actions">
-    <a class="button" href={addHref}>Can't find it? Add your own lyrics</a>
+    {#if sourceNames !== null && sourceNames.length === 0}
+      <a class="button primary" href={addHref}>Add your own lyrics</a>
+    {:else}
+      <a class="button" href={addHref}>Can't find it? Add your own lyrics</a>
+    {/if}
   </div>
-  <p class="credit muted">Lyrics search by LRCLIB (lrclib.net), a free, community-run lyrics database.</p>
+  {#if sourceNames?.includes("LRCLIB")}
+    <p class="credit muted">Lyrics search by LRCLIB (lrclib.net), a free, community-run lyrics database.</p>
+  {/if}
 </div>
 
 <style>
@@ -223,6 +242,17 @@
     flex-direction: column;
     gap: 12px;
     padding: 16px 0;
+  }
+
+  main.off {
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+  }
+
+  main.off p {
+    margin: 0;
   }
 
   .notice {

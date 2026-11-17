@@ -40,6 +40,7 @@
 
 ## Outgoing requests
 
+- **Every outside lyrics service can be switched off** with the `lyrics_sources` setting (`settings.json`, `UTANABI_LYRICS_SOURCES` in server mode, or a build-time default). Set it to `[]` or `none` and restart: the app makes no outgoing requests at all, and search is hidden. Use it the moment a source has a problem: downtime, a change in its terms, or a licensing question.
 - The app talks to one outside service: **LRCLIB** (`https://lrclib.net`), from `internal/features/songs/lrclib_api.go`. It sends only what you type into song search, and the ID of a song you add. Nothing about you or your library is sent.
 - Searches go out only when you press Search, never as you type, to respect LRCLIB's rate limits.
 - Requests name the app in the `User-Agent` (`Utanabi <version> (https://github.com/JasonPKnoll/utanabi)`), as LRCLIB asks. No API key is used or needed.

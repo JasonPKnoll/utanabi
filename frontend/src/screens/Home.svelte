@@ -12,10 +12,16 @@
   let songs = $state<Summary[] | null>(null);
   let about = $state<About | null>(null);
   let failure = $state<AppError | null>(null);
+  // Online search can be switched off in settings. Until the answer arrives, assume it's on, the usual case.
+  let searchOn = $state(true);
 
   Songs.List()
     .then((list) => (songs = list ?? []))
     .catch((err: unknown) => (failure = toAppError(err)));
+
+  Songs.SearchSources()
+    .then((names) => (searchOn = (names ?? []).length > 0))
+    .catch((err: unknown) => (failure ??= toAppError(err)));
 
   AboutService.Info()
     .then((info) => (about = info))
@@ -40,7 +46,11 @@
     {:else if songs.length === 0}
       <div class="empty">
         <p class="empty-title">No songs yet</p>
-        <p class="muted">Find a song to start learning from it, or add one with your own lyrics.</p>
+        <p class="muted">
+          {searchOn
+            ? "Find a song to start learning from it, or add one with your own lyrics."
+            : "Add a song with your own lyrics to start learning from it."}
+        </p>
       </div>
     {:else}
       <ul>
@@ -75,20 +85,24 @@
   </main>
 
   <div class="actions">
-    <a class="button" href={addHref}>Add your own</a>
-    <a class="button primary" href={searchHref}>
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.5"
-        stroke-linecap="round"
-        aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
-      >
-      Find a song
-    </a>
+    {#if !searchOn}
+      <a class="button primary" href={addHref}>Add your own lyrics</a>
+    {:else}
+      <a class="button" href={addHref}>Add your own</a>
+      <a class="button primary" href={searchHref}>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+        >
+        Find a song
+      </a>
+    {/if}
   </div>
 </div>
 

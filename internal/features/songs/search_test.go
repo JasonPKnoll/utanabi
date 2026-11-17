@@ -240,3 +240,36 @@ func TestAddFromSourceRejects(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchIsOffWithoutSources(t *testing.T) {
+	t.Parallel()
+
+	_, err := SearchSongs(t.Context(), newFakeRepo(), nil, "星")
+	var invalid *fault.InvalidError
+	if !errors.As(err, &invalid) || invalid.Field != "search" {
+		t.Errorf("err = %v, want invalid search (turned off)", err)
+	}
+}
+
+func TestAddFromSourceIsRefusedWhenItsSourceIsOff(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeRepo()
+	_, err := AddFromSource(t.Context(), repo, nil, "lrclib", "11")
+	var invalid *fault.InvalidError
+	if !errors.As(err, &invalid) || invalid.Field != "source" {
+		t.Errorf("err = %v, want invalid source", err)
+	}
+}
+
+func TestServiceListsTheSourcesThatAreOn(t *testing.T) {
+	t.Parallel()
+
+	if got := NewService(newFakeRepo()).SearchSources(); len(got) != 0 {
+		t.Errorf("no sources = %v, want none", got)
+	}
+	got := NewService(newFakeRepo(), newLRCLIBFake()).SearchSources()
+	if !reflect.DeepEqual(got, []string{"LRCLIB"}) {
+		t.Errorf("sources = %v, want [LRCLIB]", got)
+	}
+}

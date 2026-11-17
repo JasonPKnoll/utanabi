@@ -55,3 +55,11 @@ export function List(): $CancellablePromise<$models.Summary[] | null> {
 export function Search(query: string): $CancellablePromise<$models.SearchResult> {
     return $Call.ByID(1986205780, query);
 }
+
+/**
+ * SearchSources returns the names of the online lyrics sources that are on, in the order search asks them. Empty
+ * means online search is turned off.
+ */
+export function SearchSources(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(4198490630);
+}
