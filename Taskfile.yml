@@ -109,6 +109,15 @@ tasks:
     cmds:
       - go mod tidy
 
+  dictionary:
+    summary: >-
+      Downloads the pinned JMdict release, checks its SHA-256, and builds dictionary.db with the grammar list.
+      Writes data/dictionary.db, the server-mode default; pass OUT=<path> to write somewhere else.
+    vars:
+      OUT: '{{.OUT | default "data/dictionary.db"}}'
+    cmds:
+      - go run ./internal/dictionary/cmd/dictbuild -out "{{.OUT}}"
+
   bindings:
     summary: Regenerates frontend/bindings from the bound Go services. Never edit those files by hand.
     cmds:
