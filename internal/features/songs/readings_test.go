@@ -25,7 +25,7 @@ func TestAddSongAnalysesEachLine(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepo()
-	got, err := AddSong(t.Context(), repo, searchingAnalyzer(), NewSong{Title: "星の歌", Lyrics: "君の声を探している"})
+	got, err := AddSong(t.Context(), repo, searchingAnalyzer(), noMeanings(t), NewSong{Title: "星の歌", Lyrics: "君の声を探している"})
 	if err != nil {
 		t.Fatalf("AddSong: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestAddSongSavesALineWithoutTokensWhenTheyDontFitIt(t *testing.T) {
 
 			repo := newFakeRepo()
 			analyzer := fakeAnalyzer{tokens: map[string][]Token{"夜の空": tt.tokens}}
-			got, err := AddSong(t.Context(), repo, analyzer, NewSong{Title: "星の歌", Lyrics: "夜の空\n星"})
+			got, err := AddSong(t.Context(), repo, analyzer, noMeanings(t), NewSong{Title: "星の歌", Lyrics: "夜の空\n星"})
 			if err != nil {
 				t.Fatalf("AddSong: %v", err)
 			}
@@ -92,10 +92,10 @@ func TestAddingASongFailsWhenTheAnalyzerFails(t *testing.T) {
 	repo := newFakeRepo()
 	analyzer := fakeAnalyzer{err: broken}
 
-	if _, err := AddSong(t.Context(), repo, analyzer, NewSong{Title: "星の歌", Lyrics: "星"}); !errors.Is(err, broken) {
+	if _, err := AddSong(t.Context(), repo, analyzer, noMeanings(t), NewSong{Title: "星の歌", Lyrics: "星"}); !errors.Is(err, broken) {
 		t.Errorf("AddSong err = %v, want %v", err, broken)
 	}
-	if _, err := AddFromSource(t.Context(), repo, analyzer, []LyricsSource{newLRCLIBFake()}, "lrclib", "11"); !errors.Is(err, broken) {
+	if _, err := AddFromSource(t.Context(), repo, analyzer, noMeanings(t), []LyricsSource{newLRCLIBFake()}, "lrclib", "11"); !errors.Is(err, broken) {
 		t.Errorf("AddFromSource err = %v, want %v", err, broken)
 	}
 	if len(repo.added) != 0 {
@@ -113,7 +113,7 @@ func TestAddFromSourceAnalysesEachLine(t *testing.T) {
 			{Surface: "空", Reading: "そら", POS: morph.Noun}, {Surface: "に", Reading: "に", POS: morph.Particle},
 		},
 	}}
-	got, err := AddFromSource(t.Context(), repo, analyzer, []LyricsSource{newLRCLIBFake()}, "lrclib", "11")
+	got, err := AddFromSource(t.Context(), repo, analyzer, noMeanings(t), []LyricsSource{newLRCLIBFake()}, "lrclib", "11")
 	if err != nil {
 		t.Fatalf("AddFromSource: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestGetSongAnalysesLinesSavedWithoutTokens(t *testing.T) {
 		{Position: 1, Text: "星", Tokens: []Token{{Surface: "星", Reading: "ほし", POS: morph.Noun}}},
 	}}
 
-	got, err := GetSong(t.Context(), repo, searchingAnalyzer(), 1)
+	got, err := GetSong(t.Context(), repo, searchingAnalyzer(), noMeanings(t), 1)
 	if err != nil {
 		t.Fatalf("GetSong: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestGetSongAnalysesLinesSavedWithoutTokens(t *testing.T) {
 		t.Errorf("romaji = %q, %q, want both lines in romaji", got.Lines[0].Romaji, got.Lines[1].Romaji)
 	}
 
-	if _, err := GetSong(t.Context(), repo, searchingAnalyzer(), 1); err != nil {
+	if _, err := GetSong(t.Context(), repo, searchingAnalyzer(), noMeanings(t), 1); err != nil {
 		t.Fatalf("second GetSong: %v", err)
 	}
 	if repo.tokenSaves != 1 {
@@ -163,7 +163,7 @@ func TestGetSongFailsWhenTheAnalyzerFails(t *testing.T) {
 	repo := newFakeRepo()
 	repo.songs[1] = Song{ID: 1, Title: "星の歌", Source: SourceUser, Lines: []Line{{Position: 0, Text: "星"}}}
 
-	if _, err := GetSong(t.Context(), repo, fakeAnalyzer{err: broken}, 1); !errors.Is(err, broken) {
+	if _, err := GetSong(t.Context(), repo, fakeAnalyzer{err: broken}, noMeanings(t), 1); !errors.Is(err, broken) {
 		t.Errorf("err = %v, want %v", err, broken)
 	}
 }

@@ -70,14 +70,24 @@ func run() (err error) {
 		closers = append(closers, dict)
 	}
 
+	meanings, err := songs.NewJMdict(dict)
+	if err != nil {
+		return errors.Join(fmt.Errorf("load grammar list: %w", err), closeAll(closers))
+	}
+
 	dist, err := fs.Sub(assets, "frontend/dist")
 	if err != nil {
 		return errors.Join(fmt.Errorf("load frontend assets: %w", err), closeAll(closers))
 	}
 
+	credits := []app.Credit{
+		{Name: "JMdict", Text: dictionary.Attribution()},
+		{Name: "IPA dictionary", Text: morph.Attribution()},
+	}
 	a := app.New(cfg, log, dist,
-		application.NewService(app.NewAboutService(cfg)),
-		application.NewService(songs.NewService(songs.NewSQLite(db), songs.NewMorph(morph.New()), sources...)),
+		application.NewService(app.NewAboutService(cfg, credits...)),
+		application.NewService(songs.NewService(songs.NewSQLite(db), songs.NewMorph(morph.New()), meanings,
+			sources...)),
 		app.CloseOnShutdown(closers...),
 	)
 

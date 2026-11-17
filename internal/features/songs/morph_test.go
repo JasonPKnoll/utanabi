@@ -17,9 +17,10 @@ func TestMorphAnalyzesALine(t *testing.T) {
 		t.Fatalf("Analyze: %v", err)
 	}
 	want := []Token{
-		{Surface: "星", Reading: "ほし", POS: morph.Noun},
-		{Surface: "が", Reading: "が", POS: morph.Particle},
-		{Surface: "光る", Reading: "ひかる", POS: morph.Verb},
+		{Surface: "星", Reading: "ほし", POS: morph.Noun, Detail: "一般", BaseForm: "星"},
+		{Surface: "が", Reading: "が", POS: morph.Particle, Detail: "格助詞", Detail2: "一般", BaseForm: "が"},
+		{Surface: "光る", Reading: "ひかる", POS: morph.Verb, Detail: "自立", BaseForm: "光る", ConjType: "五段・ラ行",
+			ConjForm: "基本形"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %+v, want %+v", got, want)

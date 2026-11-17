@@ -27,7 +27,8 @@ func (m *Morph) Analyze(ctx context.Context, text string) ([]Token, error) {
 	}
 	tokens := make([]Token, len(analysed))
 	for i, t := range analysed {
-		tokens[i] = Token{Surface: t.Surface, Reading: t.Reading, POS: t.POS}
+		tokens[i] = Token{Surface: t.Surface, Reading: t.Reading, POS: t.POS, Detail: t.POSDetail,
+			Detail2: t.POSDetail2, BaseForm: t.BaseForm, ConjType: t.ConjType, ConjForm: t.ConjForm}
 	}
 	return tokens, nil
 }

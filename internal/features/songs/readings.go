@@ -8,20 +8,30 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 )
 
-// analyzeLines sets each line's tokens. A line whose tokens don't join back into exactly its text keeps none, so it
-// is saved without furigana instead of with wrong furigana.
-func analyzeLines(ctx context.Context, analyzer Analyzer, lines []Line) error {
+// analyzeLines sets each line's tokens and words, with the words' meanings when the dictionary is installed. A line
+// whose tokens don't join back into exactly its text keeps none, and no words, so it is saved without furigana
+// instead of with wrong furigana.
+func analyzeLines(ctx context.Context, analyzer Analyzer, dict Dictionary, lines []Line) error {
+	m := newMeanings(dict)
 	for i := range lines {
-		tokens, err := analyzer.Analyze(ctx, lines[i].Text)
-		if err != nil {
+		if err := analyzeLine(ctx, analyzer, m, &lines[i]); err != nil {
 			return err
-		}
-		lines[i].Tokens = nil
-		if fits(tokens, lines[i].Text) {
-			lines[i].Tokens = tokens
 		}
 	}
 	return nil
+}
+
+func analyzeLine(ctx context.Context, analyzer Analyzer, m *meanings, line *Line) error {
+	tokens, err := analyzer.Analyze(ctx, line.Text)
+	if err != nil {
+		return err
+	}
+	line.Tokens, line.Analysis = nil, nil
+	if !fits(tokens, line.Text) {
+		return nil
+	}
+	line.Tokens = tokens
+	return m.analyzeWords(ctx, line)
 }
 
 func fits(tokens []Token, text string) bool {
@@ -38,58 +48,112 @@ func fits(tokens []Token, text string) bool {
 	return b.String() == text
 }
 
-// loadSong reads a song and analyses any of its lines that have no tokens yet, such as songs saved before lines were
-// analysed, and saves those tokens. Older songs get furigana the first time they're opened, with no backfill step.
-func loadSong(ctx context.Context, repo Repository, analyzer Analyzer, id int64) (Song, error) {
+// loadSong reads a song and finishes the analysis of any of its lines that need it, then saves what it found:
+// tokens for lines that have none, such as songs saved before lines were analysed; words for lines that have tokens
+// but no words, such as songs saved before words were found; and meanings for words found while the dictionary
+// wasn't installed. Older songs catch up the first time they're opened, with no backfill step.
+func loadSong(ctx context.Context, repo Repository, analyzer Analyzer, dict Dictionary, id int64) (Song, error) {
 	song, err := repo.SongByID(ctx, id)
 	if err != nil {
 		return Song{}, err
 	}
-	var missing []Line
-	for _, line := range song.Lines {
-		if line.Tokens == nil {
-			missing = append(missing, line)
-		}
-	}
-	if len(missing) == 0 {
-		return withReadings(song), nil
-	}
-	if err := analyzeLines(ctx, analyzer, missing); err != nil {
-		return Song{}, err
-	}
-	if err := repo.SaveTokens(ctx, song.ID, missing); err != nil {
-		return Song{}, err
-	}
-	analysed := make(map[int][]Token, len(missing))
-	for _, line := range missing {
-		analysed[line.Position] = line.Tokens
-	}
+	m := newMeanings(dict)
+	var analysed []Line
 	for i := range song.Lines {
-		if tokens, ok := analysed[song.Lines[i].Position]; ok {
-			song.Lines[i].Tokens = tokens
+		line := &song.Lines[i]
+		switch {
+		case line.Tokens == nil:
+			if err := analyzeLine(ctx, analyzer, m, line); err != nil {
+				return Song{}, err
+			}
+			if line.Tokens != nil {
+				analysed = append(analysed, *line)
+			}
+		case line.Analysis == nil && hasWords(line.Tokens):
+			if err := reanalyze(ctx, analyzer, m, line); err != nil {
+				return Song{}, err
+			}
+			if line.Analysis != nil {
+				analysed = append(analysed, *line)
+			}
 		}
 	}
-	return withReadings(song), nil
+	if len(analysed) > 0 {
+		if err := repo.SaveAnalysis(ctx, song.ID, analysed); err != nil {
+			return Song{}, err
+		}
+	}
+	if err := fillMeanings(ctx, repo, m, song.Lines); err != nil {
+		return Song{}, err
+	}
+	return present(ctx, dict, song)
 }
 
-// withReadings works out each line's furigana and romaji from its tokens.
-func withReadings(song Song) Song {
-	lines := make([]Line, len(song.Lines))
-	for i, line := range song.Lines {
-		line.Ruby, line.Romaji = ruby(line), romaji(line.Tokens)
-		lines[i] = line
+func hasWords(tokens []Token) bool {
+	for _, t := range tokens {
+		if !outsideWords(t) {
+			return true
+		}
 	}
-	song.Lines = lines
-	return song
+	return false
 }
 
-// ruby gives the furigana for each token, and joins the pieces that have none, so 君の声 is 君 (きみ), の, 声 (こえ).
-func ruby(line Line) []RubyPart {
-	if len(line.Tokens) == 0 {
-		return []RubyPart{{Text: line.Text}}
+// reanalyze finds the words of a line that has stored tokens but no words. Stored tokens don't keep the analyzer's IPA
+// fields, so the line is analysed again and the fields are copied over, keeping the stored readings, which may be
+// corrections. When the new tokens don't match the stored ones, the line is left without words.
+func reanalyze(ctx context.Context, analyzer Analyzer, m *meanings, line *Line) error {
+	fresh, err := analyzer.Analyze(ctx, line.Text)
+	if err != nil {
+		return err
 	}
+	if len(fresh) != len(line.Tokens) {
+		return nil
+	}
+	merged := make([]Token, len(fresh))
+	for i, t := range fresh {
+		stored := line.Tokens[i]
+		if t.Surface != stored.Surface {
+			return nil
+		}
+		t.Reading, t.POS = stored.Reading, stored.POS
+		merged[i] = t
+	}
+	line.Tokens = merged
+	return m.analyzeWords(ctx, line)
+}
+
+// fillMeanings looks up the stored words that have no dictionary entry, which happens when they were found while the
+// dictionary wasn't installed, and saves the meanings it finds. Words you corrected are left alone.
+func fillMeanings(ctx context.Context, repo Repository, m *meanings, lines []Line) error {
+	var found []WordAnalysis
+	for _, line := range lines {
+		for i := range line.Analysis {
+			w := &line.Analysis[i]
+			if w.ID == 0 || w.EntryID != 0 || w.Kind != WordContent || w.Source != AnalysisAuto {
+				continue
+			}
+			ok, err := m.resolve(ctx, w, wordCategory(*w, line.Tokens))
+			if err != nil {
+				return err
+			}
+			if ok {
+				found = append(found, *w)
+			}
+			if m.missing {
+				return nil
+			}
+		}
+	}
+	if len(found) == 0 {
+		return nil
+	}
+	return repo.SaveMeanings(ctx, found)
+}
+
+// rubyOf gives the furigana for each token, and joins the pieces that have none, so 君の声 is 君 (きみ), の, 声 (こえ).
+func rubyOf(tokens []Token) []RubyPart {
 	var parts []RubyPart
-	for _, t := range line.Tokens {
+	for _, t := range tokens {
 		for _, p := range jtext.Ruby(t.Surface, t.Reading) {
 			if n := len(parts); n > 0 && p.Reading == "" && parts[n-1].Reading == "" {
 				parts[n-1].Text += p.Text
@@ -99,6 +163,14 @@ func ruby(line Line) []RubyPart {
 		}
 	}
 	return parts
+}
+
+// ruby gives a line's furigana: one piece with no reading when the line has no tokens.
+func ruby(line Line) []RubyPart {
+	if len(line.Tokens) == 0 {
+		return []RubyPart{{Text: line.Text}}
+	}
+	return rubyOf(line.Tokens)
 }
 
 func romaji(tokens []Token) string {

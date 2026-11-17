@@ -45,6 +45,9 @@ func (s *SQLite) AddSong(ctx context.Context, song Song) (Song, error) {
 			if err := insertTokens(ctx, q, lineID, line.Tokens); err != nil {
 				return err
 			}
+			if err := insertWords(ctx, q, lineID, line.Analysis); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -131,33 +134,147 @@ func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 	if !found {
 		return Song{}, fault.ErrNotFound
 	}
+	if err := s.addWords(ctx, &song); err != nil {
+		return Song{}, err
+	}
 	return song, nil
 }
 
-// SaveTokens stores the tokens of each of lines that has none yet, matching lines by position, in one transaction.
-// Lines that already have tokens keep them, so two calls at once, or a reading you corrected, are never overwritten.
-// It returns fault.ErrNotFound if a line isn't there.
-func (s *SQLite) SaveTokens(ctx context.Context, songID int64, lines []Line) error {
+// addWords reads the words of a song's lines, with their conjugation steps in order. A line with no words keeps a
+// nil Analysis.
+func (s *SQLite) addWords(ctx context.Context, song *Song) error {
+	rows, err := s.db.Querier().QueryContext(ctx,
+		`SELECT l.position, w.id, w.first_token, w.last_token, w.kind, w.lemma, w.lemma_reading, w.conj_class,
+		        w.entry_id, w.sense_index, w.grammar_point_id, w.analysis_source, i.grammar_point_id
+		 FROM lyric_lines l
+		 JOIN line_words w ON w.line_id = l.id
+		 LEFT JOIN word_inflections i ON i.word_id = w.id
+		 WHERE l.song_id = ?
+		 ORDER BY l.position, w.first_token, i.step`, song.ID)
+	if err != nil {
+		return store.Translate(err)
+	}
+	defer rows.Close()
+
+	byPosition := make(map[int]int, len(song.Lines))
+	for i, line := range song.Lines {
+		byPosition[line.Position] = i
+	}
+	for rows.Next() {
+		var (
+			position                      int
+			w                             WordAnalysis
+			kind                          string
+			reading, class, grammar, step sql.NullString
+			entry, sense                  sql.NullInt64
+		)
+		err := rows.Scan(&position, &w.ID, &w.FirstToken, &w.LastToken, &kind, &w.Lemma, &reading, &class,
+			&entry, &sense, &grammar, &w.Source, &step)
+		if err != nil {
+			return store.Translate(err)
+		}
+		i, ok := byPosition[position]
+		if !ok {
+			continue
+		}
+		line := &song.Lines[i]
+		if n := len(line.Analysis); n == 0 || line.Analysis[n-1].ID != w.ID {
+			w.Kind, w.LemmaReading, w.ConjClass, w.GrammarPointID = WordKind(kind), reading.String, class.String,
+				grammar.String
+			w.EntryID, w.SenseIndex, w.head = entry.Int64, int(sense.Int64), -1
+			line.Analysis = append(line.Analysis, w)
+		}
+		if step.Valid {
+			last := &line.Analysis[len(line.Analysis)-1]
+			last.Steps = append(last.Steps, step.String)
+		}
+	}
+	return store.Translate(rows.Err())
+}
+
+// SaveAnalysis stores the tokens and words of each of lines that has none yet, matching lines by position, in one
+// transaction. Lines that already have tokens keep them, and lines that already have words keep them, so two calls
+// at once, a reading you corrected, or a word you corrected, are never overwritten. It returns fault.ErrNotFound if
+// a line isn't there.
+func (s *SQLite) SaveAnalysis(ctx context.Context, songID int64, lines []Line) error {
 	return s.db.WithTx(ctx, func(q store.Querier) error {
 		for _, line := range lines {
 			if len(line.Tokens) == 0 {
 				continue
 			}
 			var lineID int64
-			var analysed bool
+			var hasTokens, hasWords bool
 			err := q.QueryRowContext(ctx,
-				`SELECT l.id, EXISTS (SELECT 1 FROM line_tokens t WHERE t.line_id = l.id)
+				`SELECT l.id, EXISTS (SELECT 1 FROM line_tokens t WHERE t.line_id = l.id),
+				        EXISTS (SELECT 1 FROM line_words w WHERE w.line_id = l.id)
 				 FROM lyric_lines l WHERE l.song_id = ? AND l.position = ?`,
 				songID, line.Position,
-			).Scan(&lineID, &analysed)
+			).Scan(&lineID, &hasTokens, &hasWords)
 			if err != nil {
 				return store.Translate(err)
 			}
-			if analysed {
+			if !hasTokens {
+				if err := insertTokens(ctx, q, lineID, line.Tokens); err != nil {
+					return err
+				}
+			}
+			if !hasWords {
+				if err := insertWords(ctx, q, lineID, line.Analysis); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func insertWords(ctx context.Context, q store.Querier, lineID int64, words []WordAnalysis) error {
+	for _, w := range words {
+		var entry, sense sql.NullInt64
+		if w.EntryID != 0 {
+			entry = sql.NullInt64{Int64: w.EntryID, Valid: true}
+			sense = sql.NullInt64{Int64: int64(w.SenseIndex), Valid: true}
+		}
+		source := w.Source
+		if source == "" {
+			source = AnalysisAuto
+		}
+		var wordID int64
+		err := q.QueryRowContext(ctx,
+			`INSERT INTO line_words (line_id, first_token, last_token, kind, lemma, lemma_reading, conj_class,
+			                         entry_id, sense_index, grammar_point_id, analysis_source)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+			lineID, w.FirstToken, w.LastToken, string(w.Kind), w.Lemma, nullString(w.LemmaReading),
+			nullString(w.ConjClass), entry, sense, nullString(w.GrammarPointID), source,
+		).Scan(&wordID)
+		if err != nil {
+			return store.Translate(err)
+		}
+		for step, id := range w.Steps {
+			_, err := q.ExecContext(ctx,
+				`INSERT INTO word_inflections (word_id, step, grammar_point_id) VALUES (?, ?, ?)`, wordID, step, id)
+			if err != nil {
+				return store.Translate(err)
+			}
+		}
+	}
+	return nil
+}
+
+// SaveMeanings sets the entry, sense, and conjugation class of each of words, by ID, in one transaction. Only words
+// the analyzer made that still have no entry change, so a meaning you chose is never overwritten.
+func (s *SQLite) SaveMeanings(ctx context.Context, words []WordAnalysis) error {
+	return s.db.WithTx(ctx, func(q store.Querier) error {
+		for _, w := range words {
+			if w.EntryID == 0 {
 				continue
 			}
-			if err := insertTokens(ctx, q, lineID, line.Tokens); err != nil {
-				return err
+			_, err := q.ExecContext(ctx,
+				`UPDATE line_words SET entry_id = ?, sense_index = ?, conj_class = coalesce(?, conj_class)
+				 WHERE id = ? AND entry_id IS NULL AND analysis_source = 'auto'`,
+				w.EntryID, w.SenseIndex, nullString(w.ConjClass), w.ID)
+			if err != nil {
+				return store.Translate(err)
 			}
 		}
 		return nil
