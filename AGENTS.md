@@ -144,7 +144,7 @@ Detail in [docs/logging.md](docs/logging.md).
 ## Frontend
 
 - **Framework:** Svelte 5 with TypeScript, built by Vite. Node 26.13.0 (see `frontend/.nvmrc`).
-- **Look:** "Night stage", a dark stage where the sung line is bright and the rest stays dim. Use the colour tokens and the shared `.screen`, `.actions`, and `.button` classes in `frontend/src/app.css`, never new hex values in a component. Detail in [docs/design.md](docs/design.md).
+- **Look:** "Night stage", a stage where the sung line stands out and the rest stays dim. It follows the device's light or dark setting, with dark as the default. Use the colour tokens and the shared `.screen`, `.actions`, and `.button` classes in `frontend/src/app.css`, never new hex values in a component, so both themes keep working. Check UI changes in both themes. Detail in [docs/design.md](docs/design.md).
 - **Bindings:** import services and types from `frontend/bindings/...`. They are generated from the Go services. Never edit them. Run `task bindings` after changing a bound method.
 - **The UI calls only bound services, never a URL of its own.** ESLint forbids `fetch`, `XMLHttpRequest`, `WebSocket`, and `EventSource` in `frontend/src`.
 - **Errors:** pass every rejection through `toAppError` (`frontend/src/lib/errors.ts`). Show its `message` and switch on its `code`. Never show the raw `Error.message`.

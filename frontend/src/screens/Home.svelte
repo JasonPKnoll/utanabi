@@ -165,7 +165,7 @@
     height: 48px;
     border-radius: 12px;
     background: var(--surface-strong);
-    color: var(--accent);
+    color: var(--link);
     font-size: 1.25rem;
     font-weight: 700;
   }
