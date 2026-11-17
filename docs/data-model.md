@@ -123,7 +123,7 @@ How a word got from its dictionary form to the form in the line. The steps are o
 | --- | --- | --- |
 | `word_id` | INTEGER, references `line_words`, cascade | |
 | `step` | INTEGER | 0, 1, 2 in the order they apply. Primary key `(word_id, step)`. |
-| `grammar_point_id` | TEXT | A `conjugation` grammar point: `te-form`, `teiru`, `past`, `negative`, `polite`, `potential`, `passive`, `causative`, `volitional`, `conditional-ba`, `conditional-tara`, `imperative`, and the rest of the list. |
+| `grammar_point_id` | TEXT | A `conjugation` grammar point: `te-form`, `teiru`, `past`, `negative`, `polite-masu`, `potential`, `passive`, `causative`, `volitional`, `conditional-ba`, `conditional-tara`, `imperative`, and the rest of the list. |
 
 Examples:
 
@@ -201,14 +201,42 @@ Review scheduling gets its own table when #12 decides how review works.
 
 ## Reference data: `dictionary.db`
 
-Built from JMdict and our own grammar list, shipped with the app, and replaced whole on update. Never written to by the app.
+Built from JMdict and our own grammar list, and replaced whole on update. The app opens it read-only and never writes to it. `internal/dictionary` reads it; `internal/dictionary/dictbuild` builds it.
+
+**Built.** The schema is `internal/dictionary/dictbuild/schema.sql`. Every table is `STRICT`, with `CHECK` limits, and every list column is checked to be a JSON array.
 
 | Table | Holds |
 | --- | --- |
-| `entries` | One row per JMdict entry. `id` is JMdict's own entry number. |
-| `entry_forms` | Every spelling of an entry, kanji and kana (光る, ひかる), with JMdict's priority, for lookup. |
-| `senses` | Each meaning of an entry: `(entry_id, sense_index)`, the English glosses, the part of speech and conjugation class codes (JMdict tags each sense, for example `v5r`), and notes such as "usually written in kana". |
-| `grammar_points` | Our own list, written by hand. One row per **use** of a particle, per conjugation, and per pattern. |
+| `meta` | `schema_version`, `jmdict_date` (the JMdict release, such as 2026-11-16), `jmdict_simplified_version`, and `built_at`. |
+| `tags` | JMdict's codes (`v5s`, `uk`, `rK`) with their descriptions, so the app can show a code in words. |
+| `entries` | One row per JMdict entry. `id` is JMdict's own entry number (`ent_seq`), stored in `utanabi.db` as `entry_id`. |
+| `entry_forms` | Every spelling of an entry paired with a reading: one row per reading of each kanji spelling (二 as に, ふた, ふ, ふう), then one row per kana spelling, in JMdict order (`position`). `reading` is hiragana, even for katakana words, so a tokenizer's reading matches. `is_kanji`, `common` (JMdict's priority mark; a kanji spelling is common only with a common reading), and `tags`. Indexed by `(form, reading)` and by `reading`. |
+| `senses` | Each meaning of an entry: `(entry_id, sense_index)`, with `sense_index` from 0 in JMdict order. `glosses` (English), `pos` (part of speech codes, such as `v5s`, `v1`, `vs-i`, `vk`, `adj-i`, `adj-na`, `n`, `prt`, `exp`, which double as conjugation classes), `misc` (such as `uk`, usually written in kana), `notes`, `fields`, `dialects`, and the spellings the sense is limited to (`applies_to_kanji`, `applies_to_kana`, where `["*"]` means all). |
+| `grammar_points` | Our own list, from `internal/dictionary/grammar.json`. One row per **use** of a particle, per conjugation, and per pattern. |
+
+`Lookup(form, reading)` finds the entries with a spelling that matches the form, and the reading when one is given (hiragana or katakana). Entries whose matching spelling is common come first, then by entry number, capped at 50. Each comes with all its spellings and senses.
+
+### Building it
+
+`task dictionary` (or `make dictionary`) downloads the pinned jmdict-simplified release, the English-only common-words JSON, checks its SHA-256, and builds `data/dictionary.db`, the server-mode default. `task dictionary OUT=<path>` writes elsewhere. The release, URL, and checksum are pinned together in `internal/dictionary/dictbuild/source.go`. The build writes a temporary file and renames it into place, so a failed build keeps the old dictionary.
+
+The release pinned now is `3.6.2+20261116213322` (JMdict of 2026-11-16). Built, it is 10.6 MB with 22,661 entries, 57,071 spellings, 37,261 senses, 266 tags, and 73 grammar points. The archive is 1.4 MB.
+
+The app finds the file through the `dictionary_path` setting (`UTANABI_DICTIONARY_PATH` in server mode): `dictionary.db` in the data folder by default, and a relative path is taken from the data folder. Without the file, the app runs with word meanings unavailable and logs one info line. A file built for another schema version stops startup with an error that says so.
+
+**Packaging is a follow-up.** Nothing ships `dictionary.db` with the desktop or mobile apps yet: for now, build it and put it in the data folder yourself. A later change will bundle it with each platform's package and replace it on update.
+
+### Licence and credit
+
+JMdict is the property of the Electronic Dictionary Research and Development Group (EDRDG), used under the Creative Commons Attribution-ShareAlike 4.0 licence. jmdict-simplified converts it to JSON under the same licence. The licence asks us to:
+
+- credit the source in the app's documentation and on its website;
+- in desktop and mobile apps, show the credit on a screen reached from a menu, such as About or Sources (a launch screen is not enough);
+- in server mode, show it on each page that displays dictionary words, for example in a footer;
+- link to the JMdict project page (https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) and the licence (https://www.edrdg.org/edrdg/licence.html);
+- never claim copyright over JMdict material, and share any changed copy of the data under the same licence.
+
+`dictionary.Attribution()` returns the credit text. The screen that shows it comes with the first UI that shows dictionary data. `internal/dictionary/testdata/jmdict-eng-common-fixture.json` holds 15 JMdict entries, under the same licence, for tests.
 
 ### `grammar_points`
 
@@ -225,7 +253,7 @@ Built from JMdict and our own grammar list, shipped with the app, and replaced w
 
 **A particle has one row per use,** because that is where its meaning lives. に has rows for place, time, target, and purpose. The word in the line points at the one it is.
 
-The first list covers the common particles, every conjugation, and the patterns songs use most: roughly 60 to 100 rows. It grows as songs need more.
+The first list has 73 rows: 35 particle uses, 23 conjugations, and 15 patterns that songs use often. It grows as songs need more. A test (`internal/dictionary/dictbuild/grammar_test.go`) checks the file: unique IDs in the shape `utanabi.db` accepts, every required field, a formation for every conjugation, and every `standard_id` naming a standard point of the same kind.
 
 ## What is computed, and where
 
@@ -246,13 +274,13 @@ The first list covers the common particles, every conjugation, and the patterns 
 | --- | --- | --- |
 | 002 | `lyric_sources` (with its four rows), `songs`, `lyric_lines` | Built. The songs slice uses it. |
 | 003 | `line_translations`, `line_tokens`, `line_words`, `word_inflections`, `cards` | Built. The tables are ready, with their rules tested; the code that fills them comes with #8, #9, #11, and #12. |
-| `dictionary.db` | `entries`, `entry_forms`, `senses`, `grammar_points` | With #9: it needs a JMdict importer and the grammar list. |
+| `dictionary.db` | `meta`, `tags`, `entries`, `entry_forms`, `senses`, `grammar_points` | Built (#9): `task dictionary` and the `internal/dictionary` lookup package. Nothing calls the lookup yet, and packaging with the apps is a follow-up. |
 
-New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number, checked at startup.
+New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number (`dictionary.SchemaVersion`, stored in `meta`), checked at startup.
 
 ## Dependencies and content
 
 - `golang.org/x/text`, for Unicode normalization (`internal/common/jtext`). The standard library doesn't have it.
 - A tokenizer for #8 (for example kagome, pure Go, with its dictionary bundled).
-- JMdict, under its licence (CC BY-SA 4.0), which requires credit in the app.
+- JMdict, through jmdict-simplified, under its licence (CC BY-SA 4.0), which requires credit in the app. See "Licence and credit" above.
 - The `grammar_points` list, which we write ourselves.

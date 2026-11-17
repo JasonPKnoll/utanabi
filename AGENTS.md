@@ -16,7 +16,10 @@ Utanabi is an app for learning Japanese through song lyrics. It is a Go app buil
 | `internal/app` | The Wails wiring (options, window, platform folders per build target), `app.Fail` (the one frontend error mapping), the example `AboutService`, and the shutdown hook. |
 | `internal/common/fault` | The project's error sentinels (`ErrNotFound`, `ErrConflict`, `ErrCanceled`, `ErrTimeout`) and `InvalidError`. |
 | `internal/common/redact` | The `Secret` type, which never prints its value. |
-| `internal/common/jtext` | Japanese text normalization (NFC, full-width katakana) and the hiragana check for readings. |
+| `internal/common/jtext` | Japanese text normalization (NFC, full-width katakana), katakana to hiragana, and the hiragana check for readings. |
+| `internal/dictionary` | Reads `dictionary.db`, the read-only reference database: `Open`, `Lookup` (JMdict words with their spellings and senses), `GrammarPoint`, `GrammarPoints`, and `Attribution`. All its SQL is in `sqlite.go`. `grammar.json` is the hand-written grammar list. |
+| `internal/dictionary/dictbuild` | Builds `dictionary.db` from the pinned jmdict-simplified release and `grammar.json`: download with a checked SHA-256, read, and write. Build time only, never in the app. |
+| `internal/dictionary/cmd/dictbuild` | The command `task dictionary` runs. |
 | `internal/features` | Feature slices, one folder each. |
 | `internal/features/songs` | The songs the user is learning: search online lyrics sources (LRCLIB in `lrclib_api.go`) and add a match, or add a song with your own lyrics; list, read, and delete. Synced (LRC) lyrics keep each line's start time. |
 | `internal/store` | The SQLite database: open, `Migrate`, `WithTx`, `Querier`, and `Translate` for driver errors. |
@@ -103,7 +106,7 @@ func (s *Service) Get(ctx context.Context, id int64) (Thing, error) {
 ### Data
 
 - The local database is SQLite, through the pure Go driver `modernc.org/sqlite`. The file lives in the OS app-data folder (on mobile, the app's sandbox storage path; in server mode, `UTANABI_DATA_DIR`).
-- Database code stays in the slices' `sqlite.go` files. Use plain SQL, scanned into typed structs. No ORM.
+- Database code stays in the slices' `sqlite.go` files, and for the reference dictionary in `internal/dictionary/sqlite.go` and `internal/dictionary/dictbuild/sqlite.go`. Use plain SQL, scanned into typed structs. No ORM.
 - **The schema lives in migrations:** numbered files in `internal/store/migrations` (`001_init.sql`, `002_<change>.sql`, and so on, no gaps). `main.go` runs `db.Migrate` right after `store.Open`. Each pending file runs in its own transaction, and `PRAGMA user_version` records the last one applied. A failed file stops startup with an error that names it. Never edit a merged migration; add a new one.
 - **The data model is in [docs/data-model.md](docs/data-model.md):** lines, words, tokens, meanings, grammar, conjugation, and cards, and what is stored versus computed. Read it before adding a table or column. Every new rule gets a case in `internal/store/schema_integration_test.go` proving the database refuses a bad row.
 - **Normalize Japanese text with `jtext.Normalize` before saving it,** so the same word is always the same bytes. Readings are hiragana only (`jtext.IsHiragana`).
@@ -111,6 +114,14 @@ func (s *Service) Get(ctx context.Context, id int64) (Thing, error) {
 - `db.WithTx(ctx, fn)` runs `fn` in one transaction, and rolls back on an error or a panic.
 - Every connection gets a busy timeout from config (`db_busy_timeout`, default 5s). Pass a context with a deadline for work that must not run long.
 - **Never ship database credentials, API keys, or other secrets in the app.** A user can read anything inside it.
+
+### The reference dictionary
+
+- **`dictionary.db` is a second, read-only SQLite file:** JMdict word meanings and our grammar list. `utanabi.db` refers to it only by IDs that never change: the JMdict entry number and the grammar point ID. It has no migrations; it is rebuilt whole, and the app refuses a file whose `schema_version` in `meta` differs from `dictionary.SchemaVersion`. Bump that constant with every change to `internal/dictionary/dictbuild/schema.sql`.
+- **Rebuild it with `task dictionary`** (or `make dictionary`), which writes `data/dictionary.db`, the server-mode default. `task dictionary OUT=<path>` writes elsewhere; for desktop dev, point it at the data folder (on macOS, `~/Library/Application Support/Utanabi/dictionary.db`) or set `dictionary_path`. Without the file the app runs, with word meanings unavailable, and logs one info line.
+- **To move to a newer JMdict,** change `JMdictRelease`, `JMdictURL`, and `JMdictSHA256` together in `internal/dictionary/dictbuild/source.go`, then rebuild. Never drop the checksum.
+- **Grammar point IDs in `internal/dictionary/grammar.json` are never renamed or reused.** Add a row for a new use; `go test ./internal/dictionary/...` checks the list.
+- **Credit JMdict wherever the app shows its data.** Its licence (CC BY-SA 4.0) requires it: show `dictionary.Attribution()` on an About or Sources screen on desktop and mobile, and on each page that shows dictionary words in server mode. Never claim copyright over JMdict material. Detail in [docs/data-model.md](docs/data-model.md#licence-and-credit).
 
 ### Logging
 
@@ -244,6 +255,7 @@ make test           # Go and frontend unit tests
 make test-integration
 make lint           # golangci-lint (desktop and server builds), ESLint, Prettier, svelte-check
 make test-e2e       # server-mode build plus the headless browser smoke test
+make dictionary     # download the pinned JMdict release and build data/dictionary.db
 ```
 
 - **Desktop dev:** `make dev` runs `wails3 dev`. It rebuilds Go on change and runs Vite for the frontend. Settings live in `settings.json` in the OS config folder (on macOS, `~/Library/Application Support/Utanabi/`). Logs go to the OS log folder (on macOS, `~/Library/Logs/Utanabi/utanabi.log`).
