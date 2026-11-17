@@ -38,6 +38,15 @@
 - Never load scripts, styles, or fonts from a CDN. Bundle them with Vite.
 - The frontend never calls a URL of its own. ESLint forbids `fetch`, `XMLHttpRequest`, `WebSocket`, and `EventSource` in `frontend/src`. Remote APIs are called from Go adapters.
 
+## Outgoing requests
+
+- The app talks to one outside service: **LRCLIB** (`https://lrclib.net`), from `internal/features/songs/lrclib_api.go`. It sends only what you type into song search, and the ID of a song you add. Nothing about you or your library is sent.
+- Searches go out only when you press Search, never as you type, to respect LRCLIB's rate limits.
+- Requests name the app in the `User-Agent` (`Utanabi <version> (https://github.com/JasonPKnoll/utanabi)`), as LRCLIB asks. No API key is used or needed.
+- Every request has a timeout, and responses are capped in size before they are read.
+- Everything from a source is untrusted: it is normalized, checked against the same limits as your own input, and shown as text.
+- A new source gets its own `<source>_api.go` and a line here.
+
 ## Server mode
 
 - Bind to localhost (the default, `WAILS_SERVER_HOST=localhost`). In production, put a reverse proxy in front that terminates TLS.

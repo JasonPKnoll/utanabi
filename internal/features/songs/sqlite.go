@@ -2,6 +2,8 @@ package songs
 
 import (
 	"context"
+	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
@@ -23,16 +25,17 @@ func (s *SQLite) AddSong(ctx context.Context, song Song) (Song, error) {
 	now := time.Now().UnixMilli()
 	err := s.db.WithTx(ctx, func(q store.Querier) error {
 		err := q.QueryRowContext(ctx,
-			`INSERT INTO songs (title, artist, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id`,
-			song.Title, song.Artist, song.Source, now, now,
+			`INSERT INTO songs (title, artist, source, source_ref, duration_ms, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+			song.Title, song.Artist, song.Source, nullString(song.SourceRef), nullPositive(song.DurationMS), now, now,
 		).Scan(&song.ID)
 		if err != nil {
 			return store.Translate(err)
 		}
 		for _, line := range song.Lines {
 			_, err := q.ExecContext(ctx,
-				`INSERT INTO lyric_lines (song_id, position, stanza, text) VALUES (?, ?, ?, ?)`,
-				song.ID, line.Position, line.Stanza, line.Text,
+				`INSERT INTO lyric_lines (song_id, position, stanza, text, start_ms) VALUES (?, ?, ?, ?, ?)`,
+				song.ID, line.Position, line.Stanza, line.Text, line.StartMS,
 			)
 			if err != nil {
 				return store.Translate(err)
@@ -72,14 +75,18 @@ func (s *SQLite) Songs(ctx context.Context) ([]Summary, error) {
 func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 	q := s.db.Querier()
 	var song Song
-	err := q.QueryRowContext(ctx, `SELECT id, title, artist, source FROM songs WHERE id = ?`, id).
-		Scan(&song.ID, &song.Title, &song.Artist, &song.Source)
+	var ref sql.NullString
+	var duration sql.NullInt64
+	err := q.QueryRowContext(ctx,
+		`SELECT id, title, artist, source, source_ref, duration_ms FROM songs WHERE id = ?`, id,
+	).Scan(&song.ID, &song.Title, &song.Artist, &song.Source, &ref, &duration)
 	if err != nil {
 		return Song{}, store.Translate(err)
 	}
+	song.SourceRef, song.DurationMS = ref.String, duration.Int64
 
 	rows, err := q.QueryContext(ctx,
-		`SELECT position, stanza, text FROM lyric_lines WHERE song_id = ? ORDER BY position`, id)
+		`SELECT position, stanza, text, start_ms FROM lyric_lines WHERE song_id = ? ORDER BY position`, id)
 	if err != nil {
 		return Song{}, store.Translate(err)
 	}
@@ -88,8 +95,12 @@ func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 	song.Lines = []Line{}
 	for rows.Next() {
 		var line Line
-		if err := rows.Scan(&line.Position, &line.Stanza, &line.Text); err != nil {
+		var start sql.NullInt64
+		if err := rows.Scan(&line.Position, &line.Stanza, &line.Text, &start); err != nil {
 			return Song{}, store.Translate(err)
+		}
+		if start.Valid {
+			line.StartMS = &start.Int64
 		}
 		song.Lines = append(song.Lines, line)
 	}
@@ -97,6 +108,39 @@ func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 		return Song{}, store.Translate(err)
 	}
 	return song, nil
+}
+
+// SongIDsBySource returns the library's song ID for each of refs already saved from source.
+func (s *SQLite) SongIDsBySource(ctx context.Context, source string, refs []string) (map[string]int64, error) {
+	found := map[string]int64{}
+	if len(refs) == 0 {
+		return found, nil
+	}
+	args := make([]any, 0, len(refs)+1)
+	args = append(args, source)
+	for _, ref := range refs {
+		args = append(args, ref)
+	}
+	placeholders := strings.Repeat(", ?", len(refs))[2:]
+	rows, err := s.db.Querier().QueryContext(ctx,
+		`SELECT source_ref, id FROM songs WHERE source = ? AND source_ref IN (`+placeholders+`)`, args...)
+	if err != nil {
+		return nil, store.Translate(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var ref string
+		var id int64
+		if err := rows.Scan(&ref, &id); err != nil {
+			return nil, store.Translate(err)
+		}
+		found[ref] = id
+	}
+	if err := rows.Err(); err != nil {
+		return nil, store.Translate(err)
+	}
+	return found, nil
 }
 
 // DeleteSong removes one song; its lines and everything learned from them go with it. It returns fault.ErrNotFound
@@ -114,4 +158,12 @@ func (s *SQLite) DeleteSong(ctx context.Context, id int64) error {
 		return fault.ErrNotFound
 	}
 	return nil
+}
+
+func nullString(s string) sql.NullString {
+	return sql.NullString{String: s, Valid: s != ""}
+}
+
+func nullPositive(n int64) sql.NullInt64 {
+	return sql.NullInt64{Int64: n, Valid: n > 0}
 }

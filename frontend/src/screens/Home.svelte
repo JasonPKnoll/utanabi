@@ -6,7 +6,8 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
   import { initial } from "../lib/lyrics";
-  import { addHref, songHref } from "../lib/route";
+  import { addHref, searchHref, songHref } from "../lib/route";
+  import { sourceLabel } from "../lib/sources";
 
   let songs = $state<Summary[] | null>(null);
   let about = $state<About | null>(null);
@@ -39,7 +40,7 @@
     {:else if songs.length === 0}
       <div class="empty">
         <p class="empty-title">No songs yet</p>
-        <p class="muted">Add a song with your own lyrics to start learning from it.</p>
+        <p class="muted">Find a song to start learning from it, or add one with your own lyrics.</p>
       </div>
     {:else}
       <ul>
@@ -49,7 +50,7 @@
               <span class="tile" aria-hidden="true">{initial(song.title)}</span>
               <span class="text">
                 <span class="title">{song.title}</span>
-                <span class="sub">{song.artist || "Unknown artist"} · your lyrics</span>
+                <span class="sub">{song.artist || "Unknown artist"} · {sourceLabel(song.source)}</span>
               </span>
               <svg
                 width="20"
@@ -74,7 +75,8 @@
   </main>
 
   <div class="actions">
-    <a class="button primary" href={addHref}>
+    <a class="button" href={addHref}>Add your own</a>
+    <a class="button primary" href={searchHref}>
       <svg
         width="20"
         height="20"
@@ -83,9 +85,9 @@
         stroke="currentColor"
         stroke-width="2.5"
         stroke-linecap="round"
-        aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg
+        aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
       >
-      Add your own lyrics
+      Find a song
     </a>
   </div>
 </div>
@@ -216,5 +218,14 @@
     margin: 24px 0 0;
     font-size: 0.8rem;
     color: var(--muted);
+  }
+
+  /* The secondary button takes only the room it needs, so "Find a song" stays on one line at 360px. */
+  .actions .button:not(.primary) {
+    flex: none;
+  }
+
+  .actions .button {
+    white-space: nowrap;
   }
 </style>

@@ -50,6 +50,16 @@ func Fail(ctx context.Context, err error) error {
 	return fe
 }
 
+// Note logs a failure the call recovered from, such as one lyrics source not answering while the search still
+// returns the others. It logs at the same level Fail would, and does nothing for a nil error.
+func Note(ctx context.Context, err error) {
+	if err == nil {
+		return
+	}
+	fe, level := toFrontend(err)
+	logger.From(ctx).LogAttrs(ctx, level, "call recovered from a failure", slog.String("code", fe.Code), logger.Err(err))
+}
+
 func toFrontend(err error) (*Error, slog.Level) {
 	var invalid *fault.InvalidError
 	switch {

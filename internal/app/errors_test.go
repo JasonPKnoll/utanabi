@@ -139,3 +139,30 @@ func TestMarshalErrorMasksUnmappedError(t *testing.T) {
 		t.Errorf("log = %s, want the unmapped error logged", buf.String())
 	}
 }
+
+func TestNoteLogsOnceAndReturnsNothing(t *testing.T) {
+	t.Parallel()
+
+	ctx, buf := captureLog(t)
+	Note(ctx, fmt.Errorf("songs: lrclib is busy (status 429); %w", fault.ErrTimeout))
+
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("log has %d lines, want 1: %s", len(lines), buf.String())
+	}
+	for _, want := range []string{`"level":"WARN"`, `"code":"timeout"`, `"msg":"call recovered from a failure"`} {
+		if !strings.Contains(lines[0], want) {
+			t.Errorf("log = %s, want it to contain %s", lines[0], want)
+		}
+	}
+}
+
+func TestNoteNilLogsNothing(t *testing.T) {
+	t.Parallel()
+
+	ctx, buf := captureLog(t)
+	Note(ctx, nil)
+	if buf.Len() != 0 {
+		t.Errorf("log = %s, want nothing", buf.String())
+	}
+}

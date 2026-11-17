@@ -2,6 +2,7 @@
   import { homeHref, parseRoute } from "./lib/route";
   import AddSong from "./screens/AddSong.svelte";
   import Home from "./screens/Home.svelte";
+  import Search from "./screens/Search.svelte";
   import SongView from "./screens/SongView.svelte";
 
   let route = $state(parseRoute(window.location.hash));
@@ -18,6 +19,8 @@
 
 {#if route.name === "home"}
   <Home />
+{:else if route.name === "search"}
+  <Search />
 {:else if route.name === "add"}
   <AddSong />
 {:else if route.name === "song"}

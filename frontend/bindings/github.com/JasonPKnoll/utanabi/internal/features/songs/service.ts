@@ -22,6 +22,13 @@ export function Add(song: $models.NewSong): $CancellablePromise<$models.Song> {
 }
 
 /**
+ * AddFromSource saves a song found by Search to the library, or returns it if it's already there.
+ */
+export function AddFromSource(source: string, ref: string): $CancellablePromise<$models.Song> {
+    return $Call.ByID(1411050786, source, ref);
+}
+
+/**
  * Delete removes one song.
  */
 export function Delete(id: number): $CancellablePromise<void> {
@@ -29,7 +36,7 @@ export function Delete(id: number): $CancellablePromise<void> {
 }
 
 /**
- * Get returns one song with its lyrics.
+ * Get returns one song with its lines.
  */
 export function Get(id: number): $CancellablePromise<$models.Song> {
     return $Call.ByID(2209303892, id);
@@ -40,4 +47,11 @@ export function Get(id: number): $CancellablePromise<$models.Song> {
  */
 export function List(): $CancellablePromise<$models.Summary[] | null> {
     return $Call.ByID(83748272);
+}
+
+/**
+ * Search finds songs with lyrics at the online lyrics sources.
+ */
+export function Search(query: string): $CancellablePromise<$models.SearchResult> {
+    return $Call.ByID(1986205780, query);
 }

@@ -8,12 +8,13 @@ import (
 
 // Service is the bound Wails service for songs. Every exported method here is callable by the frontend.
 type Service struct {
-	repo Repository
+	repo    Repository
+	sources []LyricsSource
 }
 
-// NewService returns the songs service.
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+// NewService returns the songs service, searching the given lyrics sources in order.
+func NewService(repo Repository, sources ...LyricsSource) *Service {
+	return &Service{repo: repo, sources: sources}
 }
 
 // List returns every song, newest first.
@@ -22,7 +23,7 @@ func (s *Service) List(ctx context.Context) ([]Summary, error) {
 	return list, app.Fail(ctx, err)
 }
 
-// Get returns one song with its lyrics.
+// Get returns one song with its lines.
 func (s *Service) Get(ctx context.Context, id int64) (Song, error) {
 	song, err := GetSong(ctx, s.repo, id)
 	return song, app.Fail(ctx, err)
@@ -32,6 +33,21 @@ func (s *Service) Get(ctx context.Context, id int64) (Song, error) {
 func (s *Service) Add(ctx context.Context, song NewSong) (Song, error) {
 	saved, err := AddSong(ctx, s.repo, song)
 	return saved, app.Fail(ctx, err)
+}
+
+// Search finds songs with lyrics at the online lyrics sources.
+func (s *Service) Search(ctx context.Context, query string) (SearchResult, error) {
+	result, err := SearchSongs(ctx, s.repo, s.sources, query)
+	for _, failure := range result.failures {
+		app.Note(ctx, failure)
+	}
+	return result, app.Fail(ctx, err)
+}
+
+// AddFromSource saves a song found by Search to the library, or returns it if it's already there.
+func (s *Service) AddFromSource(ctx context.Context, source, ref string) (Song, error) {
+	song, err := AddFromSource(ctx, s.repo, s.sources, source, ref)
+	return song, app.Fail(ctx, err)
 }
 
 // Delete removes one song.

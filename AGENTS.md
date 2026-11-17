@@ -18,7 +18,7 @@ Utanabi is an app for learning Japanese through song lyrics. It is a Go app buil
 | `internal/common/redact` | The `Secret` type, which never prints its value. |
 | `internal/common/jtext` | Japanese text normalization (NFC, full-width katakana) and the hiragana check for readings. |
 | `internal/features` | Feature slices, one folder each. |
-| `internal/features/songs` | The songs the user is learning: add a song with your own lyrics, list, read, and delete. |
+| `internal/features/songs` | The songs the user is learning: search online lyrics sources (LRCLIB in `lrclib_api.go`) and add a match, or add a song with your own lyrics; list, read, and delete. Synced (LRC) lyrics keep each line's start time. |
 | `internal/store` | The SQLite database: open, `Migrate`, `WithTx`, `Querier`, and `Translate` for driver errors. |
 | `internal/store/migrations` | The schema: numbered `.sql` files, embedded in the binary and applied at startup. |
 | `internal/store/storetest` | A fresh database file per test, for integration tests. |
