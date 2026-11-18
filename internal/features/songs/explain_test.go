@@ -57,12 +57,19 @@ func TestWordsCarryTheirMeaningAndGrammar(t *testing.T) {
 	if len(line.Words) != 5 {
 		t.Fatalf("got %d words, want 5", len(line.Words))
 	}
+	shorts := make([]string, len(line.Words))
+	for i, w := range line.Words {
+		shorts[i] = w.Short
+	}
+	if want := []string{"you", "'s", "voice", "(object)", "search for"}; !reflect.DeepEqual(shorts, want) {
+		t.Errorf("shorts = %q, want %q (each word's part of the line gloss)", shorts, want)
+	}
 	verb := line.Words[4]
 	sense := 0
 	want := Word{
 		FirstToken: 4, LastToken: 6, Text: "探している", Lemma: "探す", LemmaReading: "さがす", LemmaRomaji: "sagasu",
 		Kind: WordContent, ConjClass: "v5s", EntryID: 1593670, SenseIndex: &sense, Gloss: "to search for",
-		Form: "探す, in the 〜ている form",
+		Short: "search for", Form: "探す, in the 〜ている form",
 	}
 	got := verb
 	got.Steps = nil

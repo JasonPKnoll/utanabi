@@ -69,7 +69,7 @@ test("a song with your own lyrics can be added, read, and deleted", async ({ pag
 
 // The smoke server has no dictionary.db, so particles are explained from the built-in grammar list and content words
 // say their meanings aren't installed.
-test("words show a word-by-word gloss and open a sheet when tapped", async ({ page }) => {
+test("words show each word's English under it and open a sheet when tapped", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
   const title = `言葉の歌 ${Date.now()}`;
@@ -83,13 +83,16 @@ test("words show a word-by-word gloss and open a sheet when tapped", async ({ pa
 
   const words = page.getByRole("button", { name: "Words" });
   await expect(words).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByText("夜 · 's · 空 · in · 星 · (subject) · 光る")).toHaveCount(0);
+  await expect(page.getByText("(subject)")).toHaveCount(0);
   await words.click();
   await expect(words).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("夜 · 's · 空 · in · 星 · (subject) · 光る")).toBeVisible();
-  await expect(page.getByText("君 · 's · 声 · (object) · 探す")).toBeVisible();
 
+  // Each word's English sits under that word: the particle が carries "(subject)", and を "(object)" in the next line.
   const line = page.getByRole("group", { name: "夜の空に星が光る" });
+  await expect(line.getByRole("button", { name: "が, (subject)" })).toBeVisible();
+  await expect(line.getByRole("button", { name: "の, 's" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "君の声を探している" }).getByText("(object)")).toBeVisible();
+
   await line.getByRole("button", { name: "星", exact: true }).click();
   const sheet = page.getByRole("dialog");
   await expect(sheet).toBeVisible();
@@ -98,7 +101,7 @@ test("words show a word-by-word gloss and open a sheet when tapped", async ({ pa
   await sheet.getByRole("button", { name: "Close" }).click();
   await expect(sheet).toHaveCount(0);
 
-  await line.getByRole("button", { name: "が", exact: true }).click();
+  await line.getByRole("button", { name: "が, (subject)" }).click();
   await expect(sheet.getByText("Subject marker")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(sheet).toHaveCount(0);
