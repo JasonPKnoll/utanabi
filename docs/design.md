@@ -6,11 +6,13 @@ Every screen is built for a phone first. The rules are in "Mobile first" in [AGE
 
 ## Light and dark
 
-The app follows the device's setting (`prefers-color-scheme`). Dark is the signature look and the default when a device has no preference. The light theme keeps the same idea: the sung line is the darkest, boldest text, and the rest of the song is a softer grey. There is no in-app switch yet.
+The app follows the device's setting (`prefers-color-scheme`). Dark is the signature look and the default when a device has no preference. The light theme keeps the same idea: the sung line is the darkest, boldest text, and the rest of the song is a softer grey.
+
+A Theme control (`frontend/src/components/ThemePicker.svelte`) offers Auto, Light, and Dark, as three radio buttons drawn as one segmented control. It sits in the song's Display sheet and on About. Auto follows the device. Light or Dark sets `data-theme` on `<html>` (`frontend/src/lib/theme.ts`), and the browser's bar colour (`theme-color`) follows. The choice is remembered on the device in `localStorage`, and Auto stands in when storage is blocked.
 
 ## Colours
 
-The tokens live on `:root` in `frontend/src/app.css`, with the light values in its `prefers-color-scheme: light` block. Components use the tokens, never their own hex values, so every screen gets both themes for free.
+The tokens live on `:root` in `frontend/src/app.css`, with the light values in its `prefers-color-scheme: light` block and again under `:root[data-theme="light"]` (keep the two the same). Components use the tokens, never their own hex values, so every screen gets both themes for free.
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |

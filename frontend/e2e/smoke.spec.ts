@@ -33,6 +33,27 @@ test("the UI loads and the bound method answers", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test("a chosen theme overrides the device's and is remembered", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/#/about");
+  const root = page.locator("html");
+  const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await expect(page.getByRole("radio", { name: "Auto" })).toBeChecked();
+  const dark = await background();
+
+  await page.getByRole("radio", { name: "Light" }).check();
+  await expect(root).toHaveAttribute("data-theme", "light");
+  expect(await background()).not.toBe(dark);
+
+  await page.reload();
+  await expect(root).toHaveAttribute("data-theme", "light");
+  await expect(page.getByRole("radio", { name: "Light" })).toBeChecked();
+
+  await page.getByRole("radio", { name: "Auto" }).check();
+  await expect(root).not.toHaveAttribute("data-theme");
+  expect(await background()).toBe(dark);
+});
+
 test("a song with your own lyrics can be added, read, and deleted", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));

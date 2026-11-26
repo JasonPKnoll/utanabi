@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { ReadingAids } from "../lib/readingAids";
   import Sheet from "./Sheet.svelte";
+  import ThemePicker from "./ThemePicker.svelte";
 
-  // The song's display options in one place: the reading aids as switches, where the lyrics came from, and deleting
-  // the song, so none of them take room from the lyrics.
+  // The song's display options in one place: the reading aids as switches, the app's theme, where the lyrics came
+  // from, and deleting the song, so none of them take room from the lyrics.
   let {
     aids,
     source,
@@ -68,6 +69,9 @@
         </li>
       {/each}
     </ul>
+
+    <h3 class="section">Theme</h3>
+    <ThemePicker />
 
     {#if source}
       <p class="source">Lyrics from {source}</p>
@@ -176,6 +180,15 @@
   .row[aria-checked="true"] .knob {
     transform: translateX(18px);
     background: var(--on-accent);
+  }
+
+  .section {
+    margin: 18px 4px 8px;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
 
   .source {

@@ -1,6 +1,7 @@
 /* Night stage: the app's look. A dark stage where the sung line is bright and the rest of the song stays dim.
-   It follows the device's light or dark setting; dark is the default. Screens are built for a 360px phone first
-   (see "Mobile first" in AGENTS.md). Every text colour keeps 4.5:1 contrast on the surfaces it sits on. */
+   It follows the device's light or dark setting, dark by default, unless a theme is chosen (lib/theme.ts), which sets
+   data-theme on <html>. Screens are built for a 360px phone first (see "Mobile first" in AGENTS.md). Every text
+   colour keeps 4.5:1 contrast on the surfaces it sits on. */
 :root {
   --bg: #0f1420;
   --surface: #18202f;
@@ -36,8 +37,10 @@
   -webkit-text-size-adjust: 100%;
 }
 
+/* Light, when the device asks for it and no theme was chosen, or when Light was chosen. The two blocks hold the same
+   values: CSS can't share one block between a media query and an attribute. */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     --bg: #f5f6f9;
     --surface: #ffffff;
     --surface-strong: #e6e9f0;
@@ -54,6 +57,24 @@
 
     color-scheme: light;
   }
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f6f9;
+  --surface: #ffffff;
+  --surface-strong: #e6e9f0;
+  --border: #d5dae3;
+  --fg: #121826;
+  --muted: #4a5468;
+  --dim: #5c6678;
+  --accent: #f5b544;
+  --accent-strong: #ffc964;
+  --on-accent: #0f1420;
+  --link: #8a5100;
+  --link-strong: #6b3f00;
+  --danger: #b42318;
+
+  color-scheme: light;
 }
 
 body {

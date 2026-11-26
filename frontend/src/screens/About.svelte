@@ -1,5 +1,6 @@
 <script lang="ts">
   import { AboutService, type About } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
+  import ThemePicker from "../components/ThemePicker.svelte";
   import { toAppError, type AppError } from "../lib/errors";
   import { homeHref } from "../lib/route";
 
@@ -39,6 +40,11 @@
         <p class="mark" lang="ja">うたなび</p>
         <p class="muted">Learn Japanese through song lyrics.</p>
         <p class="version" data-testid="about">{about.name} {about.version} · {about.platform}</p>
+      </section>
+
+      <section>
+        <h2>Theme</h2>
+        <div class="card"><ThemePicker /></div>
       </section>
 
       <section>
@@ -103,6 +109,12 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--muted);
+  }
+
+  .card {
+    padding: 8px;
+    border-radius: 16px;
+    background: var(--surface);
   }
 
   .sources {
