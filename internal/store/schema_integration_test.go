@@ -46,6 +46,7 @@ INSERT INTO passkeys (id, user_id, public_key, attestation_type, transports, sig
     VALUES (randomblob(16), 5, x'01', 'none', '["internal"]', 0, 1, 1, 1);
 INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (randomblob(32), 5, 1, 2);
 INSERT INTO library_songs (owner, song_id, added_at) VALUES (0, 1, 1), (0, 2, 1), (5, 2, 1);
+INSERT INTO invites (id, code_hash, created_by, created_at, expires_at) VALUES (1, randomblob(32), 5, 1, 2);
 `
 
 func newSchemaDB(t *testing.T) *store.DB {
@@ -94,6 +95,10 @@ func TestSchemaAcceptsGoodRows(t *testing.T) {
 			sql: `INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 5, 3, 0, '探す', 1)`},
 		{name: "a user adding a song the device has",
 			sql: `INSERT INTO library_songs (owner, song_id, added_at) VALUES (5, 1, 1)`},
+		{name: "an admin",
+			sql: `UPDATE users SET admin = 1 WHERE id = 5`},
+		{name: "a used invite",
+			sql: `INSERT INTO invites (code_hash, created_by, created_at, expires_at, used_by, used_at) VALUES (randomblob(32), 5, 1, 9, 5, 3)`},
 		{name: "a card's progress",
 			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (1000, 2, 5, 1, 1)`},
 		{name: "a token with its part of speech",
@@ -162,6 +167,16 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 			sql: `INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 99, 3, 0, '探す', 1)`},
 		{name: "a second card for one meaning in one owner's cards", wantErr: "UNIQUE",
 			sql: `INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 0, 3, 0, '探す', 1)`},
+		{name: "admin that isn't 0 or 1", wantErr: "CHECK",
+			sql: `UPDATE users SET admin = 2 WHERE id = 5`},
+		{name: "an invite stored whole, not hashed", wantErr: "CHECK",
+			sql: `INSERT INTO invites (code_hash, created_at, expires_at) VALUES (CAST('sszt-x59r-5rx2-emm7' AS BLOB), 1, 2)`},
+		{name: "an invite that runs out before it's made", wantErr: "CHECK",
+			sql: `INSERT INTO invites (code_hash, created_at, expires_at) VALUES (randomblob(32), 5, 5)`},
+		{name: "an invite used by someone with no time", wantErr: "CHECK",
+			sql: `INSERT INTO invites (code_hash, created_at, expires_at, used_by) VALUES (randomblob(32), 1, 2, 5)`},
+		{name: "the same invite twice", wantErr: "UNIQUE",
+			sql: `INSERT INTO invites (code_hash, created_at, expires_at) SELECT code_hash, 1, 2 FROM invites WHERE id = 1`},
 		{name: "progress for a card that doesn't exist", wantErr: "FOREIGN KEY",
 			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (9999, 0, 0, 0, 1)`},
 		{name: "a negative streak", wantErr: "CHECK",

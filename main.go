@@ -87,6 +87,7 @@ func run() (err error) {
 	// phone apps have no accounts: everything there is the device's.
 	owners := identity.OnDevice()
 	var signIn application.Middleware
+	var serverOnly []application.Service
 	if cfg.Platform == "server" {
 		owners = identity.Accounts()
 		sites := accounts.SitesFor(cfg.Server.AllowedOrigins, cfg.Server.Port)
@@ -94,20 +95,22 @@ func run() (err error) {
 		if err != nil {
 			return errors.Join(err, closeAll(closers))
 		}
-		signIn = accounts.NewHTTP(accounts.NewSQLite(db), ceremonies, sites, cfg.Server.SignupCode).Middleware
+		users := accounts.NewSQLite(db)
+		signIn = accounts.NewHTTP(users, ceremonies, sites, cfg.Server.SignupCode).Middleware
+		serverOnly = append(serverOnly, application.NewService(accounts.NewService(users)))
 	}
 
 	credits := []app.Credit{
 		{Name: "JMdict", Text: dictionary.Attribution()},
 		{Name: "IPA dictionary", Text: morph.Attribution()},
 	}
-	a := app.New(cfg, log, dist, signIn,
+	services := append([]application.Service{
 		application.NewService(app.NewAboutService(cfg, credits...)),
 		application.NewService(songs.NewService(songs.NewSQLite(db, owners), songs.NewMorph(morph.New()), meanings,
 			sources...)),
 		application.NewService(study.NewService(study.NewSQLite(db, owners), study.NewJMdict(dict), cfg.StudyStreak)),
-		app.CloseOnShutdown(closers...),
-	)
+	}, serverOnly...)
+	a := app.New(cfg, log, dist, signIn, append(services, app.CloseOnShutdown(closers...))...)
 
 	log.InfoContext(ctx, "starting", slog.String("version", cfg.Version), slog.String("platform", cfg.Platform),
 		slog.Any("lyrics_sources", cfg.LyricsSources), slog.Bool("dictionary", dict != nil),

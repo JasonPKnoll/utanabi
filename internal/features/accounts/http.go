@@ -178,17 +178,19 @@ func (h *HTTP) serveAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 type userJSON struct {
-	Name string `json:"name"`
+	Name  string `json:"name"`
+	Admin bool   `json:"admin"`
 }
 
-// me says who's signed in, and whether this server takes new accounts.
+// me says who's signed in, and whether they're an admin. Sign-up is always offered: it needs an invite from an admin,
+// or the server's sign-up code.
 func (h *HTTP) me(w http.ResponseWriter, r *http.Request) {
 	body := struct {
 		User   *userJSON `json:"user"`
 		SignUp bool      `json:"signUp"`
-	}{SignUp: !h.signupCode.IsZero()}
+	}{SignUp: true}
 	if u, ok := h.sessionUser(r); ok {
-		body.User = &userJSON{Name: u.Name}
+		body.User = &userJSON{Name: u.Name, Admin: u.Admin}
 	}
 	writeJSON(w, http.StatusOK, body)
 }
@@ -211,8 +213,9 @@ func (h *HTTP) signUpBegin(w http.ResponseWriter, r *http.Request, site Site) {
 		h.fail(w, r, errTooMany)
 		return
 	}
-	if err := CheckSignupCode(in.Code, h.signupCode); err != nil {
-		if !errors.Is(err, ErrSignupClosed) {
+	invite, err := CheckCode(r.Context(), h.repo, in.Code, h.signupCode, h.now())
+	if err != nil {
+		if errors.Is(err, ErrWrongCode) {
 			h.wrongCodes.allow(h.now())
 		}
 		h.fail(w, r, err)
@@ -233,7 +236,7 @@ func (h *HTTP) signUpBegin(w http.ResponseWriter, r *http.Request, site Site) {
 		h.fail(w, r, err)
 		return
 	}
-	h.startCeremony(w, r, site, ceremony{kind: "signup", account: draft, state: state}, options)
+	h.startCeremony(w, r, site, ceremony{kind: "signup", account: draft, invite: invite, state: state}, options)
 }
 
 func (h *HTTP) signUpFinish(w http.ResponseWriter, r *http.Request, site Site) {
@@ -241,7 +244,7 @@ func (h *HTTP) signUpFinish(w http.ResponseWriter, r *http.Request, site Site) {
 	if !ok {
 		return
 	}
-	a, err := SignUp(r.Context(), h.repo, h.cer, site, c.account, c.state, response, h.now())
+	a, err := SignUp(r.Context(), h.repo, h.cer, site, c.account, c.invite, c.state, response, h.now())
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -278,7 +281,7 @@ func (h *HTTP) signInFinish(w http.ResponseWriter, r *http.Request, site Site) {
 		h.fail(w, r, err)
 		return
 	}
-	h.startSession(w, r, site, identity.User{ID: a.ID, Name: a.Name})
+	h.startSession(w, r, site, identity.User{ID: a.ID, Name: a.Name, Admin: a.Admin})
 }
 
 func (h *HTTP) passkeyBegin(w http.ResponseWriter, r *http.Request, site Site) {
@@ -384,7 +387,7 @@ func (h *HTTP) startSession(w http.ResponseWriter, r *http.Request, site Site, u
 	h.setCookie(w, site, sessionCookie, token, "/", int(SessionLife/time.Second), http.SameSiteLaxMode)
 	writeJSON(w, http.StatusOK, struct {
 		User userJSON `json:"user"`
-	}{userJSON{Name: u.Name}})
+	}{userJSON{Name: u.Name, Admin: u.Admin}})
 }
 
 // sessionUser is the signed-in user of the request's session cookie, if it's a live session on one of the app's
@@ -509,6 +512,8 @@ type ceremony struct {
 	kind    string
 	site    Site
 	account Account
+	// invite is the hash of the invite a sign-up was begun with, nil for the server's code.
+	invite  []byte
 	state   []byte
 	expires time.Time
 }

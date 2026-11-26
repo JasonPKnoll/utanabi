@@ -17,6 +17,10 @@ describe("parseRoute", () => {
     ["#/song/abc", { name: "missing" }],
     ["#/song/12/edit", { name: "missing" }],
     ["#/song/12/study", { name: "study", id: 12 }],
+    ["#/invites", { name: "invites" }],
+    ["#/join/sszt-x59r-5rx2-emm7", { name: "join", code: "sszt-x59r-5rx2-emm7" }],
+    ["#/join/", { name: "missing" }],
+    ["#/join/<script>", { name: "missing" }],
     ["#/song/0/study", { name: "missing" }],
     ["#/nowhere", { name: "missing" }],
   ])("reads %j", (hash, want) => {

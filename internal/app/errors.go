@@ -18,6 +18,7 @@ const (
 	CodeCanceled     = "canceled"
 	CodeTimeout      = "timeout"
 	CodeUnauthorized = "unauthorized"
+	CodeForbidden    = "forbidden"
 	CodeInternal     = "internal"
 )
 
@@ -73,6 +74,8 @@ func toFrontend(err error) (*Error, slog.Level) {
 		return &Error{Code: CodeConflict, Message: "That already exists."}, slog.LevelInfo
 	case errors.Is(err, fault.ErrUnauthorized):
 		return &Error{Code: CodeUnauthorized, Message: "Please sign in again."}, slog.LevelInfo
+	case errors.Is(err, fault.ErrForbidden):
+		return &Error{Code: CodeForbidden, Message: "Only an admin can do that."}, slog.LevelWarn
 	case errors.Is(err, fault.ErrCanceled), errors.Is(err, context.Canceled):
 		return &Error{Code: CodeCanceled, Message: "The request was canceled."}, slog.LevelInfo
 	case errors.Is(err, fault.ErrTimeout), errors.Is(err, context.DeadlineExceeded):

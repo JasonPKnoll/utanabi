@@ -180,7 +180,7 @@ func TestSignUpRules(t *testing.T) {
 	tests := []struct {
 		name, code, body, wantField string
 	}{
-		{name: "closed", code: "", body: `{"name":"hana","code":""}`, wantField: "signup"},
+		{name: "no server code and no invite", code: "", body: `{"name":"hana","code":"anything"}`, wantField: "code"},
 		{name: "wrong code", code: testCode, body: `{"name":"hana","code":"guess"}`, wantField: "code"},
 		{name: "bad name", code: testCode, body: `{"name":"花子","code":"` + testCode + `"}`, wantField: "name"},
 		{name: "not JSON", code: testCode, body: `name=hana`, wantField: "request"},
@@ -307,11 +307,9 @@ func TestMe(t *testing.T) {
 	}
 	s.signUp(local, "hana")
 	w := s.do(local, http.MethodGet, "/auth/me", "")
-	if w.Body.String() != `{"user":{"name":"hana"},"signUp":true}`+"\n" || w.Header().Get("Cache-Control") != "no-store" {
+	if w.Body.String() != `{"user":{"name":"hana","admin":false},"signUp":true}`+"\n" ||
+		w.Header().Get("Cache-Control") != "no-store" {
 		t.Errorf("/auth/me signed in = %s %v", w.Body, w.Header())
-	}
-	if w := newServer(t, "").do(local, http.MethodGet, "/auth/me", ""); !strings.Contains(w.Body.String(), `"signUp":false`) {
-		t.Errorf("/auth/me with sign-up closed = %s", w.Body)
 	}
 }
 
@@ -414,5 +412,62 @@ func TestABackgroundSignInDoesNotStandInTheWayOfSigningUp(t *testing.T) {
 	s.signUp(local, "hana")
 	if s.cookies[ceremonyCookieFor("signin")] != waiting {
 		t.Error("signing up replaced the sign-in waiting in the background")
+	}
+}
+
+func TestSigningUpWithAnInviteUsesItUp(t *testing.T) {
+	t.Parallel()
+
+	s := newServer(t, "")
+	code, hash, _ := NewInviteCode()
+	if _, err := s.repo.CreateInvite(t.Context(), hash, 1, time.Now(), time.Now().Add(InviteLife)); err != nil {
+		t.Fatalf("CreateInvite: %v", err)
+	}
+
+	if w := s.do(local, http.MethodPost, "/auth/signup/begin", `{"name":"hana","code":"`+code+`"}`); w.Code != http.StatusOK {
+		t.Fatalf("sign-up with an invite on a server with no code = %d %s", w.Code, w.Body)
+	}
+	if w := s.do(local, http.MethodPost, "/auth/signup/finish", "good"); w.Code != http.StatusOK {
+		t.Fatalf("finishing = %d %s", w.Code, w.Body)
+	}
+
+	other := newServerSharing(t, s)
+	if w := other.do(local, http.MethodPost, "/auth/signup/begin", `{"name":"kaze","code":"`+code+`"}`); w.Code != http.StatusBadRequest {
+		t.Errorf("the same invite again = %d %s, want refused", w.Code, w.Body)
+	}
+}
+
+func TestAnInviteUsedMeanwhileDoesNotMakeASecondAccount(t *testing.T) {
+	t.Parallel()
+
+	s := newServer(t, "")
+	code, hash, _ := NewInviteCode()
+	if _, err := s.repo.CreateInvite(t.Context(), hash, 1, time.Now(), time.Now().Add(InviteLife)); err != nil {
+		t.Fatalf("CreateInvite: %v", err)
+	}
+	other := newServerSharing(t, s)
+	s.do(local, http.MethodPost, "/auth/signup/begin", `{"name":"hana","code":"`+code+`"}`)
+	other.do(local, http.MethodPost, "/auth/signup/begin", `{"name":"kaze","code":"`+code+`"}`)
+	if w := s.do(local, http.MethodPost, "/auth/signup/finish", "good"); w.Code != http.StatusOK {
+		t.Fatalf("the first to finish = %d %s", w.Code, w.Body)
+	}
+	if w := other.do(local, http.MethodPost, "/auth/signup/finish", "good"); w.Code != http.StatusBadRequest {
+		t.Errorf("the second to finish = %d %s, want refused", w.Code, w.Body)
+	}
+}
+
+func TestMeSaysWhoIsAnAdmin(t *testing.T) {
+	t.Parallel()
+
+	s := newServer(t, testCode)
+	s.signUp(local, "hana")
+	s.repo.mu.Lock()
+	for hash, sess := range s.repo.sessions {
+		sess.user.Admin = true
+		s.repo.sessions[hash] = sess
+	}
+	s.repo.mu.Unlock()
+	if w := s.do(local, http.MethodGet, "/auth/me", ""); !strings.Contains(w.Body.String(), `{"name":"hana","admin":true}`) {
+		t.Errorf("/auth/me for an admin = %s", w.Body)
 	}
 }

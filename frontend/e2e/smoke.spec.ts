@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+
+import { expect, test, type Browser, type Page } from "@playwright/test";
 
 const signupCode = "smoke-test-sign-up-code";
 
@@ -26,7 +28,7 @@ async function signUp(page: Page): Promise<string> {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Welcome to Utanabi" })).toBeVisible();
   await page.getByLabel("Choose a username").fill(name);
-  await page.getByLabel("Sign-up code").fill(signupCode);
+  await page.getByLabel("Invite code").fill(signupCode);
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Save passkey" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
@@ -319,7 +321,7 @@ test("a new account needs the sign-up code", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Welcome to Utanabi" })).toBeVisible();
   await expect(page.getByLabel("Username", { exact: true })).toHaveAttribute("autocomplete", "username webauthn");
   await page.getByLabel("Choose a username").fill("smoke-wrong-code");
-  await page.getByLabel("Sign-up code").fill("not the code at all");
+  await page.getByLabel("Invite code").fill("not the code at all");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByText("code isn't right")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Welcome to Utanabi" })).toBeVisible();
@@ -344,4 +346,62 @@ test("each user's library is their own", async ({ browser }) => {
 
   await hana.close();
   await kaze.close();
+});
+
+// Makes a user an admin with the admin command, as the server's owner would on its machine.
+function makeAdmin(name: string) {
+  execFileSync(
+    "go",
+    ["run", "./cmd/admin", "-data", process.env.SMOKE_DATA_DIR ?? ".task/smoke-data", "-grant", name],
+    {
+      cwd: "..",
+      stdio: "pipe",
+    },
+  );
+}
+
+async function newcomer(browser: Browser): Promise<Page> {
+  const page = await (await browser.newContext()).newPage();
+  await addAuthenticator(page);
+  return page;
+}
+
+test("an admin's invite link signs one new person up", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const admin = await browser.newPage();
+  const name = await signUp(admin);
+
+  // Not an admin yet: invites are off limits.
+  await admin.goto("/#/invites");
+  await expect(admin.getByText("Only an admin can manage invites.")).toBeVisible();
+
+  makeAdmin(name);
+  // The page learns who's an admin when it loads.
+  await admin.goto("/#/about");
+  await admin.reload();
+  await expect(admin.getByText("Admin", { exact: true })).toBeVisible();
+  await admin.getByRole("link", { name: "Manage invites" }).click();
+  await admin.getByRole("button", { name: "Make an invite link" }).click();
+  const link = ((await admin.getByTestId("invite-link").textContent()) ?? "").trim();
+  expect(link).toMatch(/#\/join\/[a-z2-9]{4}(-[a-z2-9]{4}){3}$/);
+
+  // The link opens sign-up with the code filled in.
+  const guest = await newcomer(browser);
+  await guest.goto(link);
+  await expect(guest.getByLabel("Invite code")).toHaveValue(/^[a-z2-9]{4}(-[a-z2-9]{4}){3}$/);
+  const guestName = `guest-${Date.now()}`;
+  await guest.getByLabel("Choose a username").fill(guestName);
+  await guest.getByRole("button", { name: "Continue" }).click();
+  await guest.getByRole("button", { name: "Save passkey" }).click();
+  await expect(guest.getByRole("heading", { level: 1 })).toContainText("Library");
+
+  // It worked once; it doesn't work again.
+  const late = await newcomer(browser);
+  await late.goto(link);
+  await late.getByLabel("Choose a username").fill(`late-${Date.now()}`);
+  await late.getByRole("button", { name: "Continue" }).click();
+  await expect(late.getByText(/invite has been used or has run out/)).toBeVisible();
+
+  await admin.reload();
+  await expect(admin.getByText(`Used by ${guestName}`)).toBeVisible();
 });

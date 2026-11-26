@@ -87,6 +87,12 @@ type fakeRepo struct {
 	accounts []Account
 	sessions map[string]session
 	used     map[string]uint32
+	invites  []fakeInvite
+}
+
+type fakeInvite struct {
+	Invite
+	hash []byte
 }
 
 type session struct {
@@ -98,7 +104,9 @@ func newFakeRepo() *fakeRepo {
 	return &fakeRepo{sessions: map[string]session{}, used: map[string]uint32{}}
 }
 
-func (f *fakeRepo) CreateAccount(_ context.Context, name string, handle []byte, key Passkey, _ time.Time) (Account, error) {
+func (f *fakeRepo) CreateAccount(_ context.Context, name string, handle []byte, key Passkey, invite []byte,
+	now time.Time,
+) (Account, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	for _, a := range f.accounts {
@@ -106,9 +114,61 @@ func (f *fakeRepo) CreateAccount(_ context.Context, name string, handle []byte, 
 			return Account{}, fault.ErrConflict
 		}
 	}
+	if invite != nil {
+		i := f.usable(invite, now)
+		if i < 0 {
+			return Account{}, ErrInviteGone
+		}
+		f.invites[i].UsedBy, f.invites[i].UsedAt = name, now
+	}
 	a := Account{ID: int64(len(f.accounts) + 1), Handle: handle, Name: name, Passkeys: []Passkey{key}}
 	f.accounts = append(f.accounts, a)
 	return a, nil
+}
+
+func (f *fakeRepo) usable(hash []byte, now time.Time) int {
+	for i, inv := range f.invites {
+		if bytes.Equal(inv.hash, hash) && inv.UsedBy == "" && now.Before(inv.ExpiresAt) {
+			return i
+		}
+	}
+	return -1
+}
+
+func (f *fakeRepo) InviteUsable(_ context.Context, hash []byte, now time.Time) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.usable(hash, now) >= 0, nil
+}
+
+func (f *fakeRepo) Invites(context.Context) ([]Invite, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	list := []Invite{}
+	for _, inv := range f.invites {
+		list = append(list, inv.Invite)
+	}
+	return list, nil
+}
+
+func (f *fakeRepo) CreateInvite(_ context.Context, hash []byte, by int64, now, expires time.Time) (Invite, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	inv := Invite{ID: int64(len(f.invites) + 1), CreatedBy: strconv.FormatInt(by, 10), CreatedAt: now, ExpiresAt: expires}
+	f.invites = append(f.invites, fakeInvite{inv, hash})
+	return inv, nil
+}
+
+func (f *fakeRepo) DeleteInvite(_ context.Context, id int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i, inv := range f.invites {
+		if inv.ID == id && inv.UsedBy == "" {
+			f.invites = append(f.invites[:i], f.invites[i+1:]...)
+			return nil
+		}
+	}
+	return fault.ErrNotFound
 }
 
 func (f *fakeRepo) AccountByHandle(_ context.Context, handle []byte) (Account, error) {
@@ -243,11 +303,11 @@ func TestSignUpThenSignIn(t *testing.T) {
 	site := Site{ID: "localhost", Origin: "http://localhost:8080"}
 	draft := Account{Handle: []byte("handle-hana"), Name: "hana"}
 	_, state, _ := cer.BeginRegistration(site, draft)
-	a, err := SignUp(t.Context(), repo, cer, site, draft, state, []byte("good"), time.Unix(1, 0))
+	a, err := SignUp(t.Context(), repo, cer, site, draft, nil, state, []byte("good"), time.Unix(1, 0))
 	if err != nil || a.ID == 0 || len(a.Passkeys) != 1 {
 		t.Fatalf("SignUp = %+v, %v, want an account with one passkey", a, err)
 	}
-	if _, err := SignUp(t.Context(), repo, cer, site, draft, state, []byte("bad"), time.Unix(1, 0)); !errors.Is(err, ErrPasskeyRejected) {
+	if _, err := SignUp(t.Context(), repo, cer, site, draft, nil, state, []byte("bad"), time.Unix(1, 0)); !errors.Is(err, ErrPasskeyRejected) {
 		t.Errorf("SignUp with a bad passkey: %v, want rejected", err)
 	}
 
@@ -263,5 +323,92 @@ func TestSignUpThenSignIn(t *testing.T) {
 	other := Site{ID: "example.ngrok-free.dev", Origin: "https://example.ngrok-free.dev"}
 	if _, err := SignIn(t.Context(), repo, cer, other, state, []byte("good:hana"), time.Unix(2, 0)); !errors.Is(err, ErrPasskeyRejected) {
 		t.Errorf("SignIn on another site with this site's challenge: %v, want rejected", err)
+	}
+}
+
+func TestInviteCodes(t *testing.T) {
+	t.Parallel()
+
+	seen := map[string]bool{}
+	for range 200 {
+		code, hash, err := NewInviteCode()
+		if err != nil {
+			t.Fatalf("NewInviteCode: %v", err)
+		}
+		if len(code) != 19 || strings.Count(code, "-") != 3 || strings.ContainsAny(code, "01ilo") || seen[code] {
+			t.Fatalf("code %q: want four new groups of four, without look-alike letters", code)
+		}
+		seen[code] = true
+		if !bytes.Equal(hash, InviteHash(" "+strings.ToUpper(code)+" ")) {
+			t.Fatalf("the hash of %q doesn't match the code typed in capitals with spaces", code)
+		}
+	}
+}
+
+func TestCheckCode(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeRepo()
+	now := time.Unix(100, 0)
+	code, hash, _ := NewInviteCode()
+	if _, err := repo.CreateInvite(t.Context(), hash, 1, now, now.Add(InviteLife)); err != nil {
+		t.Fatalf("CreateInvite: %v", err)
+	}
+	serverCode := redact.New("a long sign-up code")
+
+	if got, err := CheckCode(t.Context(), repo, "a long sign-up code", serverCode, now); err != nil || got != nil {
+		t.Errorf("the server's code = %x, %v, want no invite", got, err)
+	}
+	if got, err := CheckCode(t.Context(), repo, code, serverCode, now); err != nil || !bytes.Equal(got, hash) {
+		t.Errorf("an invite = %x, %v, want its hash", got, err)
+	}
+	if got, err := CheckCode(t.Context(), repo, code, redact.Secret{}, now); err != nil || !bytes.Equal(got, hash) {
+		t.Errorf("an invite with no server code = %x, %v, want its hash", got, err)
+	}
+	if _, err := CheckCode(t.Context(), repo, code, serverCode, now.Add(InviteLife)); !errors.Is(err, ErrWrongCode) {
+		t.Errorf("an invite that has run out: %v, want wrong code", err)
+	}
+	if _, err := CheckCode(t.Context(), repo, "guess", redact.Secret{}, now); !errors.Is(err, ErrWrongCode) {
+		t.Errorf("a guess: %v, want wrong code", err)
+	}
+}
+
+func TestOnlyAdminsManageInvites(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeRepo()
+	now := time.Unix(100, 0)
+	user := identity.Into(t.Context(), identity.User{ID: 2, Name: "kaze"})
+	admin := identity.Into(t.Context(), identity.User{ID: 1, Name: "hana", Admin: true})
+
+	for name, err := range map[string]error{
+		"list":   func() error { _, err := ListInvites(user, repo); return err }(),
+		"make":   func() error { _, err := MakeInvite(user, repo, now); return err }(),
+		"revoke": RevokeInvite(user, repo, 1),
+	} {
+		if !errors.Is(err, fault.ErrForbidden) {
+			t.Errorf("%s as a user: %v, want forbidden", name, err)
+		}
+	}
+	if _, err := MakeInvite(t.Context(), repo, now); !errors.Is(err, fault.ErrUnauthorized) {
+		t.Errorf("make signed out: %v, want unauthorized", err)
+	}
+
+	made, err := MakeInvite(admin, repo, now)
+	if err != nil || made.Code == "" || !made.Invite.ExpiresAt.Equal(now.Add(InviteLife)) {
+		t.Fatalf("MakeInvite = %+v, %v, want a code that runs out in a week", made, err)
+	}
+	if list, err := ListInvites(admin, repo); err != nil || len(list) != 1 {
+		t.Errorf("ListInvites = %+v, %v, want the one invite", list, err)
+	}
+	if err := RevokeInvite(admin, repo, made.Invite.ID); err != nil {
+		t.Errorf("RevokeInvite: %v", err)
+	}
+	if ok, _ := repo.InviteUsable(t.Context(), InviteHash(made.Code), now); ok {
+		t.Error("a revoked invite still works")
+	}
+	var invalid *fault.InvalidError
+	if err := RevokeInvite(admin, repo, 0); !errors.As(err, &invalid) {
+		t.Errorf("RevokeInvite(0): %v, want invalid", err)
 	}
 }

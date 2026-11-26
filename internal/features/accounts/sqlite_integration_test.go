@@ -37,7 +37,7 @@ func TestAccountIsSavedWithItsPasskey(t *testing.T) {
 
 	repo := newRepo(t)
 	handle := bytes.Repeat([]byte{1}, 32)
-	a, err := repo.CreateAccount(t.Context(), "hana", handle, key("phone"), time.UnixMilli(1))
+	a, err := repo.CreateAccount(t.Context(), "hana", handle, key("phone"), nil, time.UnixMilli(1))
 	if err != nil {
 		t.Fatalf("CreateAccount: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestAccountIsSavedWithItsPasskey(t *testing.T) {
 		t.Errorf("account\n by handle %+v\n by ID     %+v\n want      %+v", byHandle, byID, want)
 	}
 
-	if _, err := repo.CreateAccount(t.Context(), "hana", bytes.Repeat([]byte{2}, 32), key("other"), time.UnixMilli(1)); !errors.Is(err, fault.ErrConflict) {
+	if _, err := repo.CreateAccount(t.Context(), "hana", bytes.Repeat([]byte{2}, 32), key("other"), nil, time.UnixMilli(1)); !errors.Is(err, fault.ErrConflict) {
 		t.Errorf("a taken name: %v, want conflict", err)
 	}
 	if _, err := repo.AccountByHandle(t.Context(), bytes.Repeat([]byte{9}, 32)); !errors.Is(err, fault.ErrNotFound) {
@@ -69,7 +69,7 @@ func TestPasskeysAreAddedAndRecorded(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
-	a, err := repo.CreateAccount(t.Context(), "hana", bytes.Repeat([]byte{1}, 32), key("phone"), time.UnixMilli(1))
+	a, err := repo.CreateAccount(t.Context(), "hana", bytes.Repeat([]byte{1}, 32), key("phone"), nil, time.UnixMilli(1))
 	if err != nil {
 		t.Fatalf("CreateAccount: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestSessions(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
-	a, err := repo.CreateAccount(t.Context(), "hana", bytes.Repeat([]byte{1}, 32), key("phone"), time.UnixMilli(1))
+	a, err := repo.CreateAccount(t.Context(), "hana", bytes.Repeat([]byte{1}, 32), key("phone"), nil, time.UnixMilli(1))
 	if err != nil {
 		t.Fatalf("CreateAccount: %v", err)
 	}
@@ -137,5 +137,102 @@ func TestSessions(t *testing.T) {
 	}
 	if err := repo.CreateSession(t.Context(), live, 999, now, now.Add(time.Hour)); err == nil {
 		t.Error("a session for no user was saved")
+	}
+}
+
+func TestInvites(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	admin, err := repo.CreateAccount(t.Context(), "hana", bytes.Repeat([]byte{1}, 32), key("phone"), nil, time.UnixMilli(1))
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	now := time.UnixMilli(1_000)
+	hash := InviteHash("abcd-efgh-jkmn-pqrs")
+	inv, err := repo.CreateInvite(t.Context(), hash, admin.ID, now, now.Add(InviteLife))
+	if err != nil || inv.ID == 0 || inv.CreatedBy != "hana" {
+		t.Fatalf("CreateInvite = %+v, %v, want hana's invite", inv, err)
+	}
+	if ok, err := repo.InviteUsable(t.Context(), hash, now); err != nil || !ok {
+		t.Errorf("InviteUsable = %v, %v, want usable", ok, err)
+	}
+	if ok, _ := repo.InviteUsable(t.Context(), hash, now.Add(InviteLife)); ok {
+		t.Error("an invite was usable at the moment it ran out")
+	}
+
+	kaze, err := repo.CreateAccount(t.Context(), "kaze", bytes.Repeat([]byte{2}, 32), key("kaze"), hash, now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("CreateAccount with the invite: %v", err)
+	}
+	if ok, _ := repo.InviteUsable(t.Context(), hash, now.Add(time.Hour)); ok {
+		t.Error("a used invite is still usable")
+	}
+	if _, err := repo.CreateAccount(t.Context(), "sora", bytes.Repeat([]byte{3}, 32), key("sora"), hash, now.Add(time.Hour)); !errors.Is(err, ErrInviteGone) {
+		t.Errorf("a second account with the same invite: %v, want gone", err)
+	}
+	if _, err := repo.AccountByHandle(t.Context(), bytes.Repeat([]byte{3}, 32)); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("the refused account was saved anyway: %v", err)
+	}
+
+	list, err := repo.Invites(t.Context())
+	if err != nil || len(list) != 1 || list[0].UsedBy != "kaze" || list[0].UsedAt.IsZero() || list[0].CreatedBy != "hana" {
+		t.Errorf("Invites = %+v, %v, want hana's invite used by kaze", list, err)
+	}
+	if err := repo.DeleteInvite(t.Context(), inv.ID); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("deleting a used invite: %v, want not found (it stays as the record)", err)
+	}
+
+	unused, err := repo.CreateInvite(t.Context(), InviteHash("zzzz-zzzz-zzzz-zzzz"), admin.ID, now, now.Add(InviteLife))
+	if err != nil {
+		t.Fatalf("CreateInvite: %v", err)
+	}
+	if err := repo.DeleteInvite(t.Context(), unused.ID); err != nil {
+		t.Errorf("DeleteInvite: %v", err)
+	}
+	if list, _ := repo.Invites(t.Context()); len(list) != 1 {
+		t.Errorf("invites after deleting the unused one = %d, want 1", len(list))
+	}
+	if kaze.ID == 0 {
+		t.Error("kaze has no ID")
+	}
+}
+
+func TestAdmins(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	a, err := repo.CreateAccount(t.Context(), "hana", bytes.Repeat([]byte{1}, 32), key("phone"), nil, time.UnixMilli(1))
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	session := bytes.Repeat([]byte{9}, 32)
+	if err := repo.CreateSession(t.Context(), session, a.ID, time.UnixMilli(2), time.UnixMilli(10_000)); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	if u, _ := repo.SessionUser(t.Context(), session, time.UnixMilli(3)); u.Admin {
+		t.Error("a new account is an admin")
+	}
+	if err := repo.SetAdmin(t.Context(), "hana", true); err != nil {
+		t.Fatalf("SetAdmin: %v", err)
+	}
+	if u, _ := repo.SessionUser(t.Context(), session, time.UnixMilli(3)); !u.Admin {
+		t.Error("the session doesn't show the new admin")
+	}
+	if got, _ := repo.AccountByID(t.Context(), a.ID); !got.Admin {
+		t.Error("AccountByID doesn't show the admin")
+	}
+	users, err := repo.Users(t.Context())
+	if err != nil || len(users) != 1 || !users[0].Admin || users[0].Name != "hana" {
+		t.Errorf("Users = %+v, %v, want hana as an admin", users, err)
+	}
+	if err := repo.SetAdmin(t.Context(), "hana", false); err != nil {
+		t.Fatalf("SetAdmin false: %v", err)
+	}
+	if u, _ := repo.SessionUser(t.Context(), session, time.UnixMilli(3)); u.Admin {
+		t.Error("hana is still an admin")
+	}
+	if err := repo.SetAdmin(t.Context(), "nobody", true); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("SetAdmin for no such user: %v, want not found", err)
 	}
 }

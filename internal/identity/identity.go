@@ -9,10 +9,12 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
 )
 
-// User is a signed-in account.
+// User is a signed-in account. Admin is whether they can manage invites; it comes from the database through the
+// session, never from a call's arguments.
 type User struct {
-	ID   int64
-	Name string
+	ID    int64
+	Name  string
+	Admin bool
 }
 
 type userKey struct{}

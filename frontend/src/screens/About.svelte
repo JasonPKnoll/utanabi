@@ -4,7 +4,7 @@
   import { account, signedOut } from "../lib/account.svelte";
   import { addPasskey, rememberAccountHere, signOut } from "../lib/auth";
   import { toAppError, type AppError } from "../lib/errors";
-  import { homeHref } from "../lib/route";
+  import { homeHref, invitesHref } from "../lib/route";
 
   // The app's version and the full credits its data asks for. Other screens credit JMdict in one quiet line and link
   // here, which is where the licences ask an app to say the rest.
@@ -78,7 +78,14 @@
         <section>
           <h2>Account</h2>
           <div class="card account">
-            <p>Signed in as <strong>{account.me.user}</strong></p>
+            <p>
+              Signed in as <strong>{account.me.user}</strong>{#if account.me.admin}<span class="chip accent badge"
+                  >Admin</span
+                >{/if}
+            </p>
+            {#if account.me.admin}
+              <a class="button primary" href={invitesHref}>Manage invites</a>
+            {/if}
             <p class="muted small">Add a passkey on each device you use, so losing one doesn't lock you out.</p>
             <button type="button" class="button" disabled={busy} onclick={add}>Add a passkey on this device</button>
             <button type="button" class="button danger" disabled={busy} onclick={out}>Sign out</button>
@@ -175,6 +182,11 @@
 
   .small {
     font-size: 0.875rem;
+  }
+
+  .badge {
+    margin-left: 8px;
+    vertical-align: middle;
   }
 
   .card {

@@ -219,13 +219,14 @@ Server mode has accounts, signed in with passkeys (see [security](security.md#id
 
 | Table | What it holds |
 | --- | --- |
-| `users` | `id`, `handle` (32 random bytes, the user handle passkeys are made for, never shown), `name` (3 to 32 of `a-z 0-9 _ -`, unique), `created_at`. |
+| `users` | `id`, `handle` (32 random bytes, the user handle passkeys are made for, never shown), `name` (3 to 32 of `a-z 0-9 _ -`, unique), `created_at`, and `admin` (0 or 1, set only by the admin command). |
+| `invites` | An invite that makes one account: `code_hash` (SHA-256 of the code, never the code), `created_by`, `created_at`, `expires_at` (a week on), and `used_by` and `used_at` once it's used. A used invite stays as the record of who joined with it; an unused one can be revoked (deleted). |
 | `passkeys` | One per passkey: `id` (the credential ID), `user_id` (cascade), `public_key`, `attestation_type`, `transports` (JSON list), `aaguid`, `sign_count`, `backup_eligible`, `backup_state`, `created_at`, `last_used_at`. Never a private key. |
 | `sessions` | `token_hash` (SHA-256 of the cookie's token, never the token), `user_id` (cascade), `created_at`, `expires_at`. |
 | `library_songs` | Each owner's library: `(owner, song_id)` with `added_at`. A song from a lyrics source is saved once however many people add it, so its analysis is shared; a song with your own lyrics is only in its owner's library. A trigger deletes a song when the last library holding it lets it go. |
 | `cards.owner` | Whose card it is. There is one card per meaning, grammar point, and line **for each owner**, and `card_progress` belongs to its card. |
 
-Migration `006_accounts.sql` gave every song saved before it to the device's library, and every card to the device.
+Migration `006_accounts.sql` gave every song saved before it to the device's library, and every card to the device. `007_admins_and_invites.sql` added `users.admin` and `invites`.
 
 ## Reference data: `dictionary.db`
 

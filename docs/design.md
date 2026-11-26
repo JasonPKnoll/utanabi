@@ -128,4 +128,10 @@ On a server with accounts (`frontend/src/screens/SignIn.svelte`), nothing shows 
 
 A browser that has never signed in leads with making an account ("Welcome to Utanabi"); one that has (remembered in `localStorage`) leads with signing in ("Sign in to Utanabi"). When the server takes no new accounts, the account card is a line saying so. Field errors show under their field; anything else shows as an alert above the cards.
 
+An **invite link** (`#/join/<code>`) opens this screen leading with making an account, with the invite code filled in: the newcomer picks a username, taps Continue, then Save passkey.
+
 The About screen gains an **Account** section when signed in: "Signed in as hana", a note to add a passkey on each device used, "Add a passkey on this device", and "Sign out", which goes back to the sign-in screen at the library's address. A call that finds the session has ended (`unauthorized`) goes back to the sign-in screen too. The desktop and phone apps have no accounts and never show any of this.
+
+## Invites
+
+For admins (`frontend/src/screens/Invites.svelte`, `#/invites`, from "Manage invites" in About's Account section, beside an Admin chip). "Make an invite link" makes an invite and shows its link, once, with **Share** (the phone's share sheet, where there is one) and **Copy link**, and a note that it works once. Under it, "All invites" lists each one: when it was made and by whom, and whether it's unused (until when), ran out, or was used by whom. An unused one has **Revoke**. Anyone else who opens the screen is told only an admin can manage invites.

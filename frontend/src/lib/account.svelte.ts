@@ -8,15 +8,17 @@ export async function loadAccount(): Promise<void> {
   account.me = await me();
 }
 
-export function signedIn(name: string): void {
+// After signing in, ask the server again: it says whether the user is an admin.
+export async function signedIn(name: string): Promise<void> {
   if (account.me) {
     account.me = { ...account.me, user: name };
   }
+  await loadAccount();
 }
 
 // Back to the sign-in screen: after signing out, or when a call finds the session has ended.
 export function signedOut(): void {
   if (account.me?.mode === "server") {
-    account.me = { ...account.me, user: null };
+    account.me = { ...account.me, user: null, admin: false };
   }
 }

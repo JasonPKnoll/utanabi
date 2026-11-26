@@ -5,6 +5,7 @@
   import About from "./screens/About.svelte";
   import AddSong from "./screens/AddSong.svelte";
   import Home from "./screens/Home.svelte";
+  import Invites from "./screens/Invites.svelte";
   import Search from "./screens/Search.svelte";
   import SignIn from "./screens/SignIn.svelte";
   import SongView from "./screens/SongView.svelte";
@@ -30,9 +31,11 @@
 {#if account.me === null}
   <main class="screen missing"><p class="muted">Loading…</p></main>
 {:else if account.me.mode === "server" && !account.me.user}
-  <SignIn canSignUp={account.me.signUp} />
-{:else if route.name === "home"}
+  <SignIn canSignUp={account.me.signUp} invite={route.name === "join" ? route.code : ""} />
+{:else if route.name === "home" || route.name === "join"}
   <Home />
+{:else if route.name === "invites"}
+  <Invites />
 {:else if route.name === "search"}
   <Search />
 {:else if route.name === "about"}

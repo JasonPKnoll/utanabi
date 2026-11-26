@@ -7,6 +7,8 @@ export interface Me {
   // server: accounts are on, and user is who's signed in, or null. local: the app has no accounts.
   mode: "server" | "local";
   user: string | null;
+  // Whether the signed-in user is an admin, who can make invites.
+  admin: boolean;
   // Whether this server takes new accounts.
   signUp: boolean;
 }
@@ -18,12 +20,13 @@ export async function me(): Promise<Me> {
     const body: unknown = res.ok ? await res.json() : null;
     if (isRecord(body) && typeof body.signUp === "boolean") {
       const user = isRecord(body.user) && typeof body.user.name === "string" ? body.user.name : null;
-      return { mode: "server", user, signUp: body.signUp };
+      const admin = isRecord(body.user) && body.user.admin === true;
+      return { mode: "server", user, admin, signUp: body.signUp };
     }
   } catch {
     // Not served, or not JSON: an app with no accounts.
   }
-  return { mode: "local", user: null, signUp: false };
+  return { mode: "local", user: null, admin: false, signUp: false };
 }
 
 // The first step of making an account: the server checks the username and sign-up code, and returns what the

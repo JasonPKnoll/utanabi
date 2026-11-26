@@ -23,11 +23,31 @@ import (
 // SessionLife is how long a sign-in lasts before the user signs in again.
 const SessionLife = 30 * 24 * time.Hour
 
+// InviteLife is how long an invite works before it runs out.
+const InviteLife = 7 * 24 * time.Hour
+
+// Invite is an invite as an admin sees it: never its code, which is shown only once, when it's made.
+type Invite struct {
+	ID        int64     `json:"id"`
+	CreatedBy string    `json:"createdBy"`
+	CreatedAt time.Time `json:"createdAt"`
+	ExpiresAt time.Time `json:"expiresAt"`
+	UsedBy    string    `json:"usedBy"`
+	UsedAt    time.Time `json:"usedAt"`
+}
+
+// NewInvite is an invite just made, with the code to share. The server keeps only the code's hash.
+type NewInvite struct {
+	Code   string `json:"code"`
+	Invite Invite `json:"invite"`
+}
+
 // Account is a user and their passkeys. Handle is the random user handle their passkeys are made for.
 type Account struct {
 	ID       int64
 	Handle   []byte
 	Name     string
+	Admin    bool
 	Passkeys []Passkey
 }
 
@@ -53,7 +73,19 @@ type Site struct {
 // Repository keeps users, passkeys, and sessions.
 type Repository interface {
 	// CreateAccount saves a new user with their first passkey, or returns fault.ErrConflict if the name is taken.
-	CreateAccount(ctx context.Context, name string, handle []byte, key Passkey, now time.Time) (Account, error)
+	// With an invite, it uses the invite up in the same transaction, or returns ErrInviteGone if it was just used or
+	// has run out.
+	CreateAccount(ctx context.Context, name string, handle []byte, key Passkey, invite []byte, now time.Time) (
+		Account, error,
+	)
+	// InviteUsable reports whether an invite with this code hash is unused and hasn't run out.
+	InviteUsable(ctx context.Context, codeHash []byte, now time.Time) (bool, error)
+	// Invites returns every invite, newest first.
+	Invites(ctx context.Context) ([]Invite, error)
+	// CreateInvite saves an invite by its code's hash and returns it.
+	CreateInvite(ctx context.Context, codeHash []byte, createdBy int64, now, expires time.Time) (Invite, error)
+	// DeleteInvite removes an unused invite, or returns fault.ErrNotFound when there's no unused invite by that ID.
+	DeleteInvite(ctx context.Context, id int64) error
 	// AccountByHandle returns the user a passkey's user handle belongs to, or fault.ErrNotFound.
 	AccountByHandle(ctx context.Context, handle []byte) (Account, error)
 	// AccountByID returns a user with their passkeys, or fault.ErrNotFound.
@@ -92,6 +124,12 @@ var ErrPasskeyRejected = fault.Invalid("passkey", "couldn't be checked; please t
 // ErrSignupClosed means the server takes no new accounts, because it has no sign-up code.
 var ErrSignupClosed = fault.Invalid("signup", "is closed on this server")
 
+// ErrWrongCode means a sign-up code is neither the server's code nor a usable invite.
+var ErrWrongCode = fault.Invalid("code", "isn't right, or the invite has been used or has run out")
+
+// ErrInviteGone means an invite was used by someone else, or ran out, between checking it and making the account.
+var ErrInviteGone = fault.Invalid("code", "was just used or has run out; ask for a new invite")
+
 const (
 	minNameLen = 3
 	maxNameLen = 32
@@ -112,6 +150,60 @@ func Name(name string) (string, error) {
 		}
 	}
 	return name, nil
+}
+
+// inviteAlphabet leaves out letters and digits that look alike (0 and o, 1 and l, i), so an invite read aloud or typed
+// on a phone comes out right.
+const inviteAlphabet = "abcdefghjkmnpqrstuvwxyz23456789"
+
+// NewInviteCode returns a random invite code, four groups of four (about 79 bits), and the hash the server keeps.
+func NewInviteCode() (code string, hash []byte, err error) {
+	// Bytes past the last whole run of the alphabet are thrown away, so every letter is as likely as every other.
+	limit := byte(256 - 256%len(inviteAlphabet))
+	var s strings.Builder
+	for n := 0; n < 16; {
+		b, err := random(32)
+		if err != nil {
+			return "", nil, err
+		}
+		for _, v := range b {
+			if v >= limit || n == 16 {
+				continue
+			}
+			if n > 0 && n%4 == 0 {
+				s.WriteByte('-')
+			}
+			s.WriteByte(inviteAlphabet[int(v)%len(inviteAlphabet)])
+			n++
+		}
+	}
+	code = s.String()
+	return code, InviteHash(code), nil
+}
+
+// InviteHash is the SHA-256 of an invite code as typed: trimmed and lowercase, since the code has no capitals.
+func InviteHash(code string) []byte {
+	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(code))))
+	return sum[:]
+}
+
+// CheckCode checks a sign-up code: the server's own code, which any number of accounts can use, or an invite, which
+// makes one. It returns the invite's hash, or nil for the server's code.
+func CheckCode(ctx context.Context, repo Repository, code string, serverCode redact.Secret, now time.Time) (
+	[]byte, error,
+) {
+	if !serverCode.IsZero() && CheckSignupCode(code, serverCode) == nil {
+		return nil, nil
+	}
+	hash := InviteHash(code)
+	ok, err := repo.InviteUsable(ctx, hash, now)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrWrongCode
+	}
+	return hash, nil
 }
 
 // CheckSignupCode reports whether code is the server's sign-up code, in constant time, ignoring spaces around it (a
@@ -156,15 +248,64 @@ func random(n int) ([]byte, error) {
 	return b, nil
 }
 
-// SignUp is the second half of making an account: it checks the new passkey and saves the account with it.
-func SignUp(ctx context.Context, repo Repository, cer Ceremonies, site Site, draft Account, state, response []byte,
-	now time.Time,
+// SignUp is the second half of making an account: it checks the new passkey and saves the account with it, using up
+// the invite it was begun with, if any.
+func SignUp(ctx context.Context, repo Repository, cer Ceremonies, site Site, draft Account, invite []byte,
+	state, response []byte, now time.Time,
 ) (Account, error) {
 	key, err := cer.FinishRegistration(site, draft, state, response)
 	if err != nil {
 		return Account{}, err
 	}
-	return repo.CreateAccount(ctx, draft.Name, draft.Handle, key, now)
+	return repo.CreateAccount(ctx, draft.Name, draft.Handle, key, invite, now)
+}
+
+// requireAdmin returns the signed-in user if they're an admin.
+func requireAdmin(ctx context.Context) (identity.User, error) {
+	u, ok := identity.From(ctx)
+	if !ok {
+		return identity.User{}, fault.ErrUnauthorized
+	}
+	if !u.Admin {
+		return identity.User{}, fault.ErrForbidden
+	}
+	return u, nil
+}
+
+// ListInvites returns every invite, for an admin.
+func ListInvites(ctx context.Context, repo Repository) ([]Invite, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	return repo.Invites(ctx)
+}
+
+// MakeInvite makes an invite, for an admin, and returns its code: the only time the code is ever shown.
+func MakeInvite(ctx context.Context, repo Repository, now time.Time) (NewInvite, error) {
+	u, err := requireAdmin(ctx)
+	if err != nil {
+		return NewInvite{}, err
+	}
+	code, hash, err := NewInviteCode()
+	if err != nil {
+		return NewInvite{}, err
+	}
+	inv, err := repo.CreateInvite(ctx, hash, u.ID, now, now.Add(InviteLife))
+	if err != nil {
+		return NewInvite{}, err
+	}
+	return NewInvite{Code: code, Invite: inv}, nil
+}
+
+// RevokeInvite removes an unused invite, for an admin, so its code no longer works.
+func RevokeInvite(ctx context.Context, repo Repository, id int64) error {
+	if _, err := requireAdmin(ctx); err != nil {
+		return err
+	}
+	if id <= 0 {
+		return fault.Invalid("id", "must be positive")
+	}
+	return repo.DeleteInvite(ctx, id)
 }
 
 // SignIn is the second half of signing in: it checks the passkey's signature, records its use, and returns whose it

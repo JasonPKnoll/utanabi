@@ -15,13 +15,20 @@
   // The way in on a server with accounts: a passkey (Face ID, a fingerprint, or the device's PIN), no password. A
   // first visit leads with making an account, which saves a passkey on this device in one step. A browser that has
   // signed in before leads with signing in, and its passkeys show in the username field's autofill as well.
-  let { canSignUp }: { canSignUp: boolean } = $props();
+  // invite comes from an invite link (#/join/<code>), which leads with making an account, with the code filled in.
+  let { canSignUp, invite = "" }: { canSignUp: boolean; invite?: string } = $props();
 
   let returning = $state(hadAccountHere());
-  let signUpFirst = $derived(canSignUp && !returning);
+  let signUpFirst = $derived(canSignUp && (!returning || invite !== ""));
 
   let name = $state("");
   let code = $state("");
+  // An invite link fills the code in.
+  $effect(() => {
+    if (invite) {
+      code = invite;
+    }
+  });
   // After Continue: the passkey to save, waiting for its own tap.
   let ready = $state<CreationJSON | null>(null);
   let busy = $state(false);
@@ -60,7 +67,7 @@
 
   function done(user: string) {
     rememberAccountHere();
-    signedIn(user);
+    void signedIn(user);
   }
 
   async function run(step: () => Promise<string>) {
@@ -143,8 +150,9 @@
   <form class="part" onsubmit={next} aria-labelledby="signup-title">
     <h2 id="signup-title">{signUpFirst ? "Make your account" : "New here?"}</h2>
     <p class="steps">
-      Pick a username and enter the sign-up code you were given. Then your phone or computer saves a passkey with Face
-      ID, your fingerprint, or its PIN. There's no password and no QR code to scan.
+      {invite
+        ? "Your invite is filled in. Pick a username, then your phone or computer saves a passkey with Face ID, your fingerprint, or its PIN. There's no password and no QR code to scan."
+        : "Pick a username and enter the invite code you were given. Then your phone or computer saves a passkey with Face ID, your fingerprint, or its PIN. There's no password and no QR code to scan."}
     </p>
     <label for="signup-name">Choose a username</label>
     <input
@@ -163,7 +171,7 @@
     <p id="signup-name-hint" class="hint">3 to 32 letters, numbers, _ or -.</p>
     {#if fieldError === "name"}<p class="error" role="alert">{failure?.message}</p>{/if}
 
-    <label for="signup-code">Sign-up code</label>
+    <label for="signup-code">Invite code</label>
     <input
       id="signup-code"
       bind:value={code}
