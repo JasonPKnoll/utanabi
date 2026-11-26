@@ -1,4 +1,21 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+// The song's reading aids and its delete button sit in the Display sheet, behind the Aa button.
+async function openDisplay(page: Page) {
+  await page.getByRole("button", { name: "Display options" }).click();
+  await expect(page.getByRole("dialog", { name: "Display" })).toBeVisible();
+}
+
+async function closeDisplay(page: Page) {
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+async function deleteSong(page: Page) {
+  await openDisplay(page);
+  await page.getByRole("button", { name: "Delete song…" }).click();
+  await page.getByRole("button", { name: "Delete song", exact: true }).click();
+}
 
 test("health returns 200", async ({ request }) => {
   const res = await request.get("/health");
@@ -10,7 +27,8 @@ test("the UI loads and the bound method answers", async ({ page }) => {
   page.on("pageerror", (err) => errors.push(err.message));
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Utanabi");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
+  await page.getByRole("link", { name: "About Utanabi" }).click();
   await expect(page.getByTestId("about")).toContainText("server");
   expect(errors).toEqual([]);
 });
@@ -22,7 +40,7 @@ test("a song with your own lyrics can be added, read, and deleted", async ({ pag
   const title = `星の歌 ${Date.now()}`;
 
   await page.goto("/");
-  await page.getByRole("link", { name: "Add your own", exact: true }).click();
+  await page.getByRole("link", { name: "Add your own lyrics" }).click();
 
   await page.getByRole("button", { name: "Save song" }).click();
   await expect(page.getByText("title is required")).toBeVisible();
@@ -41,18 +59,24 @@ test("a song with your own lyrics can be added, read, and deleted", async ({ pag
   const night = page.getByRole("button", { name: "夜の空に" });
   await expect(night.locator("ruby").first()).toBeVisible();
   await expect(night.locator("rt").first()).toHaveText("よる");
-  await expect(page.getByRole("button", { name: "Romaji" })).toHaveAttribute("aria-pressed", "false");
-  await page.getByRole("button", { name: "Romaji" }).click();
+  await openDisplay(page);
+  const romaji = page.getByRole("switch", { name: "Romaji" });
+  const furigana = page.getByRole("switch", { name: "Furigana" });
+  await expect(romaji).toHaveAttribute("aria-checked", "false");
+  await romaji.click();
+  await furigana.click();
+  await expect(furigana).toHaveAttribute("aria-checked", "false");
+  await closeDisplay(page);
   await expect(night.getByText("yoru no sora ni")).toBeVisible();
-  await page.getByRole("button", { name: "Furigana" }).click();
-  await expect(page.getByRole("button", { name: "Furigana" })).toHaveAttribute("aria-pressed", "false");
   await expect(night.locator("rt")).toHaveCount(0);
   await expect(night).toContainText("夜の空に");
 
   await page.reload();
-  await expect(page.getByRole("button", { name: "Romaji" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Furigana" })).toHaveAttribute("aria-pressed", "false");
-  await page.getByRole("button", { name: "Furigana" }).click();
+  await openDisplay(page);
+  await expect(romaji).toHaveAttribute("aria-checked", "true");
+  await expect(furigana).toHaveAttribute("aria-checked", "false");
+  await furigana.click();
+  await closeDisplay(page);
   // After a reload the first line is current again.
   await expect(page.getByRole("group", { name: "夜の空に" }).locator("rt").first()).toHaveText("よる");
 
@@ -60,8 +84,7 @@ test("a song with your own lyrics can be added, read, and deleted", async ({ pag
   await expect(page.getByRole("link", { name: new RegExp(title) })).toBeVisible();
 
   await page.getByRole("link", { name: new RegExp(title) }).click();
-  await page.getByRole("button", { name: "Delete song…" }).click();
-  await page.getByRole("button", { name: "Delete song", exact: true }).click();
+  await deleteSong(page);
   await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
 
   expect(errors).toEqual([]);
@@ -75,17 +98,19 @@ test("words show each word's English under it and open a sheet when tapped", asy
   const title = `言葉の歌 ${Date.now()}`;
 
   await page.goto("/");
-  await page.getByRole("link", { name: "Add your own", exact: true }).click();
+  await page.getByRole("link", { name: "Add your own lyrics" }).click();
   await page.getByLabel("Song title").fill(title);
   await page.getByLabel("Lyrics").fill("夜の空に星が光る\n君の声を探している");
   await page.getByRole("button", { name: "Save song" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
 
-  const words = page.getByRole("button", { name: "Words" });
-  await expect(words).toHaveAttribute("aria-pressed", "false");
+  const words = page.getByRole("switch", { name: "Words" });
   await expect(page.getByText("(subject)")).toHaveCount(0);
+  await openDisplay(page);
+  await expect(words).toHaveAttribute("aria-checked", "false");
   await words.click();
-  await expect(words).toHaveAttribute("aria-pressed", "true");
+  await expect(words).toHaveAttribute("aria-checked", "true");
+  await closeDisplay(page);
 
   // Each word's English sits under that word: the particle が carries "(subject)", and を "(object)" in the next line.
   const line = page.getByRole("group", { name: "夜の空に星が光る" });
@@ -115,15 +140,17 @@ test("words show each word's English under it and open a sheet when tapped", asy
   await expect(sheet).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Words" }).click();
+  await openDisplay(page);
+  await expect(words).toHaveAttribute("aria-checked", "true");
+  await words.click();
+  await closeDisplay(page);
 
   await page.getByRole("link", { name: "Back to your songs" }).click();
-  await page.getByText("Credits").click();
+  await page.getByRole("link", { name: "About Utanabi" }).click();
   await expect(page.getByText(/Electronic Dictionary Research and Development Group/)).toBeVisible();
+  await page.getByRole("link", { name: "Back to your songs" }).click();
   await page.getByRole("link", { name: new RegExp(title) }).click();
-  await page.getByRole("button", { name: "Delete song…" }).click();
-  await page.getByRole("button", { name: "Delete song", exact: true }).click();
+  await deleteSong(page);
   await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
 
   expect(errors).toEqual([]);
@@ -135,13 +162,14 @@ test("the search screen opens and asks for a query before searching", async ({ p
   page.on("pageerror", (err) => errors.push(err.message));
 
   await page.goto("/");
-  await page.getByRole("link", { name: "Find a song" }).click();
+  await page.getByRole("link", { name: "Search songs or artists" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Find a song");
+  await expect(page.getByRole("searchbox")).toBeFocused();
 
-  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("query is required")).toBeVisible();
 
-  await page.getByRole("link", { name: "Can't find it? Add your own lyrics" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Add your own lyrics");
+  await page.getByRole("link", { name: "Back to your songs" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
   expect(errors).toEqual([]);
 });

@@ -239,7 +239,7 @@ JMdict is the property of the Electronic Dictionary Research and Development Gro
 - link to the JMdict project page (https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) and the licence (https://www.edrdg.org/edrdg/licence.html);
 - never claim copyright over JMdict material, and share any changed copy of the data under the same licence.
 
-`dictionary.Attribution()` returns the credit text. The app shows it in the Credits section at the foot of the home screen (from `AboutService.Info`, in every build, server mode included), and again in the word sheet wherever it shows meanings. `internal/dictionary/testdata/jmdict-eng-common-fixture.json` holds 15 JMdict entries, under the same licence, for tests.
+`dictionary.Attribution()` returns the credit text. The app shows it in full on the About screen, reached from the home screen's info button (from `AboutService.Info`, in every build, server mode included). The song view, while it shows meanings, and the word sheet each carry a one-line footnote, "Definitions from JMdict · Sources", that links there. `internal/dictionary/testdata/jmdict-eng-common-fixture.json` holds 15 JMdict entries, under the same licence, for tests.
 
 ### `grammar_points`
 
@@ -316,6 +316,6 @@ New columns or tables only come in a new migration file. A merged migration is n
 ## Dependencies and content
 
 - `golang.org/x/text`, for Unicode normalization (`internal/common/jtext`). The standard library doesn't have it.
-- `github.com/ikawaha/kagome/v2` and its IPA dictionary `github.com/ikawaha/kagome-dict/ipa`, the tokenizer (`internal/common/morph`). Pure Go, with the dictionary embedded in the binary. It adds about 12 MB to the binary and takes about 145 MB of memory once loaded, so it loads on the first line analysed, never at startup. See [architecture](architecture.md). The dictionary comes from mecab-ipadic, whose licence asks that its no-warranty notice ship with copies; `morph.Attribution()` carries it, and the app's Credits show it next to JMdict.
+- `github.com/ikawaha/kagome/v2` and its IPA dictionary `github.com/ikawaha/kagome-dict/ipa`, the tokenizer (`internal/common/morph`). Pure Go, with the dictionary embedded in the binary. It adds about 12 MB to the binary and takes about 145 MB of memory once loaded, so it loads on the first line analysed, never at startup. See [architecture](architecture.md). The dictionary comes from mecab-ipadic, whose licence asks that its no-warranty notice ship with copies; `morph.Attribution()` carries it, and the About screen shows it next to JMdict.
 - JMdict, through jmdict-simplified, under its licence (CC BY-SA 4.0), which requires credit in the app. See "Licence and credit" above.
 - The `grammar_points` list, which we write ourselves.
