@@ -33,7 +33,7 @@ test("the UI loads and the bound method answers", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("a chosen theme overrides the device's and is remembered", async ({ page }) => {
+test("a chosen mode and palette override the defaults and are remembered", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/#/about");
   const root = page.locator("html");
@@ -51,6 +51,17 @@ test("a chosen theme overrides the device's and is remembered", async ({ page })
 
   await page.getByRole("radio", { name: "Auto" }).check();
   await expect(root).not.toHaveAttribute("data-theme");
+  expect(await background()).toBe(dark);
+
+  // A palette changes the colours in either mode, and is remembered too.
+  await page.getByRole("radio", { name: "Nord" }).check();
+  await expect(root).toHaveAttribute("data-palette", "nord");
+  expect(await background()).toBe("rgb(46, 52, 64)");
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "Nord" })).toBeChecked();
+  expect(await background()).toBe("rgb(46, 52, 64)");
+  await page.getByRole("radio", { name: "Utanabi" }).check();
+  await expect(root).not.toHaveAttribute("data-palette");
   expect(await background()).toBe(dark);
 });
 

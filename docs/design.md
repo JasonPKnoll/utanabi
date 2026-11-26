@@ -4,15 +4,20 @@ Utanabi's look is **Night stage**: the feel of singing along on a dark stage. Th
 
 Every screen is built for a phone first. The rules are in "Mobile first" in [AGENTS.md](../AGENTS.md).
 
-## Light and dark
+## Theme: palette and mode
 
-The app follows the device's setting (`prefers-color-scheme`). Dark is the signature look and the default when a device has no preference. The light theme keeps the same idea: the sung line is the darkest, boldest text, and the rest of the song is a softer grey.
+The look is two choices, both in the Theme control (`frontend/src/components/ThemePicker.svelte`), which sits in the song's Display sheet and on About:
 
-A Theme control (`frontend/src/components/ThemePicker.svelte`) offers Auto, Light, and Dark, as three radio buttons drawn as one segmented control. It sits in the song's Display sheet and on About. Auto follows the device. Light or Dark sets `data-theme` on `<html>` (`frontend/src/lib/theme.ts`), and the browser's bar colour (`theme-color`) follows. The choice is remembered on the device in `localStorage`, and Auto stands in when storage is blocked.
+- **Palette:** Utanabi (the default, Night stage), Tokyo Night (Night, with Day for light), Nord (Polar Night, with Snow Storm for light), Catppuccin (Mocha, with Latte for light), Solarized, and Vivid (hot pink and cyan). Each is a swatch showing its own dark and light colours. Every palette has both a dark and a light set, keeping the same idea: the sung line is the strongest text, and the rest of the song is softer.
+- **Mode:** Auto, Light, or Dark, as a segmented control. Auto follows the device's setting (`prefers-color-scheme`); dark is the default when a device has no preference.
+
+Both are radio buttons, so they work with a tap and a keyboard. `frontend/src/lib/theme.ts` sets `data-palette` and `data-theme` on `<html>`, and the browser's bar colour (`theme-color`) follows the page. The choices are remembered on the device in `localStorage`; Utanabi and Auto stand in when storage is blocked.
 
 ## Colours
 
-The tokens live on `:root` in `frontend/src/app.css`, with the light values in its `prefers-color-scheme: light` block and again under `:root[data-theme="light"]` (keep the two the same). Components use the tokens, never their own hex values, so every screen gets both themes for free.
+Each palette lives in `frontend/src/themes.css` as one block of dark values (`--d-bg`, `--d-fg`, and so on) and light values (`--l-*`), selected by `[data-palette="…"]`; Utanabi also sits on `:root`. `frontend/src/app.css` maps them onto the tokens components use (`--bg: var(--d-bg)`), switching to the `--l-*` values for light mode. Components use the tokens, never their own hex values, so every screen gets every palette in both modes for free.
+
+**Adding a palette:** add its block to `themes.css` with all 26 values, and its name to `palettes` in `theme.ts`. `theme.test.ts` fails until every palette has every value and every text colour keeps 4.5:1 contrast on the surfaces it's drawn on, in both modes.
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |

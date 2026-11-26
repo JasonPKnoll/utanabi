@@ -1,0 +1,192 @@
+/* The colour palettes. Each sets its dark values (--d-*) and light values (--l-*); app.css maps them onto the tokens
+   for the mode in use. A palette applies where data-palette names it: on <html> for the whole app (lib/theme.ts), or
+   on a swatch in the theme picker. Utanabi is the default, so it also sits on :root.
+
+   Every text colour keeps 4.5:1 contrast on the surfaces it sits on, in both modes; theme.test.ts checks it. */
+
+/* Utanabi: Night stage, amber on deep navy. */
+:root,
+[data-palette="utanabi"] {
+  --d-bg: #0f1420;
+  --d-surface: #18202f;
+  --d-surface-strong: #273044;
+  --d-border: #273044;
+  --d-fg: #f2f4f8;
+  --d-muted: #a3acbe;
+  --d-dim: #8a93a6;
+  --d-accent: #f5b544;
+  --d-accent-strong: #ffd27f;
+  --d-on-accent: #0f1420;
+  --d-link: #f5b544;
+  --d-link-strong: #ffd27f;
+  --d-danger: #ff8a80;
+
+  --l-bg: #f5f6f9;
+  --l-surface: #ffffff;
+  --l-surface-strong: #e6e9f0;
+  --l-border: #d5dae3;
+  --l-fg: #121826;
+  --l-muted: #4a5468;
+  --l-dim: #5c6678;
+  --l-accent: #f5b544;
+  --l-accent-strong: #ffc964;
+  --l-on-accent: #0f1420;
+  --l-link: #8a5100;
+  --l-link-strong: #6b3f00;
+  --l-danger: #b42318;
+}
+
+/* Tokyo Night: its Night colours, and Day for light. */
+[data-palette="tokyo-night"] {
+  --d-bg: #1a1b26;
+  --d-surface: #24283b;
+  --d-surface-strong: #2f354f;
+  --d-border: #3b4261;
+  --d-fg: #c0caf5;
+  --d-muted: #a9b1d6;
+  --d-dim: #8b93c4;
+  --d-accent: #7aa2f7;
+  --d-accent-strong: #9ab8ff;
+  --d-on-accent: #1a1b26;
+  --d-link: #7dcfff;
+  --d-link-strong: #a8deff;
+  --d-danger: #f7768e;
+
+  --l-bg: #e1e2e7;
+  --l-surface: #eef0f5;
+  --l-surface-strong: #cfd3e3;
+  --l-border: #c4c8da;
+  --l-fg: #273c7a;
+  --l-muted: #3d4a7a;
+  --l-dim: #4c5684;
+  --l-accent: #2563c4;
+  --l-accent-strong: #1d52a6;
+  --l-on-accent: #ffffff;
+  --l-link: #005f80;
+  --l-link-strong: #004a64;
+  --l-danger: #a01c47;
+}
+
+/* Nord: Polar Night, and Snow Storm for light. */
+[data-palette="nord"] {
+  --d-bg: #2e3440;
+  --d-surface: #3b4252;
+  --d-surface-strong: #434c5e;
+  --d-border: #4c566a;
+  --d-fg: #eceff4;
+  --d-muted: #d8dee9;
+  --d-dim: #b4bccb;
+  --d-accent: #88c0d0;
+  --d-accent-strong: #8fbcbb;
+  --d-on-accent: #2e3440;
+  --d-link: #ebcb8b;
+  --d-link-strong: #f3dcae;
+  --d-danger: #f2b8bd;
+
+  --l-bg: #eceff4;
+  --l-surface: #f8f9fb;
+  --l-surface-strong: #d8dee9;
+  --l-border: #d8dee9;
+  --l-fg: #2e3440;
+  --l-muted: #434c5e;
+  --l-dim: #4c566a;
+  --l-accent: #4c6d96;
+  --l-accent-strong: #3d5a7d;
+  --l-on-accent: #ffffff;
+  --l-link: #3f5f86;
+  --l-link-strong: #2f4a6b;
+  --l-danger: #9b2f3a;
+}
+
+/* Catppuccin: Mocha, and Latte for light. */
+[data-palette="catppuccin"] {
+  --d-bg: #1e1e2e;
+  --d-surface: #313244;
+  --d-surface-strong: #45475a;
+  --d-border: #45475a;
+  --d-fg: #cdd6f4;
+  --d-muted: #bac2de;
+  --d-dim: #a6adc8;
+  --d-accent: #cba6f7;
+  --d-accent-strong: #dcc4fa;
+  --d-on-accent: #1e1e2e;
+  --d-link: #fab387;
+  --d-link-strong: #fcc9a7;
+  --d-danger: #f5a3ba;
+
+  --l-bg: #eff1f5;
+  --l-surface: #e6e9ef;
+  --l-surface-strong: #ccd0da;
+  --l-border: #ccd0da;
+  --l-fg: #4c4f69;
+  --l-muted: #4a4d63;
+  --l-dim: #5c5f77;
+  --l-accent: #8839ef;
+  --l-accent-strong: #7428d6;
+  --l-on-accent: #ffffff;
+  --l-link: #8f3500;
+  --l-link-strong: #732a00;
+  --l-danger: #b00d30;
+}
+
+/* Solarized: dark and light. */
+[data-palette="solarized"] {
+  --d-bg: #002b36;
+  --d-surface: #073642;
+  --d-surface-strong: #0d4452;
+  --d-border: #0d4452;
+  --d-fg: #eee8d5;
+  --d-muted: #a7b3b3;
+  --d-dim: #93a1a1;
+  --d-accent: #b58900;
+  --d-accent-strong: #cb9b0a;
+  --d-on-accent: #002b36;
+  --d-link: #3bc2b8;
+  --d-link-strong: #6fd6ce;
+  --d-danger: #f58d8a;
+
+  --l-bg: #fdf6e3;
+  --l-surface: #eee8d5;
+  --l-surface-strong: #e2dabf;
+  --l-border: #ddd6c1;
+  --l-fg: #073642;
+  --l-muted: #3f565d;
+  --l-dim: #4d6168;
+  --l-accent: #b58900;
+  --l-accent-strong: #c99a14;
+  --l-on-accent: #002b36;
+  --l-link: #1c6396;
+  --l-link-strong: #164f78;
+  --l-danger: #ad231f;
+}
+
+/* Vivid: hot pink and cyan. */
+[data-palette="vivid"] {
+  --d-bg: #0d0b1a;
+  --d-surface: #1a1630;
+  --d-surface-strong: #2a2448;
+  --d-border: #2a2448;
+  --d-fg: #ffffff;
+  --d-muted: #c9c2ef;
+  --d-dim: #a59dd6;
+  --d-accent: #ff3d9a;
+  --d-accent-strong: #ff70b4;
+  --d-on-accent: #0d0b1a;
+  --d-link: #2de2e6;
+  --d-link-strong: #7af0f2;
+  --d-danger: #ff7b7b;
+
+  --l-bg: #fff7fb;
+  --l-surface: #ffffff;
+  --l-surface-strong: #f3e3ef;
+  --l-border: #eed4e6;
+  --l-fg: #1c1033;
+  --l-muted: #4b3a6b;
+  --l-dim: #5d4c7d;
+  --l-accent: #d0106f;
+  --l-accent-strong: #b00c5d;
+  --l-on-accent: #ffffff;
+  --l-link: #0b6278;
+  --l-link-strong: #0a4f61;
+  --l-danger: #b81b1b;
+}

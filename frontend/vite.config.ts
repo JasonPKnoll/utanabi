@@ -11,5 +11,7 @@ export default defineConfig({
   plugins: [svelte(), wails("./bindings")],
   test: {
     include: ["src/**/*.test.ts"],
+    // Vitest blanks CSS by default; theme.test.ts reads the palettes to check their contrast.
+    css: { include: [/themes\.css/] },
   },
 });
