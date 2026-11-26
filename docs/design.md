@@ -48,7 +48,7 @@ The song view's "Aa" button, top right, opens the Display sheet (`frontend/src/c
 
 "Words" turns each line into an interlinear gloss (`frontend/src/components/Interlinear.svelte`), so it's always clear which English belongs to which Japanese word and which line:
 
-- **Each word is a unit:** its Japanese, with furigana, over its own English (`Word.short`: "sky", "'s", "(subject)"). Units wrap like words in a sentence, centred.
+- **Each word is a unit:** its Japanese, with furigana, over its own English (`Word.short`: "sky", "'s", "(subject)"). Units wrap like words in a sentence, centred, and line up on the baseline of their Japanese, so a word with furigana sits level with one without, and so does its English. (Safari grows a line for its ruby however much line height there is, so lining up by the top doesn't hold.)
 - **The English is set apart from the Japanese:** 14px, weight 500, in the system Latin face and `--muted`. A particle's or grammar word's English is its role, in `--link` amber italics, so grammar never blurs into meaning.
 - **Each line is its own soft card** (`--surface` at about half strength, no outline) with space between cards. The current line's card is full `--surface` with a thin `--link` ring, and its words are the 44px buttons that open the word sheet, underlined in dotted amber.
 - Punctuation sits close to its neighbours with no English under it.
