@@ -16,6 +16,8 @@ describe("parseRoute", () => {
     ["#/song/-1", { name: "missing" }],
     ["#/song/abc", { name: "missing" }],
     ["#/song/12/edit", { name: "missing" }],
+    ["#/song/12/study", { name: "study", id: 12 }],
+    ["#/song/0/study", { name: "missing" }],
     ["#/nowhere", { name: "missing" }],
   ])("reads %j", (hash, want) => {
     expect(parseRoute(hash)).toEqual(want);

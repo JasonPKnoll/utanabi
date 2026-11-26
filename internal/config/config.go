@@ -67,7 +67,9 @@ type Config struct {
 	// LyricsSources are the online lyrics sources that are on, in order. Empty means online search is off and
 	// nothing is sent to any lyrics service.
 	LyricsSources []string
-	Server        Server
+	// StudyStreak is how many right answers in a row make a flashcard count as learned.
+	StudyStreak int
+	Server      Server
 }
 
 // Server holds the settings only server mode uses.
@@ -84,7 +86,14 @@ type settings struct {
 	// A nil LyricsSources means the user hasn't chosen, so the build's default applies. An empty list turns every
 	// online source off.
 	LyricsSources *[]string `json:"lyrics_sources"`
+	StudyStreak   *int      `json:"study_streak"`
 }
+
+// Study streaks the settings accept, and the one that applies when none is set.
+const (
+	defaultStudyStreak = 3
+	maxStudyStreak     = 10
+)
 
 // Load reads the settings file and env vars for the platform, and validates the result.
 func Load(p Platform) (Config, error) {
@@ -135,6 +144,11 @@ func Load(p Platform) (Config, error) {
 		return Config{}, err
 	}
 
+	cfg.StudyStreak, err = studyStreak(s.StudyStreak, getenv("UTANABI_STUDY_STREAK"))
+	if err != nil {
+		return Config{}, err
+	}
+
 	if p.Name == "server" {
 		cfg.Server, err = loadServer(getenv)
 		if err != nil {
@@ -175,6 +189,29 @@ func overrideFromEnv(s *settings, getenv func(string) string) {
 		list := splitList(v)
 		s.LyricsSources = &list
 	}
+}
+
+// studyStreak resolves the study_streak setting: the env var in server mode, then settings.json, then 3. It must be a
+// whole number from 1 to 10.
+func studyStreak(chosen *int, env string) (int, error) {
+	bad := func(v any) error {
+		return fmt.Errorf("config: invalid study_streak (%v is not a whole number from 1 to %d)", v, maxStudyStreak)
+	}
+	n := defaultStudyStreak
+	switch {
+	case env != "":
+		parsed, err := strconv.Atoi(strings.TrimSpace(env))
+		if err != nil {
+			return 0, bad(strconv.Quote(env))
+		}
+		n = parsed
+	case chosen != nil:
+		n = *chosen
+	}
+	if n < 1 || n > maxStudyStreak {
+		return 0, bad(n)
+	}
+	return n, nil
 }
 
 // dictionaryPath resolves the dictionary_path setting: dictionary.db in the data folder when unset, and a relative path

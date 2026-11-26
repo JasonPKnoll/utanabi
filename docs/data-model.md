@@ -200,7 +200,18 @@ What a card shows:
 | `grammar` | The line, with に or 〜ている highlighted | What it does ("place: where something happens"), with the rule for forming it |
 | `line` | 夜の空に星が光る | The natural English, the literal English, the word-by-word gloss, and its conjugations explained, each labelled with who wrote it |
 
-Review scheduling gets its own table when #12 decides how review works.
+### `card_progress`
+
+How far you've got with each card, one row per card once it's been answered. Review is a simple loop, set out in [design](design.md#study): a right answer adds one to `streak`, a wrong one puts it back to 0, and a card counts as learned while its streak is at least the `study_streak` setting (3 by default). Learned is worked out when read, not stored, so changing the setting applies at once.
+
+| Column | Type | Rules |
+| --- | --- | --- |
+| `card_id` | INTEGER, primary key, references `cards`, cascade | The row goes when its card goes. |
+| `streak` | INTEGER | Right answers in a row now, 0 or more, and never more than `right_count`. |
+| `right_count`, `wrong_count` | INTEGER | Every answer so far. |
+| `reviewed_at` | INTEGER | The last answer. |
+
+**Studying a song** makes a `word` card for each word meaning in it that doesn't have one (from `line_words` with an entry and sense, `context_line_id` the first line it's sung in), so a word in five songs is still one card, and its progress carries from song to song.
 
 ## Reference data: `dictionary.db`
 

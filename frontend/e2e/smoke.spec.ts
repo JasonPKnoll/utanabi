@@ -205,3 +205,29 @@ test("the search screen opens and asks for a query before searching", async ({ p
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
   expect(errors).toEqual([]);
 });
+
+// The smoke server has no dictionary.db, so a song's words have no meanings and there are no cards to study; the
+// study flow itself is covered by the Go and unit tests.
+test("a song's study screen opens from the song and says when there's nothing to study", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (err) => errors.push(err.message));
+  const title = `勉強の歌 ${Date.now()}`;
+
+  await page.goto("/");
+  await page.getByRole("link", { name: "Add your own lyrics" }).click();
+  await page.getByLabel("Song title").fill(title);
+  await page.getByLabel("Lyrics").fill("夜の空に星が光る");
+  await page.getByRole("button", { name: "Save song" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+
+  await page.getByRole("link", { name: "Study this song's words" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Study");
+  await expect(page.getByText(title)).toBeVisible();
+  await expect(page.getByText("No words to study yet")).toBeVisible();
+  await expect(page.getByText(/dictionary of word meanings/)).toBeVisible();
+
+  await page.getByRole("link", { name: "Back to the song" }).first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+  await deleteSong(page);
+  expect(errors).toEqual([]);
+});

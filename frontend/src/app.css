@@ -16,6 +16,7 @@
   --link: var(--d-link);
   --link-strong: var(--d-link-strong);
   --danger: var(--d-danger);
+  --success: var(--d-success);
 
   --radius: 16px;
   --tap: 44px;
@@ -51,6 +52,7 @@
     --link: var(--l-link);
     --link-strong: var(--l-link-strong);
     --danger: var(--l-danger);
+    --success: var(--l-success);
 
     color-scheme: light;
   }
@@ -70,6 +72,7 @@
   --link: var(--l-link);
   --link-strong: var(--l-link-strong);
   --danger: var(--l-danger);
+  --success: var(--l-success);
 
   color-scheme: light;
 }

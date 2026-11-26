@@ -105,11 +105,12 @@ const tokens = [
   "link",
   "link-strong",
   "danger",
+  "success",
 ];
 
 // Text colours and the surfaces they're drawn on somewhere in the app.
 const pairs: [string, string][] = [
-  ...["fg", "muted", "link", "danger"].flatMap((text) =>
+  ...["fg", "muted", "link", "danger", "success"].flatMap((text) =>
     ["bg", "surface", "surface-strong"].map((on): [string, string] => [text, on]),
   ),
   ["dim", "bg"],

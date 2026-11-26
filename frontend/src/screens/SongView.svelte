@@ -12,7 +12,7 @@
   import { startsStanza } from "../lib/lyrics";
   import { meaningsCache } from "../lib/meaningsCache";
   import { hasRomaji, loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
-  import { aboutHref, homeHref } from "../lib/route";
+  import { aboutHref, homeHref, studyHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
 
   let { id }: { id: number } = $props();
@@ -89,6 +89,20 @@
       {/if}
     </div>
     {#if song}
+      <a class="icon-button" href={studyHref(id)} aria-label="Study this song's words">
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          ><rect x="3" y="6" width="14" height="14" rx="2.5" /><path d="M7 3h11.5A2.5 2.5 0 0 1 21 5.5V17" /></svg
+        >
+      </a>
       <button
         type="button"
         class="icon-button display"
