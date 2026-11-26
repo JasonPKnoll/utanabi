@@ -213,6 +213,20 @@ How far you've got with each card, one row per card once it's been answered. Rev
 
 **Studying a song** makes a `word` card for each word meaning in it that doesn't have one (from `line_words` with an entry and sense, `context_line_id` the first line it's sung in), so a word in five songs is still one card, and its progress carries from song to song.
 
+### Accounts and owners
+
+Server mode has accounts, signed in with passkeys (see [security](security.md#identity)). Everything that is one person's has an **owner**: a user's ID, or `0` for the device. The desktop and phone apps have no accounts, so everything they save is the device's, and so is whatever a server saved before it had accounts. SQLite can't add a foreign key with `ALTER TABLE`, and `0` is no user, so triggers check that any other owner is a user, and removing a user removes everything that was theirs.
+
+| Table | What it holds |
+| --- | --- |
+| `users` | `id`, `handle` (32 random bytes, the user handle passkeys are made for, never shown), `name` (3 to 32 of `a-z 0-9 _ -`, unique), `created_at`. |
+| `passkeys` | One per passkey: `id` (the credential ID), `user_id` (cascade), `public_key`, `attestation_type`, `transports` (JSON list), `aaguid`, `sign_count`, `backup_eligible`, `backup_state`, `created_at`, `last_used_at`. Never a private key. |
+| `sessions` | `token_hash` (SHA-256 of the cookie's token, never the token), `user_id` (cascade), `created_at`, `expires_at`. |
+| `library_songs` | Each owner's library: `(owner, song_id)` with `added_at`. A song from a lyrics source is saved once however many people add it, so its analysis is shared; a song with your own lyrics is only in its owner's library. A trigger deletes a song when the last library holding it lets it go. |
+| `cards.owner` | Whose card it is. There is one card per meaning, grammar point, and line **for each owner**, and `card_progress` belongs to its card. |
+
+Migration `006_accounts.sql` gave every song saved before it to the device's library, and every card to the device.
+
 ## Reference data: `dictionary.db`
 
 Built from JMdict and our own grammar list, and replaced whole on update. The app opens it read-only and never writes to it. `internal/dictionary` reads it; `internal/dictionary/dictbuild` builds it.

@@ -199,7 +199,11 @@ func savedSong(
 	}
 	id, ok := saved[ref]
 	if !ok {
-		return Song{}, false, nil
+		// Someone else may have saved it: then it joins this library, and the lyrics aren't fetched again.
+		id, ok, err = repo.AddSavedSong(ctx, source, ref)
+		if err != nil || !ok {
+			return Song{}, false, err
+		}
 	}
 	song, err := loadSong(ctx, repo, analyzer, dict, id)
 	return song, err == nil, err

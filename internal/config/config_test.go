@@ -130,6 +130,8 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 		{name: "study streak too long", platform: "desktop", settings: `{"study_streak":11}`, wantName: "study_streak"},
 		{name: "study streak not a number", platform: "desktop", settings: `{"study_streak":"three"}`,
 			wantName: "study_streak"},
+		{name: "short sign-up code", platform: "server", env: map[string]string{"UTANABI_SIGNUP_CODE": "abc"},
+			wantName: "UTANABI_SIGNUP_CODE"},
 		{name: "bad env study streak", platform: "server", env: map[string]string{"UTANABI_STUDY_STREAK": "lots"},
 			wantName: "study_streak"},
 		{
@@ -333,5 +335,26 @@ func TestLoadStudyStreak(t *testing.T) {
 				t.Errorf("StudyStreak = %d, want %d", cfg.StudyStreak, tt.want)
 			}
 		})
+	}
+}
+
+func TestLoadServerAccounts(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(platform(t, "server", map[string]string{
+		"WAILS_SERVER_PORT": "18080", "UTANABI_SIGNUP_CODE": "a long sign-up code",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Server.Port != 18080 || cfg.Server.SignupCode.Reveal() != "a long sign-up code" {
+		t.Errorf("Server = %+v, want port 18080 and the sign-up code", cfg.Server)
+	}
+	closed, err := config.Load(platform(t, "server", nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if closed.Server.Port != 8080 || !closed.Server.SignupCode.IsZero() {
+		t.Errorf("Server = %+v, want port 8080 and sign-up closed", closed.Server)
 	}
 }

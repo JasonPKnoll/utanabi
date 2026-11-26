@@ -1,6 +1,8 @@
 <script lang="ts">
   import { AboutService, type About } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
   import ThemePicker from "../components/ThemePicker.svelte";
+  import { account, signedOut } from "../lib/account.svelte";
+  import { addPasskey, signOut } from "../lib/auth";
   import { toAppError, type AppError } from "../lib/errors";
   import { homeHref } from "../lib/route";
 
@@ -12,6 +14,35 @@
   AboutService.Info()
     .then((info) => (about = info))
     .catch((err: unknown) => (failure = toAppError(err)));
+
+  let busy = $state(false);
+  let accountNote = $state<{ ok: boolean; text: string } | null>(null);
+
+  async function add() {
+    busy = true;
+    accountNote = null;
+    try {
+      await addPasskey();
+      accountNote = { ok: true, text: "Passkey added. You can sign in with it on that device now." };
+    } catch (err) {
+      accountNote = { ok: false, text: toAppError(err).message };
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function out() {
+    busy = true;
+    try {
+      await signOut();
+      // Whoever signs in next starts at their own library, not on this screen.
+      window.location.hash = homeHref;
+      signedOut();
+    } catch (err) {
+      accountNote = { ok: false, text: toAppError(err).message };
+      busy = false;
+    }
+  }
 </script>
 
 <div class="screen">
@@ -41,6 +72,21 @@
         <p class="muted">Learn Japanese through song lyrics.</p>
         <p class="version" data-testid="about">{about.name} {about.version} · {about.platform}</p>
       </section>
+
+      {#if account.me?.mode === "server" && account.me.user}
+        <section>
+          <h2>Account</h2>
+          <div class="card account">
+            <p>Signed in as <strong>{account.me.user}</strong></p>
+            <p class="muted small">Add a passkey on each device you use, so losing one doesn't lock you out.</p>
+            <button type="button" class="button" disabled={busy} onclick={add}>Add a passkey on this device</button>
+            <button type="button" class="button danger" disabled={busy} onclick={out}>Sign out</button>
+            {#if accountNote}
+              <p class:alert={!accountNote.ok} class="note" role="status">{accountNote.text}</p>
+            {/if}
+          </div>
+        </section>
+      {/if}
 
       <section>
         <h2>Theme</h2>
@@ -109,6 +155,25 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--muted);
+  }
+
+  .account {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px !important;
+  }
+
+  .account p {
+    margin: 0;
+  }
+
+  .account .button {
+    flex: none;
+  }
+
+  .small {
+    font-size: 0.875rem;
   }
 
   .card {

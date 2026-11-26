@@ -194,6 +194,9 @@ type Repository interface {
 	DeleteSong(ctx context.Context, id int64) error
 	// SongIDsBySource returns the library's song ID for each of refs that is already saved from source.
 	SongIDsBySource(ctx context.Context, source string, refs []string) (map[string]int64, error)
+	// AddSavedSong adds a song already saved from source, by someone else, to this library and returns its ID; ok is
+	// false when no one has saved it.
+	AddSavedSong(ctx context.Context, source, ref string) (id int64, ok bool, err error)
 	// SaveAnalysis stores the tokens and words of a saved song's lines that have none yet, and leaves lines that
 	// already have them as they are.
 	SaveAnalysis(ctx context.Context, songID int64, lines []Line) error

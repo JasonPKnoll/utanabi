@@ -1,5 +1,37 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const signupCode = "smoke-test-sign-up-code";
+
+// Gives the page a passkey authenticator, as Chrome's DevTools can: a real WebAuthn authenticator in software, which
+// says yes to Face ID or a fingerprint on its own.
+async function addAuthenticator(page: Page) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: {
+      protocol: "ctap2",
+      transport: "internal",
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+}
+
+// Makes a new account with a passkey and leaves the page signed in, on the library. Returns the username.
+async function signUp(page: Page): Promise<string> {
+  const name = `smoke-${Date.now()}-${Math.floor(Math.random() * 1e6)}`.slice(0, 32);
+  await addAuthenticator(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Sign in to Utanabi" })).toBeVisible();
+  await page.getByLabel("Username").fill(name);
+  await page.getByLabel("Sign-up code").fill(signupCode);
+  await page.getByRole("button", { name: "Create an account with a passkey" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
+  return name;
+}
+
 // The song's reading aids and its delete button sit in the Display sheet, behind the Aa button.
 async function openDisplay(page: Page) {
   await page.getByRole("button", { name: "Display options" }).click();
@@ -25,6 +57,7 @@ test("health returns 200", async ({ request }) => {
 test("the UI loads and the bound method answers", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
+  await signUp(page);
 
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
@@ -35,6 +68,7 @@ test("the UI loads and the bound method answers", async ({ page }) => {
 
 test("a chosen mode and palette override the defaults and are remembered", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
+  await signUp(page);
   await page.goto("/#/about");
   const root = page.locator("html");
   const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -68,6 +102,7 @@ test("a chosen mode and palette override the defaults and are remembered", async
 test("a song with your own lyrics can be added, read, and deleted", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
+  await signUp(page);
   // The smoke data folder survives between runs, so each run uses its own title.
   const title = `星の歌 ${Date.now()}`;
 
@@ -127,6 +162,7 @@ test("a song with your own lyrics can be added, read, and deleted", async ({ pag
 test("words show each word's English under it and open a sheet when tapped", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
+  await signUp(page);
   const title = `言葉の歌 ${Date.now()}`;
 
   await page.goto("/");
@@ -192,6 +228,7 @@ test("words show each word's English under it and open a sheet when tapped", asy
 test("the search screen opens and asks for a query before searching", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
+  await signUp(page);
 
   await page.goto("/");
   await page.getByRole("link", { name: "Search songs or artists" }).click();
@@ -211,6 +248,7 @@ test("the search screen opens and asks for a query before searching", async ({ p
 test("a song's study screen opens from the song and says when there's nothing to study", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
+  await signUp(page);
   const title = `勉強の歌 ${Date.now()}`;
 
   await page.goto("/");
@@ -230,4 +268,61 @@ test("a song's study screen opens from the song and says when there's nothing to
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
   await deleteSong(page);
   expect(errors).toEqual([]);
+});
+
+test("service calls need a signed-in user", async ({ request }) => {
+  const res = await request.post("/wails/runtime", {
+    headers: { Origin: "http://localhost:18080", "Content-Type": "application/json" },
+    data: {},
+  });
+  expect(res.status()).toBe(401);
+  expect((await res.json()).cause.code).toBe("unauthorized");
+});
+
+test("signing out, then back in with the same passkey", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (err) => errors.push(err.message));
+  const name = await signUp(page);
+
+  await page.getByRole("link", { name: "About Utanabi" }).click();
+  await expect(page.getByText(`Signed in as ${name}`)).toBeVisible();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("heading", { name: "Sign in to Utanabi" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Sign in to Utanabi" })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in with a passkey" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
+  expect(errors).toEqual([]);
+});
+
+test("a new account needs the sign-up code", async ({ page }) => {
+  await addAuthenticator(page);
+  await page.goto("/");
+  await page.getByLabel("Username").fill("smoke-wrong-code");
+  await page.getByLabel("Sign-up code").fill("not the code at all");
+  await page.getByRole("button", { name: "Create an account with a passkey" }).click();
+  await expect(page.getByText("code isn't right")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to Utanabi" })).toBeVisible();
+});
+
+test("each user's library is their own", async ({ browser }) => {
+  const hana = await browser.newPage();
+  await signUp(hana);
+  const title = `私の歌 ${Date.now()}`;
+  await hana.getByRole("link", { name: "Add your own lyrics" }).click();
+  await hana.getByLabel("Song title").fill(title);
+  await hana.getByLabel("Lyrics").fill("夜の空に星が光る");
+  await hana.getByRole("button", { name: "Save song" }).click();
+  await expect(hana.getByRole("heading", { level: 1 })).toHaveText(title);
+  const songPath = new URL(hana.url()).hash;
+
+  const kaze = await (await browser.newContext()).newPage();
+  await signUp(kaze);
+  await expect(kaze.getByText(title)).toHaveCount(0);
+  await kaze.goto(`/${songPath}`);
+  await expect(kaze.getByText("This song isn't in your library")).toBeVisible();
+
+  await hana.close();
+  await kaze.close();
 });

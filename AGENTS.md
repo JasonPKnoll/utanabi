@@ -24,6 +24,8 @@ Utanabi is an app for learning Japanese through song lyrics. It is a Go app buil
 | `internal/features` | Feature slices, one folder each. |
 | `internal/features/songs` | The songs the user is learning: search online lyrics sources (LRCLIB in `lrclib_api.go`) and add a match, or add a song with your own lyrics; list, read, and delete. Synced (LRC) lyrics keep each line's start time. Each line is analysed into tokens when saved (through the `Analyzer` port, `morph.go` wraps `internal/common/morph`), and its furigana and romaji are computed from them. The tokens are grouped into words (`words.go`, with particle uses in `particles.go`), whose meanings come through the `Dictionary` port (`dictionary.go` wraps `internal/dictionary`; `meanings.go` picks the entry and sense). `explain.go` builds what the song view shows: each word with its meaning, grammar, and conjugation steps, the word-by-word gloss, and `LookupWord` for the word sheet. |
 | `internal/features/study` | Flashcards: a song's deck of word cards (one card per word meaning, shared by every song it's in) and your progress on each. A right answer grows a card's streak, a wrong one ends it, and a card is learned at `study_streak` right in a row (3 by default). |
+| `internal/identity` | Who a call is for: the signed-in `User` in the request context (`Into`, `From`), and `Owners`, which every repository asks for the owner of its data (`Accounts()` in server mode, `OnDevice()` on desktop and mobile, where the owner is the device, 0). |
+| `internal/features/accounts` | Sign-in for server mode with passkeys (WebAuthn, through go-webauthn): sign-up with a code, sign-in, adding a passkey, and sign-out, as HTTP endpoints under `/auth/` (`http.go`), plus the middleware that requires a session for every bound call and puts the user in the context. Sessions are HttpOnly cookies; the database keeps only token hashes and public keys. |
 | `internal/store` | The SQLite database: open, `Migrate`, `WithTx`, `Querier`, and `Translate` for driver errors. |
 | `internal/store/migrations` | The schema: numbered `.sql` files, embedded in the binary and applied at startup. |
 | `internal/store/storetest` | A fresh database file per test, for integration tests. |
@@ -47,6 +49,7 @@ internal/features/<slice>/
   <slice>.go        # the use case, the ports (interfaces) it needs, and its request and response types
   service.go        # primary adapter: the Wails service whose exported methods the frontend calls
   sqlite.go         # secondary adapter: implements the repository port; the only file that talks to the database
+  http.go           # primary adapter, only for a slice that must answer HTTP itself (accounts, for its cookies)
   <source>_api.go   # secondary adapter: a client for a remote API, when the slice needs one
 ```
 
@@ -102,7 +105,8 @@ func (s *Service) Get(ctx context.Context, id int64) (Thing, error) {
 
 - **Every exported method on a bound service is callable by the frontend.** Bind only what the UI needs. Treat every argument as untrusted input and validate it in the use case.
 - **Service methods hand domain errors unchanged to `app.Fail`.** Every bound method ends with `return result, app.Fail(ctx, err)`. `app.Fail` in `internal/app` is the one function that turns a domain error into the error the frontend sees: a stable code and a safe message. It logs each failure once. Wails sends `err.Error()` to the frontend as the message, so a raw error must never leave a service method. A backstop in `MarshalError` masks any error that skipped `app.Fail` and logs it as a bug.
-- **Identity never comes from a method's arguments.** It comes from the backend session (desktop and mobile) or, in server mode, from auth middleware through the request context. There is no auth yet.
+- **Identity never comes from a method's arguments.** In server mode the accounts middleware signs requests in with a passkey session and puts the user in the request context; `internal/identity` reads it. On desktop and mobile there are no accounts, and everything is the device's. Detail in [docs/security.md](docs/security.md#identity).
+- **Every repository query is scoped to its owner.** A slice's `sqlite.go` takes `identity.Owners` and asks `owners.Of(ctx)` for the owner of every read and write: someone else's song or card is not found. In server mode a call with no signed-in user fails as `unauthorized`.
 - **Bindings are generated** with `task bindings` (`wails3 generate bindings -clean=true -ts -i`) into `frontend/bindings`, and committed. CI regenerates them and fails on any diff.
 - **Events are broadcasts.** In server mode an event from Go reaches every connected browser. Never put one user's data in an event.
 
@@ -165,7 +169,7 @@ Detail in [docs/logging.md](docs/logging.md).
 - **Framework:** Svelte 5 with TypeScript, built by Vite. Node 26.13.0 (see `frontend/.nvmrc`).
 - **Look:** "Night stage", a stage where the sung line stands out and the rest stays dim. It comes in palettes (Utanabi by default, Tokyo Night, Nord, Catppuccin, Solarized, Vivid), each with a dark and a light set; the mode follows the device's setting, dark by default, unless Light or Dark is chosen under Theme (in the Display sheet or on About). Palettes live in `frontend/src/themes.css`, and a test checks each one's contrast. Use the colour tokens and the shared `.screen`, `.actions`, and `.button` classes in `frontend/src/app.css`, never new hex values in a component, so both themes keep working. Check UI changes in both themes. Detail in [docs/design.md](docs/design.md).
 - **Bindings:** import services and types from `frontend/bindings/...`. They are generated from the Go services. Never edit them. Run `task bindings` after changing a bound method.
-- **The UI calls only bound services, never a URL of its own.** ESLint forbids `fetch`, `XMLHttpRequest`, `WebSocket`, and `EventSource` in `frontend/src`.
+- **The UI calls only bound services, never a URL of its own.** ESLint forbids `fetch`, `XMLHttpRequest`, `WebSocket`, and `EventSource` in `frontend/src`. The one exception is `src/lib/auth.ts`, which calls the app's own `/auth/` endpoints, because a session must be a cookie only an HTTP response can set.
 - **Errors:** pass every rejection through `toAppError` (`frontend/src/lib/errors.ts`). Show its `message` and switch on its `code`. Never show the raw `Error.message`.
 - **Commands:** `npm run lint` (ESLint and Prettier), `npm run check` (svelte-check types), `npm test` (Vitest), `npm run test:e2e` (Playwright, after `task build:server`). `task lint` and `task test` run them for you.
 

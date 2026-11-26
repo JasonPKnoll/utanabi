@@ -3,8 +3,10 @@
 package store_test
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 	"github.com/JasonPKnoll/utanabi/internal/store"
@@ -39,6 +41,11 @@ INSERT INTO cards (id, kind, entry_id, sense_index, context_line_id, label, labe
 INSERT INTO cards (id, kind, grammar_point_id, context_line_id, label, created_at)
     VALUES (1001, 'grammar', 'teiru', 10, '〜ている', 1);
 INSERT INTO cards (id, kind, line_id, label, created_at) VALUES (1002, 'line', 11, '夜の空に星が光る', 1);
+INSERT INTO users (id, handle, name, created_at) VALUES (5, randomblob(32), 'kaze', 1);
+INSERT INTO passkeys (id, user_id, public_key, attestation_type, transports, sign_count, backup_eligible, backup_state, created_at)
+    VALUES (randomblob(16), 5, x'01', 'none', '["internal"]', 0, 1, 1, 1);
+INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (randomblob(32), 5, 1, 2);
+INSERT INTO library_songs (owner, song_id, added_at) VALUES (0, 1, 1), (0, 2, 1), (5, 2, 1);
 `
 
 func newSchemaDB(t *testing.T) *store.DB {
@@ -83,6 +90,10 @@ func TestSchemaAcceptsGoodRows(t *testing.T) {
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading) VALUES (11, 0, 'ラーメン', 'らーめんゞ')`},
 		{name: "a token without a reading",
 			sql: `INSERT INTO line_tokens (line_id, position, surface) VALUES (11, 0, '、')`},
+		{name: "a user's own word card for a meaning the device has a card for too",
+			sql: `INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 5, 3, 0, '探す', 1)`},
+		{name: "a user adding a song the device has",
+			sql: `INSERT INTO library_songs (owner, song_id, added_at) VALUES (5, 1, 1)`},
 		{name: "a card's progress",
 			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (1000, 2, 5, 1, 1)`},
 		{name: "a token with its part of speech",
@@ -127,6 +138,30 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 		args    []any
 		wantErr string
 	}{
+		{name: "a username with capitals", wantErr: "CHECK",
+			sql: `INSERT INTO users (handle, name, created_at) VALUES (randomblob(32), 'Kaze', 1)`},
+		{name: "a username too short", wantErr: "CHECK",
+			sql: `INSERT INTO users (handle, name, created_at) VALUES (randomblob(32), 'kz', 1)`},
+		{name: "a taken username", wantErr: "UNIQUE",
+			sql: `INSERT INTO users (handle, name, created_at) VALUES (randomblob(32), 'kaze', 1)`},
+		{name: "a user handle that isn't 32 bytes", wantErr: "CHECK",
+			sql: `INSERT INTO users (handle, name, created_at) VALUES (randomblob(16), 'hana', 1)`},
+		{name: "a passkey for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO passkeys (id, user_id, public_key, attestation_type, transports, sign_count, backup_eligible, backup_state, created_at) VALUES (randomblob(16), 99, x'01', 'none', '[]', 0, 0, 0, 1)`},
+		{name: "a passkey whose transports aren't a list", wantErr: "CHECK",
+			sql: `INSERT INTO passkeys (id, user_id, public_key, attestation_type, transports, sign_count, backup_eligible, backup_state, created_at) VALUES (randomblob(16), 5, x'01', 'none', 'usb', 0, 0, 0, 1)`},
+		{name: "a session that ends before it starts", wantErr: "CHECK",
+			sql: `INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (randomblob(32), 5, 10, 10)`},
+		{name: "a session token stored whole, not hashed", wantErr: "CHECK",
+			sql: `INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (randomblob(43), 5, 1, 2)`},
+		{name: "a song in the library of no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO library_songs (owner, song_id, added_at) VALUES (99, 1, 1)`},
+		{name: "a song added twice to one library", wantErr: "UNIQUE",
+			sql: `INSERT INTO library_songs (owner, song_id, added_at) VALUES (5, 2, 1)`},
+		{name: "a card for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 99, 3, 0, '探す', 1)`},
+		{name: "a second card for one meaning in one owner's cards", wantErr: "UNIQUE",
+			sql: `INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 0, 3, 0, '探す', 1)`},
 		{name: "progress for a card that doesn't exist", wantErr: "FOREIGN KEY",
 			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (9999, 0, 0, 0, 1)`},
 		{name: "a negative streak", wantErr: "CHECK",
@@ -285,5 +320,78 @@ func TestSchemaDeletingASongRemovesEverythingFromIt(t *testing.T) {
 	}
 	if got := count(t, db, `SELECT count(*) FROM songs WHERE id = 2`); got != 1 {
 		t.Errorf("the other song was deleted too")
+	}
+}
+
+func TestSchemaLibrariesAndAccounts(t *testing.T) {
+	t.Parallel()
+
+	db := newSchemaDB(t)
+	q := db.Querier()
+	exec := func(query string) {
+		t.Helper()
+		if _, err := q.ExecContext(t.Context(), query); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+	}
+
+	// Song 2 is in two libraries: letting one go keeps it for the other.
+	exec(`DELETE FROM library_songs WHERE owner = 0 AND song_id = 2`)
+	if got := count(t, db, `SELECT count(*) FROM songs WHERE id = 2`); got != 1 {
+		t.Errorf("song 2 after one library let it go = %d rows, want 1", got)
+	}
+
+	// Removing the user removes their passkeys, sessions, cards, and library, and the songs only they had.
+	exec(`INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 5, 3, 0, '探す', 1)`)
+	exec(`DELETE FROM users WHERE id = 5`)
+	for name, query := range map[string]string{
+		"their keys":     `SELECT count(*) FROM passkeys WHERE user_id = 5`,
+		"their sign-ins": `SELECT count(*) FROM sessions WHERE user_id = 5`,
+		"their cards":    `SELECT count(*) FROM cards WHERE owner = 5`,
+		"their library":  `SELECT count(*) FROM library_songs WHERE owner = 5`,
+		"song 2":         `SELECT count(*) FROM songs WHERE id = 2`,
+	} {
+		if got := count(t, db, query); got != 0 {
+			t.Errorf("%s left after removing the user = %d, want 0", name, got)
+		}
+	}
+	if got := count(t, db, `SELECT count(*) FROM songs WHERE id = 1`); got != 1 {
+		t.Errorf("the device's song 1 after removing the user = %d rows, want 1", got)
+	}
+}
+
+func TestSchemaGivesEarlierSongsToTheDevice(t *testing.T) {
+	t.Parallel()
+
+	db := storetest.New(t)
+	migrations := store.Migrations()
+	// The migrations up to 005, before accounts.
+	before := fstest.MapFS{}
+	entries, err := fs.ReadDir(migrations, ".")
+	if err != nil {
+		t.Fatalf("read migrations: %v", err)
+	}
+	for _, e := range entries {
+		if e.Name() >= "006" {
+			continue
+		}
+		data, err := fs.ReadFile(migrations, e.Name())
+		if err != nil {
+			t.Fatalf("read %s: %v", e.Name(), err)
+		}
+		before[e.Name()] = &fstest.MapFile{Data: data}
+	}
+	if err := db.Migrate(t.Context(), before); err != nil {
+		t.Fatalf("Migrate to 005: %v", err)
+	}
+	if _, err := db.Querier().ExecContext(t.Context(),
+		`INSERT INTO songs (id, title, source, created_at, updated_at) VALUES (1, '星の歌', 'user', 7, 7)`); err != nil {
+		t.Fatalf("insert song: %v", err)
+	}
+	if err := db.Migrate(t.Context(), migrations); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if got := count(t, db, `SELECT count(*) FROM library_songs WHERE owner = 0 AND song_id = 1 AND added_at = 7`); got != 1 {
+		t.Errorf("library rows for the earlier song = %d, want the device's", got)
 	}
 }

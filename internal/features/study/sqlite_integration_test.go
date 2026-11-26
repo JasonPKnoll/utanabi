@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/identity"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 	"github.com/JasonPKnoll/utanabi/internal/store/storetest"
 )
@@ -17,6 +18,7 @@ import (
 // word that has no dictionary meaning, neither of which is a card.
 const fixture = `
 INSERT INTO songs (id, title, source, created_at, updated_at) VALUES (1, '星の歌', 'user', 1, 1);
+INSERT INTO library_songs (owner, song_id, added_at) VALUES (0, 1, 1);
 INSERT INTO lyric_lines (id, song_id, position, stanza, text) VALUES (10, 1, 0, 0, '星が光った'), (11, 1, 1, 0, '君がいる 光る');
 INSERT INTO line_tokens (line_id, position, surface, reading) VALUES
     (10, 0, '星', 'ほし'), (10, 1, 'が', 'が'), (10, 2, '光っ', 'ひかっ'), (10, 3, 'た', 'た'),
@@ -39,7 +41,7 @@ func newRepo(t *testing.T) *SQLite {
 	if _, err := db.Querier().ExecContext(t.Context(), fixture); err != nil {
 		t.Fatalf("load fixture: %v", err)
 	}
-	return NewSQLite(db)
+	return NewSQLite(db, identity.OnDevice())
 }
 
 func TestSongWordsAreTheMeaningfulWordsInOrder(t *testing.T) {
@@ -135,5 +137,64 @@ func TestRecordAnswerCountsTheStreak(t *testing.T) {
 	}
 	if _, err := repo.RecordAnswer(t.Context(), 9999, true, time.UnixMilli(1)); !errors.Is(err, fault.ErrNotFound) {
 		t.Errorf("RecordAnswer(missing card) error = %v, want not found", err)
+	}
+}
+
+func TestCardsAndProgressAreEachUsersOwn(t *testing.T) {
+	t.Parallel()
+
+	db := storetest.New(t)
+	if err := db.Migrate(t.Context(), store.Migrations()); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if _, err := db.Querier().ExecContext(t.Context(), fixture+`
+		INSERT INTO users (id, handle, name, created_at) VALUES (1, randomblob(32), 'hana', 1), (2, randomblob(32), 'kaze', 1);
+		INSERT INTO library_songs (owner, song_id, added_at) VALUES (1, 1, 1), (2, 1, 1);`); err != nil {
+		t.Fatalf("load fixture: %v", err)
+	}
+	repo := NewSQLite(db, identity.Accounts())
+	hana := identity.Into(t.Context(), identity.User{ID: 1, Name: "hana"})
+	kaze := identity.Into(t.Context(), identity.User{ID: 2, Name: "kaze"})
+
+	_, words, err := repo.SongWords(hana, 1)
+	if err != nil {
+		t.Fatalf("SongWords: %v", err)
+	}
+	hanas, err := repo.WordCards(hana, words[:1], time.UnixMilli(1))
+	if err != nil {
+		t.Fatalf("WordCards hana: %v", err)
+	}
+	if _, err := repo.RecordAnswer(hana, hanas[0].ID, true, time.UnixMilli(2)); err != nil {
+		t.Fatalf("RecordAnswer: %v", err)
+	}
+	kazes, err := repo.WordCards(kaze, words[:1], time.UnixMilli(1))
+	if err != nil {
+		t.Fatalf("WordCards kaze: %v", err)
+	}
+	if kazes[0].ID == hanas[0].ID || kazes[0].Progress != (Progress{}) {
+		t.Errorf("kaze's card = %+v, want a card of his own with no progress", kazes[0])
+	}
+	if _, err := repo.RecordAnswer(kaze, hanas[0].ID, false, time.UnixMilli(3)); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("kaze answering hana's card: %v, want not found", err)
+	}
+	if _, _, err := repo.SongWords(t.Context(), 1); !errors.Is(err, fault.ErrUnauthorized) {
+		t.Errorf("SongWords with no one signed in: %v, want unauthorized", err)
+	}
+}
+
+func TestSongWordsOfASongInSomeoneElsesLibrary(t *testing.T) {
+	t.Parallel()
+
+	db := storetest.New(t)
+	if err := db.Migrate(t.Context(), store.Migrations()); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if _, err := db.Querier().ExecContext(t.Context(), fixture+`
+		INSERT INTO users (id, handle, name, created_at) VALUES (1, randomblob(32), 'hana', 1);`); err != nil {
+		t.Fatalf("load fixture: %v", err)
+	}
+	hana := identity.Into(t.Context(), identity.User{ID: 1, Name: "hana"})
+	if _, _, err := NewSQLite(db, identity.Accounts()).SongWords(hana, 1); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("hana reading the device's song: %v, want not found", err)
 	}
 }

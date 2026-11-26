@@ -118,6 +118,10 @@ func withoutAnalysis(song Song) Song {
 	return song
 }
 
+func (f *fakeRepo) AddSavedSong(context.Context, string, string) (int64, bool, error) {
+	return 0, false, nil
+}
+
 func (f *fakeRepo) SongIDsBySource(_ context.Context, source string, refs []string) (map[string]int64, error) {
 	found := map[string]int64{}
 	for _, ref := range refs {

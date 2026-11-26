@@ -3,34 +3,46 @@ package songs
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
 	"github.com/JasonPKnoll/utanabi/internal/common/morph"
+	"github.com/JasonPKnoll/utanabi/internal/identity"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 )
 
-// SQLite is the Repository backed by the app's database.
+// SQLite is the Repository backed by the app's database. Every song it reads or changes is one in the caller's
+// library: owners says whose that is.
 type SQLite struct {
-	db *store.DB
+	db     *store.DB
+	owners identity.Owners
 }
 
-// NewSQLite returns a Repository that stores songs in db.
-func NewSQLite(db *store.DB) *SQLite {
-	return &SQLite{db: db}
+// NewSQLite returns a Repository that stores songs in db, in the libraries owners picks.
+func NewSQLite(db *store.DB, owners identity.Owners) *SQLite {
+	return &SQLite{db: db, owners: owners}
 }
 
 // AddSong inserts the song, its lines, and their tokens in one transaction, and returns the song with its new ID.
 func (s *SQLite) AddSong(ctx context.Context, song Song) (Song, error) {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return Song{}, err
+	}
 	now := time.Now().UnixMilli()
-	err := s.db.WithTx(ctx, func(q store.Querier) error {
+	err = s.db.WithTx(ctx, func(q store.Querier) error {
 		err := q.QueryRowContext(ctx,
 			`INSERT INTO songs (title, artist, source, source_ref, duration_ms, created_at, updated_at)
 			 VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 			song.Title, song.Artist, song.Source, nullString(song.SourceRef), nullPositive(song.DurationMS), now, now,
 		).Scan(&song.ID)
 		if err != nil {
+			return store.Translate(err)
+		}
+		if _, err := q.ExecContext(ctx, `INSERT INTO library_songs (owner, song_id, added_at) VALUES (?, ?, ?)`,
+			owner, song.ID, now); err != nil {
 			return store.Translate(err)
 		}
 		for _, line := range song.Lines {
@@ -59,7 +71,15 @@ func (s *SQLite) AddSong(ctx context.Context, song Song) (Song, error) {
 
 // Songs returns every song without its lines, newest first.
 func (s *SQLite) Songs(ctx context.Context) ([]Summary, error) {
-	rows, err := s.db.Querier().QueryContext(ctx, `SELECT id, title, artist, source FROM songs ORDER BY id DESC`)
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Querier().QueryContext(ctx,
+		`SELECT s.id, s.title, s.artist, s.source
+		 FROM songs s JOIN library_songs l ON l.song_id = s.id
+		 WHERE l.owner = ?
+		 ORDER BY l.added_at DESC, s.id DESC`, owner)
 	if err != nil {
 		return nil, store.Translate(err)
 	}
@@ -81,16 +101,21 @@ func (s *SQLite) Songs(ctx context.Context) ([]Summary, error) {
 
 // SongByID returns one song with its lines and their tokens in order, or fault.ErrNotFound.
 func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return Song{}, err
+	}
 	// One statement reads the song, its lines, and their tokens, so a delete can't land between them and leave a song
-	// with no lines. Each row is one token, or one line when it has no tokens.
+	// with no lines. Each row is one token, or one line when it has no tokens. A song in someone else's library is
+	// not found.
 	rows, err := s.db.Querier().QueryContext(ctx,
 		`SELECT s.id, s.title, s.artist, s.source, s.source_ref, s.duration_ms,
 		        l.position, l.stanza, l.text, l.start_ms, t.surface, t.reading, t.pos
 		 FROM songs s
 		 LEFT JOIN lyric_lines l ON l.song_id = s.id
 		 LEFT JOIN line_tokens t ON t.line_id = l.id
-		 WHERE s.id = ?
-		 ORDER BY l.position, t.position`, id)
+		 WHERE s.id = ? AND EXISTS (SELECT 1 FROM library_songs b WHERE b.owner = ? AND b.song_id = s.id)
+		 ORDER BY l.position, t.position`, id, owner)
 	if err != nil {
 		return Song{}, store.Translate(err)
 	}
@@ -197,7 +222,20 @@ func (s *SQLite) addWords(ctx context.Context, song *Song) error {
 // at once, a reading you corrected, or a word you corrected, are never overwritten. It returns fault.ErrNotFound if
 // a line isn't there.
 func (s *SQLite) SaveAnalysis(ctx context.Context, songID int64, lines []Line) error {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return err
+	}
 	return s.db.WithTx(ctx, func(q store.Querier) error {
+		var mine bool
+		if err := q.QueryRowContext(ctx,
+			`SELECT EXISTS (SELECT 1 FROM library_songs WHERE owner = ? AND song_id = ?)`, owner, songID,
+		).Scan(&mine); err != nil {
+			return store.Translate(err)
+		}
+		if !mine {
+			return fault.ErrNotFound
+		}
 		for _, line := range lines {
 			if len(line.Tokens) == 0 {
 				continue
@@ -295,20 +333,25 @@ func insertTokens(ctx context.Context, q store.Querier, lineID int64, tokens []T
 	return nil
 }
 
-// SongIDsBySource returns the library's song ID for each of refs already saved from source.
+// SongIDsBySource returns the caller's song ID for each of refs already in their library from source.
 func (s *SQLite) SongIDsBySource(ctx context.Context, source string, refs []string) (map[string]int64, error) {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return nil, err
+	}
 	found := map[string]int64{}
 	if len(refs) == 0 {
 		return found, nil
 	}
-	args := make([]any, 0, len(refs)+1)
-	args = append(args, source)
+	args := make([]any, 0, len(refs)+2)
+	args = append(args, owner, source)
 	for _, ref := range refs {
 		args = append(args, ref)
 	}
 	placeholders := strings.Repeat(", ?", len(refs))[2:]
 	rows, err := s.db.Querier().QueryContext(ctx,
-		`SELECT source_ref, id FROM songs WHERE source = ? AND source_ref IN (`+placeholders+`)`, args...)
+		`SELECT s.source_ref, s.id FROM songs s JOIN library_songs l ON l.song_id = s.id
+		 WHERE l.owner = ? AND s.source = ? AND s.source_ref IN (`+placeholders+`)`, args...)
 	if err != nil {
 		return nil, store.Translate(err)
 	}
@@ -328,10 +371,38 @@ func (s *SQLite) SongIDsBySource(ctx context.Context, source string, refs []stri
 	return found, nil
 }
 
-// DeleteSong removes one song; its lines and everything learned from them go with it. It returns fault.ErrNotFound
-// if there is no such song.
+// AddSavedSong adds a song someone else already saved from source to the caller's library, so its lyrics aren't
+// fetched again, and returns its ID. ok is false when no one has saved it.
+func (s *SQLite) AddSavedSong(ctx context.Context, source, ref string) (int64, bool, error) {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return 0, false, err
+	}
+	var id int64
+	err = s.db.Querier().QueryRowContext(ctx,
+		`INSERT INTO library_songs (owner, song_id, added_at)
+		 SELECT ?, id, ? FROM songs WHERE source = ? AND source_ref = ?
+		 ON CONFLICT (owner, song_id) DO UPDATE SET added_at = added_at
+		 RETURNING song_id`,
+		owner, time.Now().UnixMilli(), source, ref,
+	).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, store.Translate(err)
+	}
+	return id, true, nil
+}
+
+// DeleteSong takes a song out of the caller's library. When no other library holds it, the song, its lines, and the
+// analysis go too (a trigger does that). It returns fault.ErrNotFound if the song isn't in the caller's library.
 func (s *SQLite) DeleteSong(ctx context.Context, id int64) error {
-	res, err := s.db.Querier().ExecContext(ctx, `DELETE FROM songs WHERE id = ?`, id)
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return err
+	}
+	res, err := s.db.Querier().ExecContext(ctx, `DELETE FROM library_songs WHERE owner = ? AND song_id = ?`, owner, id)
 	if err != nil {
 		return store.Translate(err)
 	}

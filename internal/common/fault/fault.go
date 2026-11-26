@@ -12,6 +12,8 @@ var (
 	ErrConflict = errors.New("fault: conflict")
 	ErrCanceled = errors.New("fault: canceled")
 	ErrTimeout  = errors.New("fault: timeout")
+	// ErrUnauthorized means the call needs a signed-in user and has none.
+	ErrUnauthorized = errors.New("fault: not signed in")
 )
 
 // InvalidError reports input that failed validation, and names the field at fault.

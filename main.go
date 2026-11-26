@@ -16,8 +16,10 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 	"github.com/JasonPKnoll/utanabi/internal/config"
 	"github.com/JasonPKnoll/utanabi/internal/dictionary"
+	"github.com/JasonPKnoll/utanabi/internal/features/accounts"
 	"github.com/JasonPKnoll/utanabi/internal/features/songs"
 	"github.com/JasonPKnoll/utanabi/internal/features/study"
+	"github.com/JasonPKnoll/utanabi/internal/identity"
 	"github.com/JasonPKnoll/utanabi/internal/logger"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 )
@@ -81,20 +83,35 @@ func run() (err error) {
 		return errors.Join(fmt.Errorf("load frontend assets: %w", err), closeAll(closers))
 	}
 
+	// In server mode each person signs in with a passkey and sees only their own songs and cards. The desktop and
+	// phone apps have no accounts: everything there is the device's.
+	owners := identity.OnDevice()
+	var signIn application.Middleware
+	if cfg.Platform == "server" {
+		owners = identity.Accounts()
+		sites := accounts.SitesFor(cfg.Server.AllowedOrigins, cfg.Server.Port)
+		ceremonies, err := accounts.NewWebAuthn(sites)
+		if err != nil {
+			return errors.Join(err, closeAll(closers))
+		}
+		signIn = accounts.NewHTTP(accounts.NewSQLite(db), ceremonies, sites, cfg.Server.SignupCode).Middleware
+	}
+
 	credits := []app.Credit{
 		{Name: "JMdict", Text: dictionary.Attribution()},
 		{Name: "IPA dictionary", Text: morph.Attribution()},
 	}
-	a := app.New(cfg, log, dist,
+	a := app.New(cfg, log, dist, signIn,
 		application.NewService(app.NewAboutService(cfg, credits...)),
-		application.NewService(songs.NewService(songs.NewSQLite(db), songs.NewMorph(morph.New()), meanings,
+		application.NewService(songs.NewService(songs.NewSQLite(db, owners), songs.NewMorph(morph.New()), meanings,
 			sources...)),
-		application.NewService(study.NewService(study.NewSQLite(db), study.NewJMdict(dict), cfg.StudyStreak)),
+		application.NewService(study.NewService(study.NewSQLite(db, owners), study.NewJMdict(dict), cfg.StudyStreak)),
 		app.CloseOnShutdown(closers...),
 	)
 
 	log.InfoContext(ctx, "starting", slog.String("version", cfg.Version), slog.String("platform", cfg.Platform),
-		slog.Any("lyrics_sources", cfg.LyricsSources), slog.Bool("dictionary", dict != nil))
+		slog.Any("lyrics_sources", cfg.LyricsSources), slog.Bool("dictionary", dict != nil),
+		slog.Bool("accounts", signIn != nil), slog.Bool("signup_open", !cfg.Server.SignupCode.IsZero()))
 	if err := a.Run(); err != nil {
 		return fmt.Errorf("run app: %w", err)
 	}

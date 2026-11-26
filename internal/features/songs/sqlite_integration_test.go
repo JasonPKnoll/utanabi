@@ -3,11 +3,13 @@
 package songs
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/identity"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 	"github.com/JasonPKnoll/utanabi/internal/store/storetest"
 )
@@ -18,7 +20,7 @@ func newSQLite(t *testing.T) *SQLite {
 	if err := db.Migrate(t.Context(), store.Migrations()); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	return NewSQLite(db)
+	return NewSQLite(db, identity.OnDevice())
 }
 
 func sampleLines() []Line {
@@ -226,5 +228,112 @@ func TestSQLiteSameOnlineSongTwiceIsAConflict(t *testing.T) {
 	_, err := repo.AddSong(t.Context(), Song{Title: "again", Source: "lrclib", SourceRef: "11", Lines: sampleLines()})
 	if !errors.Is(err, fault.ErrConflict) {
 		t.Errorf("err = %v, want fault.ErrConflict", err)
+	}
+}
+
+// twoUsers is a repository in server mode, with two users and a context for each.
+func twoUsers(t *testing.T) (*SQLite, context.Context, context.Context) {
+	t.Helper()
+	db := storetest.New(t)
+	if err := db.Migrate(t.Context(), store.Migrations()); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	_, err := db.Querier().ExecContext(t.Context(), `INSERT INTO users (id, handle, name, created_at) VALUES
+		(1, randomblob(32), 'hana', 1), (2, randomblob(32), 'kaze', 1)`)
+	if err != nil {
+		t.Fatalf("insert users: %v", err)
+	}
+	hana := identity.Into(t.Context(), identity.User{ID: 1, Name: "hana"})
+	kaze := identity.Into(t.Context(), identity.User{ID: 2, Name: "kaze"})
+	return NewSQLite(db, identity.Accounts()), hana, kaze
+}
+
+func TestSQLiteKeepsEachUsersLibraryTheirOwn(t *testing.T) {
+	t.Parallel()
+
+	repo, hana, kaze := twoUsers(t)
+	mine, err := repo.AddSong(hana, Song{Title: "花の歌", Source: SourceUser, Lines: sampleLines()})
+	if err != nil {
+		t.Fatalf("AddSong: %v", err)
+	}
+
+	if list, err := repo.Songs(kaze); err != nil || len(list) != 0 {
+		t.Errorf("kaze's songs = %+v, %v, want none", list, err)
+	}
+	if list, err := repo.Songs(hana); err != nil || len(list) != 1 || list[0].ID != mine.ID {
+		t.Errorf("hana's songs = %+v, %v, want hers", list, err)
+	}
+	if _, err := repo.SongByID(kaze, mine.ID); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("kaze reading hana's song: %v, want not found", err)
+	}
+	if err := repo.SaveAnalysis(kaze, mine.ID, nil); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("kaze saving analysis of hana's song: %v, want not found", err)
+	}
+	if err := repo.DeleteSong(kaze, mine.ID); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("kaze deleting hana's song: %v, want not found", err)
+	}
+	if _, err := repo.SongByID(hana, mine.ID); err != nil {
+		t.Errorf("hana's song after kaze tried to delete it: %v", err)
+	}
+}
+
+func TestSQLiteSharesASongFromASourceBetweenLibraries(t *testing.T) {
+	t.Parallel()
+
+	repo, hana, kaze := twoUsers(t)
+	if _, ok, err := repo.AddSavedSong(kaze, "lrclib", "42"); err != nil || ok {
+		t.Fatalf("AddSavedSong before anyone saved it = %v, %v, want not found", ok, err)
+	}
+	saved, err := repo.AddSong(hana, Song{Title: "夜に駆ける", Source: "lrclib", SourceRef: "42", Lines: sampleLines()})
+	if err != nil {
+		t.Fatalf("AddSong: %v", err)
+	}
+	if found, err := repo.SongIDsBySource(kaze, "lrclib", []string{"42"}); err != nil || len(found) != 0 {
+		t.Errorf("kaze's saved songs from lrclib before adding = %v, %v, want none", found, err)
+	}
+
+	id, ok, err := repo.AddSavedSong(kaze, "lrclib", "42")
+	if err != nil || !ok || id != saved.ID {
+		t.Fatalf("AddSavedSong = %d, %v, %v, want hana's song %d", id, ok, err, saved.ID)
+	}
+	if again, ok, err := repo.AddSavedSong(kaze, "lrclib", "42"); err != nil || !ok || again != saved.ID {
+		t.Errorf("AddSavedSong a second time = %d, %v, %v, want the same song", again, ok, err)
+	}
+	if found, err := repo.SongIDsBySource(kaze, "lrclib", []string{"42"}); err != nil || found["42"] != saved.ID {
+		t.Errorf("kaze's saved songs from lrclib = %v, %v, want song %d", found, err, saved.ID)
+	}
+
+	// Each lets go in turn: the song stays while either has it.
+	if err := repo.DeleteSong(hana, saved.ID); err != nil {
+		t.Fatalf("hana deleting: %v", err)
+	}
+	if _, err := repo.SongByID(kaze, saved.ID); err != nil {
+		t.Errorf("kaze's song after hana deleted hers: %v", err)
+	}
+	if err := repo.DeleteSong(kaze, saved.ID); err != nil {
+		t.Fatalf("kaze deleting: %v", err)
+	}
+	if _, ok, err := repo.AddSavedSong(hana, "lrclib", "42"); err != nil || ok {
+		t.Errorf("AddSavedSong after both deleted it = %v, %v, want it gone", ok, err)
+	}
+}
+
+func TestSQLiteNeedsASignedInUserWithAccounts(t *testing.T) {
+	t.Parallel()
+
+	repo, _, _ := twoUsers(t)
+	ctx := t.Context()
+	calls := map[string]error{}
+	_, calls["Songs"] = repo.Songs(ctx)
+	_, calls["SongByID"] = repo.SongByID(ctx, 1)
+	_, calls["AddSong"] = repo.AddSong(ctx, Song{Title: "x", Source: SourceUser, Lines: sampleLines()})
+	_, _, calls["AddSavedSong"] = repo.AddSavedSong(ctx, "lrclib", "1")
+	_, calls["SongIDsBySource"] = repo.SongIDsBySource(ctx, "lrclib", []string{"1"})
+	calls["SaveAnalysis"] = repo.SaveAnalysis(ctx, 1, nil)
+	calls["DeleteSong"] = repo.DeleteSong(ctx, 1)
+	for name, err := range calls {
+		if !errors.Is(err, fault.ErrUnauthorized) {
+			t.Errorf("%s with no one signed in: %v, want unauthorized", name, err)
+		}
 	}
 }

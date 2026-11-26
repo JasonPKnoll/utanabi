@@ -1,13 +1,21 @@
 <script lang="ts">
+  import { account, loadAccount, signedOut } from "./lib/account.svelte";
+  import { whenSignedOut } from "./lib/errors";
   import { homeHref, parseRoute } from "./lib/route";
   import About from "./screens/About.svelte";
   import AddSong from "./screens/AddSong.svelte";
   import Home from "./screens/Home.svelte";
   import Search from "./screens/Search.svelte";
+  import SignIn from "./screens/SignIn.svelte";
   import SongView from "./screens/SongView.svelte";
   import Study from "./screens/Study.svelte";
 
   let route = $state(parseRoute(window.location.hash));
+
+  // On a server with accounts, nothing shows until someone signs in; a call that finds the session ended comes back
+  // here. The desktop and phone apps have no accounts and go straight in.
+  void loadAccount();
+  whenSignedOut(signedOut);
 
   $effect(() => {
     const onHashChange = () => {
@@ -19,7 +27,11 @@
   });
 </script>
 
-{#if route.name === "home"}
+{#if account.me === null}
+  <main class="screen missing"><p class="muted">Loading…</p></main>
+{:else if account.me.mode === "server" && !account.me.user}
+  <SignIn canSignUp={account.me.signUp} />
+{:else if route.name === "home"}
   <Home />
 {:else if route.name === "search"}
   <Search />

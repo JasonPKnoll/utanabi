@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/JasonPKnoll/utanabi/internal/common/redact"
 )
 
 // AppName is the product name used for folders and the window title.
@@ -74,8 +76,13 @@ type Config struct {
 
 // Server holds the settings only server mode uses.
 type Server struct {
-	// AllowedOrigins become Wails's WebSocketOriginPatterns, for a reverse proxy's public origin.
+	// AllowedOrigins become Wails's WebSocketOriginPatterns, for a reverse proxy's public origin. The exact hosts
+	// among them are also the sites passkeys are made for, as well as localhost.
 	AllowedOrigins []string
+	// Port is the port the server listens on, which a passkey made on localhost is tied to.
+	Port int
+	// SignupCode is the code that creating an account asks for. Empty means sign-up is closed: no new accounts.
+	SignupCode redact.Secret
 }
 
 // settings mirrors the user settings file. Every field is optional.
@@ -88,6 +95,9 @@ type settings struct {
 	LyricsSources *[]string `json:"lyrics_sources"`
 	StudyStreak   *int      `json:"study_streak"`
 }
+
+// minSignupCode is the shortest sign-up code accepted, so it can't be guessed in a few tries.
+const minSignupCode = 12
 
 // Study streaks the settings accept, and the one that applies when none is set.
 const (
@@ -277,15 +287,23 @@ func splitList(s string) []string {
 }
 
 func loadServer(getenv func(string) string) (Server, error) {
+	srv := Server{Port: 8080}
 	// Wails reads WAILS_SERVER_PORT itself but silently ignores a bad value, so check it here.
 	if v := getenv("WAILS_SERVER_PORT"); v != "" {
 		port, err := strconv.Atoi(v)
 		if err != nil || port < 1 || port > 65535 {
 			return Server{}, fmt.Errorf("config: invalid WAILS_SERVER_PORT (%q is not a port number)", v)
 		}
+		srv.Port = port
+	}
+	if code := getenv("UTANABI_SIGNUP_CODE"); code != "" {
+		if len(code) < minSignupCode {
+			return Server{}, fmt.Errorf("config: invalid UTANABI_SIGNUP_CODE (it must be at least %d characters)",
+				minSignupCode)
+		}
+		srv.SignupCode = redact.New(code)
 	}
 
-	var srv Server
 	for _, origin := range splitList(getenv("UTANABI_ALLOWED_ORIGINS")) {
 		if origin == "*" {
 			return Server{}, errors.New("config: invalid UTANABI_ALLOWED_ORIGINS (a bare * allows every origin)")

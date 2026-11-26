@@ -118,3 +118,9 @@ A song's flashcards (`frontend/src/screens/Study.svelte`, `#/song/<id>/study`), 
 - **One answer field for the whole session,** kept focused even while an answer shows, so a phone's keyboard stays up from card to card.
 
 The top bar counts learned cards ("12/39"), with a bar in `--success` under it. Right is `--success` and wrong is `--danger`, in every palette.
+
+## Sign-in
+
+On a server with accounts (`frontend/src/screens/SignIn.svelte`), nothing shows until someone signs in. The screen is one column, centred: the うたなび mark, "Sign in to Utanabi", a line saying it's a passkey (Face ID, a fingerprint, or the device's PIN) with no password, and the primary "Sign in with a passkey" button. Under it, in a card, "New here?" asks for a username and the server's sign-up code, with "Create an account with a passkey". When the server takes no new accounts, that card is a line saying so. Field errors show under their field; anything else shows as an alert under the button.
+
+The About screen gains an **Account** section when signed in: "Signed in as hana", a note to add a passkey on each device used, "Add a passkey on this device", and "Sign out", which goes back to the sign-in screen at the library's address. A call that finds the session has ended (`unauthorized`) goes back to the sign-in screen too. The desktop and phone apps have no accounts and never show any of this.
