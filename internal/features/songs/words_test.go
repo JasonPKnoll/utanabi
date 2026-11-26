@@ -72,6 +72,12 @@ func TestFindWords(t *testing.T) {
 		{text: "1番", want: []string{"1番 一番/ content"}},
 		{text: "12番", want: []string{"12番 12番/ content"}},
 		{text: "だれでも", want: []string{"だれでも だれでも/だれでも content"}},
+		{text: "針でもなんでも", want: []string{
+			"針 針/はり content", "でも でも/でも particle demo-even", "なんでも なんでも/なんでも content",
+		}},
+		{text: "学校でも", want: []string{
+			"学校 学校/がっこう content", "で で/で particle de-place", "も も/も particle mo-also",
+		}},
 		{text: "このまま", want: []string{"このまま このまま/このまま content"}},
 		{text: "おサラバする", want: []string{"おサラバする おサラバする/おさらばする content vs"}},
 		{text: "鏡よ鏡よ この世", want: []string{
@@ -85,7 +91,7 @@ func TestFindWords(t *testing.T) {
 			"変わる 変わる/かわる content v5r", "こと こと/こと content", "の の/の particle no-subject",
 			"ない ない/ない content adj-i", "愛 愛/あい content",
 		}},
-		{text: "するよか", want: []string{"する する/する content vs-i", "よか よ/よ particle yori-than"}},
+		{text: "するよか", want: []string{"する する/する content vs-i", "よか よか/よか particle yori-than"}},
 		{text: "治してみせます", want: []string{"治してみせます 治す/なおす content v5s [te-form te-miseru polite-masu]"}},
 
 		{text: "美しかった", want: []string{"美しかった 美しい/うつくしい content adj-i [past]"}},

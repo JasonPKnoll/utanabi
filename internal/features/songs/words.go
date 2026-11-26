@@ -175,10 +175,19 @@ func takeWord(tokens []Token, i int) WordAnalysis {
 		d.w.LastToken = i + 1
 		d.stepsFrom = i + 2
 		d.w.Lemma, d.w.LemmaReading = t.Surface+tokens[i+1].Surface, t.Reading+tokens[i+1].Reading
+	case t.POS == morph.Particle && t.base() == "で" && i+1 < len(tokens) && tokens[i+1].POS == morph.Particle &&
+		tokens[i+1].base() == "も" && i+3 < len(tokens) && (tokens[i+2].POS == morph.Noun ||
+		tokens[i+2].POS == morph.Pronoun) && demoAfter(tokens, i+3) > 0:
+		// 針でもなんでも, needles or anything: with a second でも straight after, で and も are でも, not "at" and
+		// "also" as in 学校でも.
+		d.w.Kind = WordParticle
+		d.w.LastToken = i + 1
+		d.w.Lemma, d.w.LemmaReading = "でも", "でも"
 	case t.POS == morph.Particle && t.base() == "よ" && i+1 < len(tokens) && tokens[i+1].POS == morph.Particle &&
 		tokens[i+1].base() == "か":
 		d.w.Kind = WordParticle
 		d.w.LastToken = i + 1
+		d.w.Lemma, d.w.LemmaReading = "よか", "よか"
 	case t.POS == morph.Particle:
 		d.w.Kind = WordParticle
 	case t.POS == morph.Auxiliary:

@@ -63,6 +63,7 @@ func newFakeDictionary(t *testing.T) *fakeDictionary {
 			entry(1395570, "難", "なん", sense(0, "difficulty", "n")),
 			entry(1188490, "何", "なん", sense(0, "what", "pn")),
 			entry(1165970, "一番", "いちばん", sense(0, "number one", "n", "adv")),
+			entry(1482660, "二人", "ふたり", sense(0, "two people", "n")),
 		},
 		tags: map[string]string{"v5s": "Godan verb with 'su' ending", "vt": "transitive verb", "uk": "usually kana"},
 	}
@@ -361,5 +362,33 @@ func TestLookupWordPrefersTheWordsOwnEntry(t *testing.T) {
 	}
 	if !none.Installed || none.EntryID != 0 || len(none.Senses) != 0 || none.Attribution == "" {
 		t.Errorf("LookupWord(未知語) = %+v, want installed with no senses and the credit", none)
+	}
+}
+
+func TestNumbersInDigitsAreReadLikeTheirKanji(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text        string
+		wantNumber  string
+		wantCounter string
+		wantLemma   string
+	}{
+		{text: "1番", wantNumber: "いち", wantCounter: "ばん", wantLemma: "いちばん"},
+		{text: "2人", wantNumber: "ふたり", wantCounter: "", wantLemma: "ふたり"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := analyzedLine(t, dict, tt.text)
+			if len(line.Analysis) != 1 || len(line.Tokens) != 2 {
+				t.Fatalf("words = %+v over %d tokens, want one word over two", line.Analysis, len(line.Tokens))
+			}
+			got := []string{line.Tokens[0].Reading, line.Tokens[1].Reading, line.Analysis[0].LemmaReading}
+			if want := []string{tt.wantNumber, tt.wantCounter, tt.wantLemma}; !slices.Equal(got, want) {
+				t.Errorf("readings of %q (number, counter, lemma) = %q, want %q", tt.text, got, want)
+			}
+		})
 	}
 }

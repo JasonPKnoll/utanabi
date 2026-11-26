@@ -34,7 +34,11 @@ func particleUse(tokens []Token, words []WordAnalysis, k int) string {
 	case "に":
 		return niUse(tokens, w, prev, next)
 	case "で":
-		if t.Detail == "接続助詞" {
+		switch {
+		case w.LastToken > w.FirstToken:
+			// で and も read as one でも.
+			return "demo-even"
+		case t.Detail == "接続助詞":
 			return "te-form"
 		}
 		return "de-place"

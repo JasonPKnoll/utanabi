@@ -67,10 +67,45 @@ func (m *meanings) analyzeWords(ctx context.Context, line *Line) error {
 		if _, err := m.resolve(ctx, w, cat); err != nil {
 			return err
 		}
+		if w.EntryID != 0 && numberBeforeCounter(line.Tokens, w.FirstToken) {
+			if err := m.readNumber(ctx, w, line.Tokens); err != nil {
+				return err
+			}
+		}
 	}
 	line.Analysis = words
 	if line.Analysis == nil {
 		line.Analysis = []WordAnalysis{}
+	}
+	return nil
+}
+
+// readNumber reads a number in digits the way the dictionary reads its kanji spelling, since kagome gives digits no
+// reading: 1番 is read like 一番, いちばん, so the 1 gets いち and the line's romaji says ichiban. When the reading
+// doesn't split at the counter (2人 is ふたり), all of it goes over the number.
+func (m *meanings) readNumber(ctx context.Context, w *WordAnalysis, tokens []Token) error {
+	entries, err := m.lookup(ctx, w.Lemma, "")
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.ID != w.EntryID {
+			continue
+		}
+		for _, f := range e.Forms {
+			if f.Text != w.Lemma || !jtext.IsHiragana(f.Reading) {
+				continue
+			}
+			w.LemmaReading = f.Reading
+			number, counter := &tokens[w.FirstToken], &tokens[w.FirstToken+1]
+			counterReading := jtext.ToHiragana(counter.Reading)
+			if digits, ok := strings.CutSuffix(f.Reading, counterReading); ok && counterReading != "" && digits != "" {
+				number.Reading = digits
+			} else {
+				number.Reading, counter.Reading = f.Reading, ""
+			}
+			return nil
+		}
 	}
 	return nil
 }

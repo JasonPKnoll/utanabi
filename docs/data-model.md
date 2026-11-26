@@ -295,18 +295,7 @@ The songs slice fills `line_words` and `word_inflections` from kagome's tokens a
 
 **The gloss.** Never stored. Built in Go when a song is read: a content word's meaning without "to" ("shine"), a short English word for particles where one fits ("'s" for の, "in" for に of place), and otherwise the grammar title in parentheses ("(subject)"). A negative word says so ("not need"). Some grammar words read by context: の after a verb is "(-ing)" and after anything else "(one)", の before よ or ね is "(it's that)", and なんて after a clause is "(to think…)". Without the dictionary, a content word shows its dictionary form, or nothing when that is the word itself.
 
-**Known limits.** These are guesses, and the reason `analysis_source` exists:
-
-- で then も after a noun is always "at" and "also" (学校でも, at school too), though it can be でも, "even" (針でも, even needles).
-- Spoken contractions kagome doesn't know come apart wrongly: したない (したくない, don't want to) reads as 申す.
-- A word saved earlier keeps its meaning and grouping when these rules improve; only re-adding the song analyses it again.
-
-- られる is always `passive`, though it can be potential or respectful, and `causative-passive` is never chosen: 食べさせられる is causative, then passive.
-- Particle uses read only the neighbouring tokens. 空の上に is `ni-place` only because 上 is on the list of place words; に after a time word that kagome doesn't mark is `ni-place`; `wa-contrast`, `wo-through`, `ni-agent`, and `de-means` are never guessed.
-- The potential-verb check needs the dictionary, and trusts it: an ichidan verb missing from JMdict whose godan twin is in it would be read as a potential.
-- The meaning is the first sense that fits the part of speech, not the one the line means: 声 in a line about an opinion is still "voice".
-- kagome's own mistakes carry through: in 2人で it reads で as the copula, and it splits some compounds differently from JMdict.
-- A line whose tokens no longer match a new analysis keeps no words, and is tried again each time the song is opened. So is a line of only punctuation, which has no words to save.
+**Workarounds and known limits.** These are guesses, and the reason `analysis_source` exists. Every correction the app makes for kagome or JMdict, and every case it still gets wrong, is listed in [workarounds](workarounds.md), each with its example and test.
 
 ## How it rolls out
 

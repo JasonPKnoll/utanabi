@@ -66,7 +66,7 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 	if len(line.Tokens) == 0 {
 		return words, append(pieces, LinePiece{Ruby: []RubyPart{{Text: line.Text}}, Word: -1}), ""
 	}
-	glosses := []string{}
+	var around []glossContext
 	next := 0
 	for _, a := range line.Analysis {
 		if a.FirstToken < next || a.LastToken < a.FirstToken || a.LastToken >= len(line.Tokens) {
@@ -75,27 +75,47 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 		if a.FirstToken > next {
 			pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[next:a.FirstToken]), Word: -1})
 		}
-		w := explainWord(dict, entries, line.Tokens, a)
-		var before, after Token
+		var c glossContext
 		if a.FirstToken > 0 {
-			before = line.Tokens[a.FirstToken-1]
+			c.prev = line.Tokens[a.FirstToken-1]
 		}
 		if a.LastToken+1 < len(line.Tokens) {
-			after = line.Tokens[a.LastToken+1]
+			c.next = line.Tokens[a.LastToken+1]
 		}
-		w.Short = wordGloss(w, before, after)
 		pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[a.FirstToken : a.LastToken+1]), Word: len(words)})
-		words = append(words, w)
-		if w.Short != "" {
-			glosses = append(glosses, w.Short)
-		}
+		words = append(words, explainWord(dict, entries, line.Tokens, a))
+		around = append(around, c)
 		next = a.LastToken + 1
 	}
 	if next < len(line.Tokens) {
 		pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[next:]), Word: -1})
 	}
+	glosses := []string{}
+	for k := range words {
+		around[k].negativeLater = slices.ContainsFunc(words[k+1:], isNegative)
+		words[k].Short = wordGloss(words[k], around[k])
+		if words[k].Short != "" {
+			glosses = append(glosses, words[k].Short)
+		}
+	}
 	return words, pieces, strings.Join(glosses, " · ")
 }
+
+// glossContext is what a word's English may depend on: the tokens just before and after it, zero at the line's
+// edges, and whether a negative comes later in the line.
+type glossContext struct {
+	prev, next    Token
+	negativeLater bool
+}
+
+func isNegative(w Word) bool {
+	return (w.Kind == WordContent && w.Lemma == "ない") ||
+		slices.ContainsFunc(w.Steps, func(s GrammarPoint) bool { return s.ID == "negative" })
+}
+
+// beforeNegative are the words whose English changes when a negative follows them in the line: もう要らない is "not
+// needed anymore", not "already"; まだ来ない is "not come yet", not "still".
+var beforeNegative = map[string]string{"もう": "anymore", "まだ": "yet"}
 
 func explainWord(dict Dictionary, entries map[int64]Entry, tokens []Token, a WordAnalysis) Word {
 	var text strings.Builder
@@ -175,10 +195,12 @@ func shortGloss(gloss string) string {
 // wordGloss is a word's part of the line's gloss: the meaning of a content word without "to" ("shine"), a short
 // English word for a particle where one fits ("'s", "in"), and otherwise the grammar title in parentheses. A word
 // the dictionary doesn't explain shows its dictionary form, or nothing when that is the word itself. A negative
-// content word says so ("not need"). prev and next are the tokens just before and after the word, zero at the line's
-// edges.
-func wordGloss(w Word, prev, next Token) string {
-	g := glossOf(w, prev, next)
+// content word says so ("not need"), and a few words read differently before a negative (beforeNegative).
+func wordGloss(w Word, c glossContext) string {
+	g := glossOf(w, c.prev, c.next)
+	if alt, ok := beforeNegative[w.Lemma]; ok && w.Kind == WordContent && c.negativeLater {
+		g = alt
+	}
 	// Without a meaning, a word can only show itself again, which adds nothing under it.
 	if g == w.Text {
 		return ""
