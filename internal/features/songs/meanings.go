@@ -53,10 +53,19 @@ func (m *meanings) analyzeWords(ctx context.Context, line *Line) error {
 	if err != nil {
 		return err
 	}
+	if words, err = m.joinSlangVerbs(ctx, words, line.Tokens); err != nil {
+		return err
+	}
+	if words, err = m.joinSpokenNai(ctx, words, line.Tokens); err != nil {
+		return err
+	}
 	for i := range words {
 		w := &words[i]
 		if w.Kind != WordContent {
 			continue
+		}
+		if err := m.spokenAdjective(ctx, w, line.Tokens); err != nil {
+			return err
 		}
 		cat := wordCategory(*w, line.Tokens)
 		if cat == catVerb && w.ConjClass == "v1" {
@@ -72,6 +81,9 @@ func (m *meanings) analyzeWords(ctx context.Context, line *Line) error {
 				return err
 			}
 		}
+	}
+	if err := m.countingRuns(ctx, words, line.Tokens); err != nil {
+		return err
 	}
 	line.Analysis = words
 	if line.Analysis == nil {
@@ -110,6 +122,89 @@ func (m *meanings) readNumber(ctx context.Context, w *WordAnalysis, tokens []Tok
 	return nil
 }
 
+// countingRuns reads a katakana word as a number when it stands next to one, as in a count or a chant: サン！ヨン！
+// ゼロワン！ is three, four, zero, one, where サン alone is "Sun". It goes over the line until nothing changes, so a
+// run of them (サン！サン！ゼロ) turns from the end that touches a number.
+func (m *meanings) countingRuns(ctx context.Context, words []WordAnalysis, tokens []Token) error {
+	numbers := make([]bool, len(words))
+	for k := range words {
+		e, err := m.chosenEntry(ctx, words[k])
+		if err != nil {
+			return err
+		}
+		numbers[k] = isNumber(e)
+	}
+	for changed := true; changed; {
+		changed = false
+		for k := range words {
+			w := &words[k]
+			if numbers[k] || w.Kind != WordContent || !isKatakana(w.Lemma) || !nextToNumber(words, tokens, numbers, k) {
+				continue
+			}
+			entries, err := m.lookup(ctx, w.Lemma, w.LemmaReading)
+			if err != nil {
+				return err
+			}
+			entries = slices.DeleteFunc(slices.Clone(entries), func(e Entry) bool { return !isNumber(e) })
+			entry, sense, ok := pick(entries, catNoun, "", w.Lemma)
+			if !ok {
+				continue
+			}
+			w.EntryID, w.SenseIndex = entry.ID, sense
+			numbers[k], changed = true, true
+		}
+	}
+	return nil
+}
+
+// nextToNumber reports whether the word before or after word k is a number, with nothing but punctuation between.
+func nextToNumber(words []WordAnalysis, tokens []Token, numbers []bool, k int) bool {
+	gap := func(from, to int) bool {
+		for _, t := range tokens[from:to] {
+			if t.POS != morph.Symbol {
+				return false
+			}
+		}
+		return true
+	}
+	return (k > 0 && numbers[k-1] && gap(words[k-1].LastToken+1, words[k].FirstToken)) ||
+		(k+1 < len(words) && numbers[k+1] && gap(words[k].LastToken+1, words[k+1].FirstToken))
+}
+
+// isNumber reports whether an entry is a number: a sense marked num, or one whose English is digits (ゼロ, "0").
+func isNumber(e Entry) bool {
+	for _, s := range e.Senses {
+		if slices.Contains(s.PartsOfSpeech, "num") {
+			return true
+		}
+		for _, g := range s.Glosses {
+			if g != "" && strings.Trim(g, "0123456789") == "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// chosenEntry gives the dictionary entry the word's meaning was taken from, or an empty one.
+func (m *meanings) chosenEntry(ctx context.Context, w WordAnalysis) (Entry, error) {
+	if w.EntryID == 0 {
+		return Entry{}, nil
+	}
+	for _, form := range [][2]string{{w.Lemma, w.LemmaReading}, {w.Lemma, ""}, {w.altLemma, w.altReading}, {w.altLemma, ""}} {
+		entries, err := m.lookup(ctx, form[0], form[1])
+		if err != nil {
+			return Entry{}, err
+		}
+		for _, e := range entries {
+			if e.ID == w.EntryID {
+				return e, nil
+			}
+		}
+	}
+	return Entry{}, nil
+}
+
 // joinPhrases makes a set phrase one word when the dictionary has it whole: a noun, then が, を, or に, then a verb,
 // as in 気がつく, to notice. Apart, its words would read 気 "spirit" and つく "be lit". The phrase conjugates as its
 // verb, so it keeps the verb's steps and class.
@@ -124,15 +219,20 @@ func (m *meanings) joinPhrases(ctx context.Context, words []WordAnalysis, tokens
 				return nil, err
 			}
 			if len(entries) > 0 {
-				reading := ""
-				if noun.LemmaReading != "" && verb.LemmaReading != "" {
-					reading = noun.LemmaReading + jtext.ToHiragana(particle.Reading) + verb.LemmaReading
-				}
-				verb.FirstToken = noun.FirstToken
-				verb.Lemma, verb.LemmaReading = cleanLemma(lemma, reading)
-				verb.altLemma, verb.altReading = "", ""
-				out = append(out, verb)
+				out = append(out, phrase(noun, jtext.ToHiragana(particle.Reading), verb, lemma))
 				k += 2
+				continue
+			}
+		}
+		if k+1 < len(words) && nounThenVerb(words[k], words[k+1], tokens) {
+			// 迷惑かける: the spoken phrase drops its particle, so try it back in: 迷惑をかける, cause trouble.
+			joined, err := m.withDroppedParticle(ctx, words[k], words[k+1])
+			if err != nil {
+				return nil, err
+			}
+			if joined != nil {
+				out = append(out, *joined)
+				k++
 				continue
 			}
 		}
@@ -141,9 +241,36 @@ func (m *meanings) joinPhrases(ctx context.Context, words []WordAnalysis, tokens
 	return out, nil
 }
 
+func (m *meanings) withDroppedParticle(ctx context.Context, noun, verb WordAnalysis) (*WordAnalysis, error) {
+	for _, particle := range []string{"を", "が"} {
+		lemma := noun.Lemma + particle + verb.Lemma
+		entries, err := m.lookup(ctx, lemma, "")
+		if err != nil {
+			return nil, err
+		}
+		if len(entries) > 0 {
+			w := phrase(noun, particle, verb, lemma)
+			return &w, nil
+		}
+	}
+	return nil, nil
+}
+
+// phrase makes a noun, a particle, and a verb one word, with the lemma the dictionary has. It conjugates as its verb.
+func phrase(noun WordAnalysis, particle string, verb WordAnalysis, lemma string) WordAnalysis {
+	reading := ""
+	if noun.LemmaReading != "" && verb.LemmaReading != "" {
+		reading = noun.LemmaReading + particle + verb.LemmaReading
+	}
+	verb.FirstToken = noun.FirstToken
+	verb.Lemma, verb.LemmaReading = cleanLemma(lemma, reading)
+	verb.altLemma, verb.altReading = "", ""
+	return verb
+}
+
 func phraseShape(w []WordAnalysis, tokens []Token) bool {
 	noun, particle, verb := w[0], w[1], w[2]
-	if noun.Kind != WordContent || noun.FirstToken != noun.LastToken || tokens[noun.FirstToken].POS != morph.Noun {
+	if !singleNoun(noun, tokens) {
 		return false
 	}
 	if particle.Kind != WordParticle || particle.FirstToken != noun.LastToken+1 || particle.LastToken != particle.FirstToken {
@@ -157,12 +284,25 @@ func phraseShape(w []WordAnalysis, tokens []Token) bool {
 	return verb.Kind == WordContent && verb.FirstToken == particle.LastToken+1 && strings.HasPrefix(verb.ConjClass, "v")
 }
 
+// nounThenVerb reports whether a noun is followed straight away by a verb, with no particle between them.
+func nounThenVerb(noun, verb WordAnalysis, tokens []Token) bool {
+	return singleNoun(noun, tokens) && verb.Kind == WordContent && verb.FirstToken == noun.LastToken+1 &&
+		strings.HasPrefix(verb.ConjClass, "v")
+}
+
+func singleNoun(w WordAnalysis, tokens []Token) bool {
+	return w.Kind == WordContent && w.FirstToken == w.LastToken && tokens[w.FirstToken].POS == morph.Noun
+}
+
 // category is the broad kind of a content word, for matching it to a dictionary sense.
 type category int
 
 const (
 	catUnknown category = iota
 	catNoun
+	// catAdverbialNoun is a noun kagome says can be used as an adverb, such as いつか or 今日, used as one: no particle
+	// or copula after it.
+	catAdverbialNoun
 	catPronoun
 	catVerb
 	catAdjective
@@ -192,6 +332,9 @@ func wordCategory(w WordAnalysis, tokens []Token) category {
 		case morph.Pronoun:
 			return catPronoun
 		case morph.Noun, morph.Suffix:
+			if tokens[i].Detail == "副詞可能" && w.FirstToken == w.LastToken && usedAsAdverb(tokens, w.LastToken+1) {
+				return catAdverbialNoun
+			}
 			return catNoun
 		case morph.Verb:
 			return catVerb
@@ -212,6 +355,21 @@ func wordCategory(w WordAnalysis, tokens []Token) category {
 	return catUnknown
 }
 
+// usedAsAdverb reports whether a word that ends before token from is used as an adverb: the line goes on, past any
+// spaces, with a word that isn't a particle or the copula. いつかきっと is "someday"; 全てが is "everything".
+func usedAsAdverb(tokens []Token, from int) bool {
+	for _, t := range tokens[from:] {
+		switch t.POS {
+		case morph.Symbol:
+			continue
+		case morph.Particle, morph.Auxiliary:
+			return false
+		}
+		return true
+	}
+	return false
+}
+
 // senseFits reports whether a sense with the given JMdict part of speech codes can be the word's meaning.
 func senseFits(cat category, codes []string) bool {
 	return slices.ContainsFunc(codes, func(c string) bool { return codeFits(cat, c) })
@@ -221,6 +379,8 @@ func codeFits(cat category, c string) bool {
 	switch cat {
 	case catNoun:
 		return c == "n" || c == "pn" || c == "num" || c == "ctr" || strings.HasPrefix(c, "n-")
+	case catAdverbialNoun:
+		return codeFits(catNoun, c) || codeFits(catAdverb, c)
 	case catPronoun:
 		return c == "pn"
 	case catVerb:
@@ -338,8 +498,23 @@ func pick(entries []Entry, cat category, class, form string) (Entry, int, bool) 
 }
 
 // senseFit scores how well an entry's senses fit the word's part of speech: 2 for a sense that fits, 1 for a pronoun
-// with only a noun sense, 0 for none. It returns the first sense at that score, or the first sense.
+// with only a noun sense or an adverbial noun with no adverb sense, 0 for none. It returns the first sense at that score, or the first sense.
 func senseFit(senses []Sense, cat category) (int, int) {
+	if cat == catAdverbialNoun {
+		// いつか is "someday", an adverb, before 五日, the fifth of the month.
+		for _, s := range senses {
+			if senseFits(catAdverb, s.PartsOfSpeech) {
+				return 2, s.Index
+			}
+		}
+		cat = catNoun
+		for _, s := range senses {
+			if senseFits(cat, s.PartsOfSpeech) {
+				return 1, s.Index
+			}
+		}
+		return 0, senses[0].Index
+	}
 	for _, s := range senses {
 		if senseFits(cat, s.PartsOfSpeech) {
 			return 2, s.Index
@@ -425,6 +600,14 @@ func (m *meanings) potential(ctx context.Context, w *WordAnalysis) error {
 			for _, c := range s.PartsOfSpeech {
 				var step string
 				switch {
+				case strings.HasPrefix(c, "v5") && (slices.Equal(w.Steps, []string{"continuative"}) ||
+					slices.Equal(w.Steps, []string{"imperative"})):
+					// がんばれ: a potential verb's bare stem or command is the godan verb's command, which is spelled
+					// the same. A potential is hardly ever told to do something.
+					w.Lemma, w.LemmaReading = candidate, formReading(e, candidate, candidateReading)
+					w.ConjClass = c
+					w.Steps = []string{"imperative"}
+					return nil
 				case strings.HasPrefix(c, "v5"):
 					step = "potential"
 				case u == 'る' && (c == "v1" || c == "vk"):

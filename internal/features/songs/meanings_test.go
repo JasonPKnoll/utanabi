@@ -64,6 +64,30 @@ func newFakeDictionary(t *testing.T) *fakeDictionary {
 			entry(1188490, "何", "なん", sense(0, "what", "pn")),
 			entry(1165970, "一番", "いちばん", sense(0, "number one", "n", "adv")),
 			entry(1482660, "二人", "ふたり", sense(0, "two people", "n")),
+			{ID: 1188500, Forms: []Form{{Text: "何も", Reading: "なにも"}, {Text: "なにも", Reading: "なにも"},
+				{Text: "なんも", Reading: "なんも"}}, Senses: []Sense{sense(0, "(not) anything", "exp")}},
+			entry(1529520, "無い", "ない", sense(0, "nonexistent", "adj-i")),
+			entry(1532800, "迷惑", "めいわく", sense(0, "trouble", "n", "adj-na")),
+			entry(1207610, "掛ける", "かける", sense(0, "to hang up", "v1", "vt")),
+			{ID: 1911730, Forms: []Form{{Text: "迷惑をかける", Reading: "めいわくをかける"}},
+				Senses: []Sense{sense(0, "to cause trouble", "exp", "v1")}},
+			entry(2100160, "ググる", "ぐぐる", sense(0, "to google", "v5r", "vt")),
+			entry(2746990, "はんぱない", "はんぱない", sense(0, "to a great extent", "adj-i")),
+			entry(1599780, "臭う", "におう", sense(0, "to be fragrant", "v5u", "vi")),
+			entry(1333150, "臭い", "くさい", sense(0, "stinking", "adj-i")),
+			{ID: 1268570, Forms: []Form{{Text: "五日", Reading: "いつか"}, {Text: "いつか", Reading: "いつか", Common: true}},
+				Senses: []Sense{sense(0, "5th day of the month", "n")}},
+			{ID: 1188790, Forms: []Form{{Text: "何時か", Reading: "いつか"}, {Text: "いつか", Reading: "いつか"}},
+				Senses: []Sense{{Index: 0, Glosses: []string{"sometime"}, PartsOfSpeech: []string{"adv"}, Misc: []string{"uk"}}}},
+			entry(1595730, "全て", "すべて", sense(0, "everything", "n"), sense(1, "entirely", "adv")),
+			entry(1058210, "サン", "さん", sense(0, "Sun", "n")),
+			entry(2747950, "サン", "さん", sense(0, "three", "num")),
+			entry(1579470, "ヨン", "よん", sense(0, "four", "num")),
+			{ID: 2839962, Forms: []Form{{Text: "ゼロ", Reading: "ぜろ"}},
+				Senses: []Sense{{Index: 0, Glosses: []string{"zero", "0"}, PartsOfSpeech: []string{"n"}}}},
+			entry(1149130, "ワン", "わん", sense(0, "one", "num")),
+			entry(1217700, "頑張る", "がんばる", sense(0, "to persevere", "v5r", "vi")),
+			entry(1386560, "仕方ない", "しかたない", sense(0, "it can't be helped", "adj-i")),
 		},
 		tags: map[string]string{"v5s": "Godan verb with 'su' ending", "vt": "transitive verb", "uk": "usually kana"},
 	}
@@ -147,6 +171,17 @@ func TestWordsTakeTheirMeaningFromTheDictionary(t *testing.T) {
 		{text: "気が付いた", want: []string{"気が付く 1591050/0 v5k"}},
 		{text: "なんだ", want: []string{"なん 1188490/0 ", "だ 0/0 "}},
 		{text: "1番", want: []string{"一番 1165970/0 "}},
+		{text: "迷惑かけた", want: []string{"迷惑をかける 1911730/0 v1"}},
+		{text: "なんもねえ", want: []string{"なんも 1188500/0 ", "ない 1529520/0 adj-i"}},
+		{text: "はんぱねえよ", want: []string{"はんぱない 2746990/0 adj-i"}},
+		{text: "いつかきっと", want: []string{"いつか 1188790/0 ", "きっと 0/0 "}},
+		{text: "全てが", want: []string{"全て 1595730/0 ", "が 0/0 "}},
+		{text: "全て忘れて", want: []string{"全て 1595730/1 ", "忘れる 0/0 v1"}},
+		{text: "サン！ヨン！ゼロワン！", want: []string{
+			"サン 2747950/0 ", "ヨン 1579470/0 ", "ゼロ 2839962/0 ", "ワン 1149130/0 ",
+		}},
+		{text: "サン！サン！ゼロ", want: []string{"サン 2747950/0 ", "サン 2747950/0 ", "ゼロ 2839962/0 "}},
+		{text: "サンが昇る", want: []string{"サン 1058210/0 ", "が 0/0 ", "昇る 0/0 v5r"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.text, func(t *testing.T) {
@@ -175,6 +210,12 @@ func TestPotentialVerbsBecomeTheirGodanVerb(t *testing.T) {
 		{text: "見れる", want: []string{"見れる 見る/みる content v1 [ra-nuki]"}},
 		{text: "来れる", want: []string{"来れる 来る/くる content vk [ra-nuki]"}},
 		{text: "消えない", want: []string{"消えない 消える/きえる content v1 [negative]"}},
+		{text: "がんばれ がんばれ", want: []string{
+			"がんばれ がんばる/がんばる content v5r [imperative]", "がんばれ がんばる/がんばる content v5r [imperative]",
+		}},
+		{text: "がんばれよ 俺ら", want: []string{
+			"がんばれよ がんばる/がんばる content v5r [imperative]", "俺ら 俺ら/おれら content",
+		}},
 		{text: "食べさせられなかった", want: []string{
 			"食べさせられなかった 食べる/たべる content v1 [causative passive negative past]",
 		}},
@@ -437,6 +478,38 @@ func TestLookupEntriesRejectsBadInput(t *testing.T) {
 			var invalid *fault.InvalidError
 			if !errors.As(err, &invalid) || invalid.Field != "ids" {
 				t.Errorf("LookupEntries(%s) error = %v, want invalid ids", tt.name, err)
+			}
+		})
+	}
+}
+
+func TestSpokenFormsBecomeTheWordsTheyStandFor(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text       string
+		want       []string
+		wantRomaji string
+	}{
+		{text: "ググってる", want: []string{"ググってる ググる/ぐぐる content v5r [te-form teru]"}, wantRomaji: "gugutteru"},
+		{text: "ググった", want: []string{"ググった ググる/ぐぐる content v5r [past]"}, wantRomaji: "gugutta"},
+		{text: "テヘペロって", want: []string{"テヘペロ テヘペロ/てへぺろ content", "って って/って particle tte-quote"},
+			wantRomaji: "tehepero tte"},
+		{text: "指が臭え", want: []string{
+			"指 指/ゆび content", "が が/が particle ga-subject", "臭え 臭い/くさい content adj-i",
+		}, wantRomaji: "yubi ga kusee"},
+		{text: "仕方ねえ", want: []string{"仕方ねえ 仕方ない/しかたない content adj-i"}, wantRomaji: "shikata nee"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := analyzedLine(t, dict, tt.text)
+			if got := describeWords(line.Tokens, line.Analysis); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("words of %q\n got  %q\n want %q", tt.text, got, tt.want)
+			}
+			if got := romaji(line.Tokens); got != tt.wantRomaji {
+				t.Errorf("romaji of %q = %q, want %q", tt.text, got, tt.wantRomaji)
 			}
 		})
 	}

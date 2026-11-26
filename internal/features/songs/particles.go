@@ -52,7 +52,7 @@ func particleUse(tokens []Token, words []WordAnalysis, k int) string {
 		switch {
 		case t.POS == morph.Noun:
 			return "no-nominalizer"
-		case t.base() == "ん":
+		case t.base() == "ん" && t.Detail != "格助詞" && t.POS != morph.Auxiliary:
 			return ""
 		case t.Detail == "終助詞":
 			return "no-question"
@@ -134,14 +134,14 @@ var questionWords = []string{"何", "なに", "なん", "誰", "だれ", "どこ
 
 // niUse picks the use of に. A verb stem before it and 行く or 来る after it is a purpose (会いに行く). A time word
 // before it is a point in time (夜に): kagome marks those as nouns that can be adverbs, so a few place words with that
-// mark are left out. なる after it is a change (大人になる), a person before it is the target (君に会う), and a verb of
+// mark are left out. なる or する after it is a change (大人になる, 孤独にする), a person before it is the target (君に会う), and a verb of
 // moving after it is a destination (東京に行く). Anything else is where something is or happens.
 func niUse(tokens []Token, w WordAnalysis, prev, next Token) string {
 	if next.POS == morph.Verb && slices.Contains(comingAndGoing, next.base()) &&
 		((prev.POS == morph.Verb && prev.ConjForm == "連用形") || prev.Detail == "サ変接続") {
 		return "ni-purpose"
 	}
-	if next.POS == morph.Verb && next.base() == "なる" {
+	if next.POS == morph.Verb && (next.base() == "なる" || next.base() == "する") {
 		return "ni-change"
 	}
 	if prev.POS == morph.Noun && (prev.Detail == "副詞可能" || prev.Detail == "数" || prev.Detail2 == "助数詞" ||

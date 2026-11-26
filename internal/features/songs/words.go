@@ -170,6 +170,23 @@ func takeWord(tokens []Token, i int) WordAnalysis {
 		d.stepsFrom = d.w.LastToken + 1
 		d.w.Lemma, d.w.LemmaReading = t.Surface+"でも", t.Reading+"でも"
 		d.w.altLemma, d.w.altReading = t.base(), lemmaReading(t)
+	case t.POS == morph.Pronoun && slices.Contains(questionWords, t.base()) && i+1 < len(tokens) &&
+		tokens[i+1].POS == morph.Particle && tokens[i+1].base() == "も":
+		// A question word and も are one word, every- or (with a negative) no-: なんも, nothing; だれも, no one.
+		d.w.LastToken = i + 1
+		d.stepsFrom = i + 2
+		d.w.Lemma, d.w.LemmaReading = t.Surface+"も", t.Reading+"も"
+		d.w.altLemma, d.w.altReading = t.base(), lemmaReading(t)
+	case spokenNai(tokens, i):
+		// なんもねえ, 金がねえ: ない, "there isn't", in its spoken form, which kagome reads as the particle ね or as
+		// the auxiliary that only follows a verb.
+		d.w.Lemma, d.w.LemmaReading = "ない", "ない"
+		d.w.ConjClass = "adj-i"
+	case t.base() == "ん" && (t.POS == morph.Particle || (t.POS == morph.Auxiliary && i > 0 && i+1 < len(tokens) &&
+		isNounish(tokens[i-1]) && isNounish(tokens[i+1]))):
+		// 胸んなか: ん between two nouns is の said quickly, not a negative.
+		d.w.Kind = WordParticle
+		d.w.Lemma, d.w.LemmaReading = "の", "の"
 	case t.POS == morph.Other && i+1 < len(tokens) && (tokens[i+1].base() == "まま" || tokens[i+1].base() == "儘"):
 		// このまま, そのまま: a word of its own in the dictionary, "as it is".
 		d.w.LastToken = i + 1
@@ -210,6 +227,28 @@ func takeWord(tokens []Token, i int) WordAnalysis {
 	d.name()
 	d.w.Steps = d.steps()
 	return d.w
+}
+
+// spokenNai reports whether token i is ない standing alone after a particle, as in なんもない or 金がねえ: the
+// adjective "there isn't". kagome reads ない after a particle as the auxiliary, which only follows a verb, and the
+// spoken ねえ as the particle ね, an interjection, or that auxiliary. ねえ counts only after も or が: after は it
+// is as likely to be ね, holding the listener (僕はねえ、).
+func spokenNai(tokens []Token, i int) bool {
+	if i == 0 || tokens[i-1].POS != morph.Particle {
+		return false
+	}
+	t, prev := tokens[i], tokens[i-1]
+	switch {
+	case t.Surface == "ねえ" || t.Surface == "ねぇ" || t.Surface == "ねー":
+		return prev.base() == "も" || prev.base() == "が"
+	case t.POS == morph.Auxiliary && t.ConjType == "特殊・ナイ":
+		return prev.Detail != "接続助詞"
+	}
+	return false
+}
+
+func isNounish(t Token) bool {
+	return t.POS == morph.Noun || t.POS == morph.Pronoun
 }
 
 // demoAfter counts the tokens of でも at position i: 1 for でも, 2 when kagome reads it as で and も, 0 for none.

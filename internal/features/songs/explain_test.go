@@ -47,6 +47,10 @@ func TestLineGlossIsWordByWord(t *testing.T) {
 		{name: "よ calling out", dict: noMeanings, text: "星よ光れ", want: "(calling) · 光る"},
 		{name: "もう before a negative", dict: noMeanings, text: "もう要らない", want: "anymore · 要る"},
 		{name: "もう with no negative", dict: noMeanings, text: "もう行く", want: ""},
+		{name: "ない standing alone", dict: withMeanings, text: "なんもねえ", want: "anything · not there"},
+		{name: "an adjective keeps its to", dict: withMeanings, text: "はんぱねえ", want: "to a great extent"},
+		{name: "a phrase with its particle dropped", dict: withMeanings, text: "迷惑かける", want: "cause trouble"},
+		{name: "ん between nouns", dict: noMeanings, text: "胸んなか", want: "'s"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

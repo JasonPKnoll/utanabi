@@ -230,11 +230,21 @@ func glossOf(w Word, prev, next Token) string {
 		}
 		return w.Lemma
 	}
-	if w.Gloss != "" {
+	if g, ok := contentGlosses[w.Lemma]; ok && w.Kind == WordContent {
+		return g
+	}
+	if w.Gloss != "" && strings.HasPrefix(w.ConjClass, "v") {
 		return strings.TrimPrefix(w.Gloss, "to ")
+	}
+	if w.Gloss != "" {
+		return w.Gloss
 	}
 	return w.Lemma
 }
+
+// contentGlosses are words whose first meaning in the dictionary reads badly in a line's gloss. ない is "nonexistent"
+// first: なんもねえ reads "anything · not there".
+var contentGlosses = map[string]string{"ない": "not there", "無い": "not there"}
 
 // contextGloss is the English for a grammar word whose use reads differently by what is around it, or "".
 func contextGloss(id, text string, prev, next Token) string {
@@ -277,7 +287,7 @@ var grammarGlosses = map[string]string{
 	"nagara": "while",
 }
 
-var auxiliaryGlosses = map[string]string{"だ": "is", "です": "is"}
+var auxiliaryGlosses = map[string]string{"だ": "is", "です": "is", "ない": "not"}
 
 // stepLabels name conjugation steps for the sentence under a word.
 var stepLabels = map[string]string{ //nolint:gosec // G101: the key "passive" is a grammar term, not a password.

@@ -79,6 +79,23 @@ func TestFindWords(t *testing.T) {
 			"学校 学校/がっこう content", "で で/で particle de-place", "も も/も particle mo-also",
 		}},
 		{text: "このまま", want: []string{"このまま このまま/このまま content"}},
+		{text: "なんもねえ なんもねえ", want: []string{
+			"なんも なんも/なんも content", "ねえ ない/ない content adj-i", "なんも なんも/なんも content",
+			"ねえ ない/ない content adj-i",
+		}},
+		{text: "だれも知らない", want: []string{"だれも だれも/だれも content", "知らない 知る/しる content v5r [negative]"}},
+		{text: "金がねえ", want: []string{"金 金/きむ content", "が が/が particle ga-subject", "ねえ ない/ない content adj-i"}},
+		{text: "僕はねえ、君が", want: []string{
+			"僕 僕/ぼく content", "は は/は particle wa-topic", "ねえ ない/ない auxiliary", "君 君/きみ content",
+			"が が/が particle ga-subject",
+		}},
+		{text: "胸んなか 胸んなか", want: []string{
+			"胸 胸/むね content", "ん の/の particle no-possession", "なか なか/なか content", "胸 胸/むね content",
+			"ん の/の particle no-possession", "なか なか/なか content",
+		}},
+		{text: "孤独にして", want: []string{
+			"孤独 孤独/こどく content adj-na", "に に/に particle ni-change", "して する/する content vs-i [te-form]",
+		}},
 		{text: "おサラバする", want: []string{"おサラバする おサラバする/おさらばする content vs"}},
 		{text: "鏡よ鏡よ この世", want: []string{
 			"鏡 鏡/かがみ content", "よ よ/よ particle yo-calling", "鏡 鏡/かがみ content", "よ よ/よ particle yo-calling",
