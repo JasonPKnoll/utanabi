@@ -50,6 +50,14 @@ export function List(): $CancellablePromise<$models.Summary[] | null> {
 }
 
 /**
+ * LookupEntries returns the meanings of the dictionary entries with the given IDs in one call, so a song's words can
+ * open their sheets without asking again.
+ */
+export function LookupEntries(ids: number[] | null): $CancellablePromise<$models.Meanings[] | null> {
+    return $Call.ByID(3564477486, ids);
+}
+
+/**
  * LookupWord returns every meaning of a word, for the word sheet. entryID is the entry the word in the song points
  * at, or 0.
  */

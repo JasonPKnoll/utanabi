@@ -392,3 +392,52 @@ func TestNumbersInDigitsAreReadLikeTheirKanji(t *testing.T) {
 		})
 	}
 }
+
+func TestLookupEntriesDescribesEachEntryOnce(t *testing.T) {
+	t.Parallel()
+
+	got, err := LookupEntries(t.Context(), newFakeDictionary(t), []int64{1593670, 1245290, 1593670, 999})
+	if err != nil {
+		t.Fatalf("LookupEntries: %v", err)
+	}
+	if len(got) != 2 || got[0].EntryID != 1593670 || got[1].EntryID != 1245290 {
+		t.Fatalf("LookupEntries = %+v, want 探す then 空, once each, and nothing for an unknown ID", got)
+	}
+	want := Meaning{Index: 0, Glosses: []string{"to search for"},
+		PartsOfSpeech: []string{"Godan verb with 'su' ending", "transitive verb"}, Notes: []string{}}
+	if !reflect.DeepEqual(got[0].Senses[0], want) || !got[0].Installed || got[0].Attribution == "" {
+		t.Errorf("探す = %+v, want installed with the credit and %+v", got[0], want)
+	}
+}
+
+func TestLookupEntriesWithoutTheDictionary(t *testing.T) {
+	t.Parallel()
+
+	got, err := LookupEntries(t.Context(), noMeanings(t), []int64{1593670})
+	if err != nil || len(got) != 0 || got == nil {
+		t.Errorf("LookupEntries = %+v, %v, want an empty list", got, err)
+	}
+}
+
+func TestLookupEntriesRejectsBadInput(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		ids  []int64
+	}{
+		{name: "zero", ids: []int64{0}},
+		{name: "negative", ids: []int64{1593670, -1}},
+		{name: "too many", ids: make([]int64, maxLookupEntries+1)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := LookupEntries(t.Context(), newFakeDictionary(t), tt.ids)
+			var invalid *fault.InvalidError
+			if !errors.As(err, &invalid) || invalid.Field != "ids" {
+				t.Errorf("LookupEntries(%s) error = %v, want invalid ids", tt.name, err)
+			}
+		})
+	}
+}

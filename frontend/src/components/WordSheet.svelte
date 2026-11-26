@@ -1,11 +1,7 @@
 <script lang="ts">
-  import {
-    Service as Songs,
-    type Meanings,
-    type RubyPart,
-    type Word,
-  } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
+  import type { Meanings, RubyPart, Word } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
+  import { meaningsCache } from "../lib/meaningsCache";
   import { aboutHref } from "../lib/route";
   import { hasMeanings, lemmaLine, splitMeanings } from "../lib/words";
   import Sheet from "./Sheet.svelte";
@@ -30,9 +26,16 @@
     if (!hasMeanings(word)) {
       return;
     }
-    meanings = null;
     failure = null;
-    Songs.LookupWord(word.lemma, word.lemmaReading, word.entryId)
+    // Usually the song's meanings are already here, so the sheet opens with them and nothing to wait for. A local, so
+    // the effect doesn't read the state it sets.
+    const hit = meaningsCache.cached(word);
+    meanings = hit ?? null;
+    if (hit) {
+      return;
+    }
+    meaningsCache
+      .lookup(word)
       .then((found) => (meanings = found))
       .catch((err: unknown) => (failure = toAppError(err)));
   });

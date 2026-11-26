@@ -3,6 +3,7 @@ package songs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -372,17 +373,61 @@ func LookupWord(ctx context.Context, dict Dictionary, lemma, reading string, ent
 		}
 	}
 
+	described, err := describeEntries(ctx, dict, []Entry{entry})
+	if err != nil {
+		return Meanings{}, err
+	}
+	return described[0], nil
+}
+
+// maxLookupEntries caps one LookupEntries call: far above the words of any song.
+const maxLookupEntries = 2000
+
+// LookupEntries returns the meanings of the entries with the given IDs in one go, so the app can have a whole song's
+// meanings ready before a word is tapped. IDs the dictionary doesn't have are left out, and without the dictionary
+// the list is empty.
+func LookupEntries(ctx context.Context, dict Dictionary, ids []int64) ([]Meanings, error) {
+	if len(ids) > maxLookupEntries {
+		return nil, fault.Invalid("ids", fmt.Sprintf("has more than %d entries", maxLookupEntries))
+	}
+	var unique []int64
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, fault.Invalid("ids", "must be positive")
+		}
+		if !slices.Contains(unique, id) {
+			unique = append(unique, id)
+		}
+	}
+	if len(unique) == 0 {
+		return []Meanings{}, nil
+	}
+	entries, err := dict.Entries(ctx, unique)
+	if errors.Is(err, ErrNoMeanings) {
+		return []Meanings{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return describeEntries(ctx, dict, entries)
+}
+
+// describeEntries turns entries into meanings for the word sheet, with their codes put in words, asking the
+// dictionary once for all their codes.
+func describeEntries(ctx context.Context, dict Dictionary, entries []Entry) ([]Meanings, error) {
 	var codes []string
-	for _, s := range entry.Senses {
-		for _, c := range slices.Concat(s.PartsOfSpeech, s.Misc) {
-			if !slices.Contains(codes, c) {
-				codes = append(codes, c)
+	for _, e := range entries {
+		for _, s := range e.Senses {
+			for _, c := range slices.Concat(s.PartsOfSpeech, s.Misc) {
+				if !slices.Contains(codes, c) {
+					codes = append(codes, c)
+				}
 			}
 		}
 	}
 	tags, err := dict.Tags(ctx, codes)
 	if err != nil {
-		return Meanings{}, err
+		return nil, err
 	}
 	describe := func(list []string) []string {
 		out := make([]string, 0, len(list))
@@ -395,15 +440,18 @@ func LookupWord(ctx context.Context, dict Dictionary, lemma, reading string, ent
 		}
 		return out
 	}
-
-	found.EntryID = entry.ID
-	for _, s := range entry.Senses {
-		found.Senses = append(found.Senses, Meaning{
-			Index:         s.Index,
-			Glosses:       append([]string{}, s.Glosses...),
-			PartsOfSpeech: describe(s.PartsOfSpeech),
-			Notes:         describe(s.Misc),
-		})
+	list := make([]Meanings, 0, len(entries))
+	for _, e := range entries {
+		m := Meanings{Installed: true, EntryID: e.ID, Senses: []Meaning{}, Attribution: dict.Attribution()}
+		for _, s := range e.Senses {
+			m.Senses = append(m.Senses, Meaning{
+				Index:         s.Index,
+				Glosses:       append([]string{}, s.Glosses...),
+				PartsOfSpeech: describe(s.PartsOfSpeech),
+				Notes:         describe(s.Misc),
+			})
+		}
+		list = append(list, m)
 	}
-	return found, nil
+	return list, nil
 }

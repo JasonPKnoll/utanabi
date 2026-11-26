@@ -10,6 +10,7 @@
   import WordSheet from "../components/WordSheet.svelte";
   import { toAppError, type AppError } from "../lib/errors";
   import { startsStanza } from "../lib/lyrics";
+  import { meaningsCache } from "../lib/meaningsCache";
   import { hasRomaji, loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
   import { aboutHref, homeHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
@@ -42,7 +43,11 @@
 
   $effect(() => {
     Songs.Get(id)
-      .then((found) => (song = found))
+      .then((found) => {
+        song = found;
+        // Fetch every word's meanings now, in one call, so tapping a word opens its sheet at once.
+        void meaningsCache.preload((found.lines ?? []).flatMap((line) => line.words ?? []));
+      })
       .catch((err: unknown) => (failure = toAppError(err)));
   });
 

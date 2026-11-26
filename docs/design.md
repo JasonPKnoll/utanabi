@@ -64,6 +64,8 @@ The word sheet (`frontend/src/components/WordSheet.svelte`) is a bottom sheet, a
 
 It shows, top to bottom: the word large with its furigana; its dictionary form, reading, and romaji; a sentence about its conjugation ("探す, in the 〜ている form"); for a particle or set phrase, its grammar title, meaning, and explanation; for a content word, the meaning used in this song first, in a card outlined in `--link`, then the other meanings with their parts of speech in words; each conjugation step with its title and meaning; and, when meanings show, the one-line JMdict footnote. When `dictionary.db` isn't installed, the meanings part says "Meanings aren't installed" instead of failing.
 
+The sheet opens with its meanings already there. When a song opens, the app fetches the meanings of all its words in one call (`Songs.LookupEntries`) and keeps them in memory while it runs (`frontend/src/lib/meaningsCache.ts`), so a tap needs no call to Go. A word the song's call didn't cover, such as one with no dictionary entry, is looked up the first time it's tapped, then kept too. A tap while that first call is still under way waits for it rather than asking again.
+
 ## Screens
 
 Each screen keeps its chrome slim so the lyrics and the library get the room.

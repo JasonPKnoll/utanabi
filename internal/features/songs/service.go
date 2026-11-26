@@ -45,6 +45,13 @@ func (s *Service) LookupWord(ctx context.Context, lemma, reading string, entryID
 	return meanings, app.Fail(ctx, err)
 }
 
+// LookupEntries returns the meanings of the dictionary entries with the given IDs in one call, so a song's words can
+// open their sheets without asking again.
+func (s *Service) LookupEntries(ctx context.Context, ids []int64) ([]Meanings, error) {
+	meanings, err := LookupEntries(ctx, s.dict, ids)
+	return meanings, app.Fail(ctx, err)
+}
+
 // SearchSources returns the names of the online lyrics sources that are on, in the order search asks them. Empty
 // means online search is turned off.
 func (s *Service) SearchSources() []string {
