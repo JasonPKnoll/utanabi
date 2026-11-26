@@ -26,9 +26,16 @@ export async function me(): Promise<Me> {
   return { mode: "local", user: null, signUp: false };
 }
 
-// Makes an account with a new passkey on this device, and signs in. Returns the username as saved.
-export async function signUp(name: string, code: string): Promise<string> {
+// The first step of making an account: the server checks the username and sign-up code, and returns what the
+// device needs to make a passkey. The second step, finishSignUp, should run straight from a tap, so Safari lets it
+// open the passkey sheet.
+export async function beginSignUp(name: string, code: string): Promise<CreationJSON> {
   const { options } = (await post("/auth/signup/begin", { name, code })) as { options: CreationJSON };
+  return options;
+}
+
+// Saves a passkey on this device and makes the account with it. Returns the username as saved.
+export async function finishSignUp(options: CreationJSON): Promise<string> {
   const credential = await create(options);
   return userName(await post("/auth/signup/finish", attestationJSON(credential)));
 }

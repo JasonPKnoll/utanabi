@@ -46,6 +46,9 @@ func TestCheckSignupCode(t *testing.T) {
 	if err := CheckSignupCode("a long sign-up code", code); err != nil {
 		t.Errorf("right code: %v", err)
 	}
+	if err := CheckSignupCode(" a long sign-up code ", code); err != nil {
+		t.Errorf("right code with spaces around it: %v", err)
+	}
 	var invalid *fault.InvalidError
 	if err := CheckSignupCode("a wrong code", code); !errors.As(err, &invalid) || invalid.Field != "code" {
 		t.Errorf("wrong code: %v, want invalid code", err)

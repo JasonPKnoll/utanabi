@@ -1,6 +1,15 @@
 <script lang="ts">
   import { signedIn } from "../lib/account.svelte";
-  import { canAutofillPasskeys, hadAccountHere, rememberAccountHere, signIn, signUp, wasStopped } from "../lib/auth";
+  import {
+    beginSignUp,
+    canAutofillPasskeys,
+    finishSignUp,
+    hadAccountHere,
+    rememberAccountHere,
+    signIn,
+    wasStopped,
+    type CreationJSON,
+  } from "../lib/auth";
   import { toAppError, type AppError } from "../lib/errors";
 
   // The way in on a server with accounts: a passkey (Face ID, a fingerprint, or the device's PIN), no password. A
@@ -13,6 +22,8 @@
 
   let name = $state("");
   let code = $state("");
+  // After Continue: the passkey to save, waiting for its own tap.
+  let ready = $state<CreationJSON | null>(null);
   let busy = $state(false);
   let failure = $state<AppError | null>(null);
   let background: AbortController | null = null;
@@ -20,12 +31,14 @@
 
   let fieldError = $derived(failure?.code === "invalid_input" ? failure.field : undefined);
 
-  // A sign-in that waits in the background for a passkey picked from the username field's autofill.
+  // A sign-in that waits in the background for a passkey picked from the username field's autofill. Only on a
+  // browser that has signed in before: Safari won't save a new passkey while such a sign-in is waiting, so a first
+  // visit, which is for making an account, never starts one.
   $effect(() => {
     let live = true;
     void canAutofillPasskeys().then((ok) => {
-      autofill = ok;
-      if (ok && live) {
+      autofill = ok && returning;
+      if (autofill && live) {
         startBackground();
       }
     });
@@ -69,9 +82,26 @@
     }
   }
 
-  function create(event: SubmitEvent) {
+  // Continue: check the username and code, then wait for the tap that saves the passkey.
+  async function next(event: SubmitEvent) {
     event.preventDefault();
-    void run(() => signUp(name, code));
+    background?.abort();
+    busy = true;
+    failure = null;
+    try {
+      ready = await beginSignUp(name, code);
+    } catch (err) {
+      failure = toAppError(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  function save() {
+    const options = ready;
+    if (options) {
+      void run(() => finishSignUp(options));
+    }
   }
 </script>
 
@@ -84,6 +114,7 @@
       id="signin-name"
       autocomplete="username webauthn"
       autocapitalize="off"
+      autocorrect="off"
       spellcheck="false"
       aria-describedby="signin-hint"
     />
@@ -96,10 +127,23 @@
 
 <!-- prettier-ignore -->
 {#snippet signUpPart()}
-  <form class="part" onsubmit={create} aria-labelledby="signup-title">
+  {#if ready}
+    <section class="part" aria-labelledby="save-title">
+      <h2 id="save-title">One more step</h2>
+      <p class="steps">
+        Save a passkey for <strong>{name.trim().toLowerCase()}</strong> on this device. Your phone asks for Face ID,
+        your fingerprint, or its PIN.
+      </p>
+      <button type="button" class="button primary" disabled={busy} onclick={save}>
+        {busy ? "Waiting for your passkey…" : "Save passkey"}
+      </button>
+      <button type="button" class="link" disabled={busy} onclick={() => (ready = null)}>Change username</button>
+    </section>
+  {:else}
+  <form class="part" onsubmit={next} aria-labelledby="signup-title">
     <h2 id="signup-title">{signUpFirst ? "Make your account" : "New here?"}</h2>
     <p class="steps">
-      Pick a username and enter the sign-up code you were given. Your phone or computer then saves a passkey with Face
+      Pick a username and enter the sign-up code you were given. Then your phone or computer saves a passkey with Face
       ID, your fingerprint, or its PIN. There's no password and no QR code to scan.
     </p>
     <label for="signup-name">Choose a username</label>
@@ -108,6 +152,7 @@
       bind:value={name}
       autocomplete="username"
       autocapitalize="off"
+      autocorrect="off"
       spellcheck="false"
       required
       minlength="3"
@@ -124,6 +169,7 @@
       bind:value={code}
       autocomplete="off"
       autocapitalize="off"
+      autocorrect="off"
       spellcheck="false"
       required
       aria-invalid={fieldError === "code" || fieldError === "signup"}
@@ -131,9 +177,10 @@
     {#if fieldError === "code" || fieldError === "signup"}<p class="error" role="alert">{failure?.message}</p>{/if}
 
     <button type="submit" class="button" class:primary={signUpFirst} disabled={busy}>
-      Create an account with a passkey
+      {busy ? "Checking…" : "Continue"}
     </button>
   </form>
+  {/if}
 {/snippet}
 
 <div class="screen">
@@ -248,5 +295,15 @@
 
   .closed {
     text-align: center;
+  }
+
+  .link {
+    min-height: var(--tap);
+    border: 0;
+    background: transparent;
+    color: var(--link);
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
   }
 </style>

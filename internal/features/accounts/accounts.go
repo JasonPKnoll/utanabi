@@ -114,13 +114,13 @@ func Name(name string) (string, error) {
 	return name, nil
 }
 
-// CheckSignupCode reports whether code is the server's sign-up code, in constant time. With no code set, sign-up is
-// closed and nothing matches.
+// CheckSignupCode reports whether code is the server's sign-up code, in constant time, ignoring spaces around it (a
+// phone's keyboard adds one after a suggestion). With no code set, sign-up is closed and nothing matches.
 func CheckSignupCode(code string, want redact.Secret) error {
 	if want.IsZero() {
 		return ErrSignupClosed
 	}
-	got, expected := sha256.Sum256([]byte(code)), sha256.Sum256([]byte(want.Reveal()))
+	got, expected := sha256.Sum256([]byte(strings.TrimSpace(code))), sha256.Sum256([]byte(want.Reveal()))
 	if subtle.ConstantTimeCompare(got[:], expected[:]) != 1 {
 		return fault.Invalid("code", "isn't right")
 	}

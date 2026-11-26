@@ -27,7 +27,8 @@ async function signUp(page: Page): Promise<string> {
   await expect(page.getByRole("heading", { name: "Welcome to Utanabi" })).toBeVisible();
   await page.getByLabel("Choose a username").fill(name);
   await page.getByLabel("Sign-up code").fill(signupCode);
-  await page.getByRole("button", { name: "Create an account with a passkey" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Save passkey" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
   return name;
 }
@@ -319,7 +320,7 @@ test("a new account needs the sign-up code", async ({ page }) => {
   await expect(page.getByLabel("Username", { exact: true })).toHaveAttribute("autocomplete", "username webauthn");
   await page.getByLabel("Choose a username").fill("smoke-wrong-code");
   await page.getByLabel("Sign-up code").fill("not the code at all");
-  await page.getByRole("button", { name: "Create an account with a passkey" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByText("code isn't right")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Welcome to Utanabi" })).toBeVisible();
 });
