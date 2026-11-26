@@ -42,7 +42,7 @@ func run() (err error) {
 		return err
 	}
 
-	archive := filepath.Join(*cache, "jmdict-eng-common-"+dictbuild.JMdictRelease+".json.tgz")
+	archive := filepath.Join(*cache, "jmdict-eng-"+dictbuild.JMdictRelease+".json.tgz")
 	client := &http.Client{Timeout: 5 * time.Minute}
 	if err := dictbuild.Fetch(ctx, client, dictbuild.JMdictURL, dictbuild.JMdictSHA256, archive); err != nil {
 		return err

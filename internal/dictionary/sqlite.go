@@ -84,8 +84,10 @@ func (d *Dictionary) Close() error {
 }
 
 // Lookup returns the entries with a spelling that matches form, and, when reading is not empty, that reading. The
-// reading may be in hiragana or katakana. Entries whose matching spelling is common come first, and each comes with
-// all its forms and senses, in JMdict order.
+// reading may be in hiragana or katakana. A form written only in kana also matches the same word in the other kana
+// (ホラ finds ほら, おサラバ finds おさらば), since lyrics often write a word in katakana for effect. Entries spelled
+// exactly as asked come first, then those whose matching spelling is common, and each comes with all its forms and
+// senses, in JMdict order.
 func (d *Dictionary) Lookup(ctx context.Context, form, reading string) ([]Entry, error) {
 	form = jtext.Normalize(strings.TrimSpace(form))
 	reading = jtext.ToHiragana(jtext.Normalize(strings.TrimSpace(reading)))
@@ -96,7 +98,11 @@ func (d *Dictionary) Lookup(ctx context.Context, form, reading string) ([]Entry,
 		return nil, fault.Invalid("form", fmt.Sprintf("is longer than %d characters", maxFormLength))
 	}
 
-	ids, err := d.matchingEntries(ctx, form, reading)
+	kana := ""
+	if jtext.IsKana(form) {
+		kana = jtext.ToHiragana(form)
+	}
+	ids, err := d.matchingEntries(ctx, form, kana, reading)
 	if err != nil || len(ids) == 0 {
 		return nil, err
 	}
@@ -200,16 +206,19 @@ func (d *Dictionary) Tags(ctx context.Context, codes []string) (map[string]strin
 	return tags, store.Translate(rows.Err())
 }
 
-func (d *Dictionary) matchingEntries(ctx context.Context, form, reading string) ([]int64, error) {
+// matchingEntries finds the entries spelled form, or, when kana is set, with a kana spelling read kana. Every reading
+// is stored in hiragana, so the kana match covers either script.
+func (d *Dictionary) matchingEntries(ctx context.Context, form, kana, reading string) ([]int64, error) {
 	rows, err := d.db.QueryContext(ctx, `
 		SELECT f.entry_id
 		FROM entry_forms AS f
-		WHERE f.form = ?1 AND (?2 = '' OR f.reading = ?2)
+		WHERE (f.form = ?1 OR (?2 <> '' AND f.is_kanji = 0 AND f.reading = ?2)) AND (?3 = '' OR f.reading = ?3)
 		GROUP BY f.entry_id
-		ORDER BY max(f.common) DESC,
+		ORDER BY max(f.form = ?1) DESC,
+			max(f.common) DESC,
 			(SELECT max(a.common) FROM entry_forms AS a WHERE a.entry_id = f.entry_id) DESC,
 			f.entry_id
-		LIMIT ?3`, form, reading, maxEntries)
+		LIMIT ?4`, form, kana, reading, maxEntries)
 	if err != nil {
 		return nil, store.Translate(err)
 	}

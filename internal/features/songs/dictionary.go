@@ -83,7 +83,7 @@ func entries(found []dictionary.Entry) []Entry {
 	for i, e := range found {
 		list[i] = Entry{ID: e.ID, Forms: make([]Form, len(e.Forms)), Senses: make([]Sense, len(e.Senses))}
 		for k, f := range e.Forms {
-			list[i].Forms[k] = Form{Text: f.Text, Reading: f.Reading}
+			list[i].Forms[k] = Form{Text: f.Text, Reading: f.Reading, Common: f.Common}
 		}
 		for k, s := range e.Senses {
 			list[i].Senses[k] = Sense{Index: s.Index, Glosses: s.Glosses, PartsOfSpeech: s.PartsOfSpeech, Misc: s.Misc}

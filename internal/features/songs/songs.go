@@ -142,10 +142,12 @@ type Entry struct {
 	Senses []Sense
 }
 
-// Form is one spelling of an entry with one of its readings, in hiragana.
+// Form is one spelling of an entry with one of its readings, in hiragana. Common is true when JMdict marks the
+// spelling as in common use.
 type Form struct {
 	Text    string
 	Reading string
+	Common  bool
 }
 
 // Sense is one meaning of an entry. PartsOfSpeech and Misc are JMdict codes, such as v5s and uk.

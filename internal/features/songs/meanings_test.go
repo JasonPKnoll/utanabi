@@ -201,32 +201,44 @@ func TestPickPrefersAFittingSenseThenTheClassThenKana(t *testing.T) {
 	godan := Entry{ID: 3, Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"v5r"}}}}
 	ichidan := Entry{ID: 4, Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"v1"}}}}
 	kana := Entry{ID: 5, Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"v1"}, Misc: []string{"uk"}}}}
+	// だれ: 垂れ "sauce" is rare but usually written in kana; 誰 "who" is common.
+	sauce := Entry{ID: 6, Forms: []Form{{Text: "たれ", Reading: "たれ", Common: true}, {Text: "だれ", Reading: "だれ"}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}, Misc: []string{"uk"}}}}
+	who := Entry{ID: 7, Forms: []Form{{Text: "誰", Reading: "だれ", Common: true}, {Text: "だれ", Reading: "だれ", Common: true}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"pn"}}}}
+	commonNoun := Entry{ID: 8, Forms: []Form{{Text: "た", Reading: "た", Common: true}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}}}}
 	tests := []struct {
 		name      string
 		entries   []Entry
 		cat       category
 		class     string
-		kana      bool
+		form      string
 		wantID    int64
 		wantSense int
 	}{
 		{name: "the first sense that fits", entries: []Entry{noun, laterVerb}, cat: catVerb, wantID: 2, wantSense: 1},
 		{name: "nothing fits takes the first", entries: []Entry{noun}, cat: catVerb, wantID: 1, wantSense: 0},
 		{name: "the word's class", entries: []Entry{godan, ichidan}, cat: catVerb, class: "v1", wantID: 4},
-		{name: "kana for a kana word", entries: []Entry{ichidan, kana}, cat: catVerb, class: "v1", kana: true,
+		{name: "kana for a kana word", entries: []Entry{ichidan, kana}, cat: catVerb, class: "v1", form: "いる",
 			wantID: 5},
-		{name: "dictionary order on a tie", entries: []Entry{ichidan, kana}, cat: catVerb, class: "v1", wantID: 4},
+		{name: "dictionary order on a tie", entries: []Entry{ichidan, kana}, cat: catVerb, class: "v1", form: "居る",
+			wantID: 4},
+		{name: "the word's common spelling over a rare kana one", entries: []Entry{sauce, who}, cat: catNoun,
+			form: "だれ", wantID: 7},
+		{name: "common in katakana too", entries: []Entry{sauce, who}, cat: catNoun, form: "ダレ", wantID: 7},
+		{name: "a fitting sense over a common word", entries: []Entry{commonNoun, ichidan}, cat: catVerb, wantID: 4},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			e, sense, ok := pick(tt.entries, tt.cat, tt.class, tt.kana)
+			e, sense, ok := pick(tt.entries, tt.cat, tt.class, tt.form)
 			if !ok || e.ID != tt.wantID || sense != tt.wantSense {
 				t.Errorf("pick = %d sense %d (%v), want %d sense %d", e.ID, sense, ok, tt.wantID, tt.wantSense)
 			}
 		})
 	}
-	if _, _, ok := pick(nil, catNoun, "", false); ok {
+	if _, _, ok := pick(nil, catNoun, "", ""); ok {
 		t.Error("pick(nil) found an entry")
 	}
 }

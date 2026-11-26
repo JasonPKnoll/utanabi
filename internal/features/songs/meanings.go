@@ -187,7 +187,7 @@ func (m *meanings) resolve(ctx context.Context, w *WordAnalysis, cat category) (
 		if len(entries) == 0 {
 			continue
 		}
-		entry, sense, ok := pick(entries, cat, w.ConjClass, jtext.IsKana(try[0]))
+		entry, sense, ok := pick(entries, cat, w.ConjClass, try[0])
 		if !ok {
 			continue
 		}
@@ -201,22 +201,36 @@ func (m *meanings) resolve(ctx context.Context, w *WordAnalysis, cat category) (
 }
 
 // pick chooses the entry that best fits the word, and the first of its senses that fits, or sense 0. An entry with a
-// fitting sense wins, then one whose senses name the word's conjugation class, then, for a word written in kana, one
-// usually written in kana (いる is 居る, not 射る). Ties go to the dictionary's order, most common first.
-func pick(entries []Entry, cat category, class string, kana bool) (Entry, int, bool) {
+// fitting sense wins, then one whose senses name the word's conjugation class, then one whose spelling of the word is
+// in common use (だれ is 誰 "who", whose だれ is common, not 垂れ "sauce", whose common spelling is たれ), then, for a
+// word written in kana, one usually written in kana (いる is 居る, not 射る). Ties go to the dictionary's order, most
+// common first.
+func pick(entries []Entry, cat category, class, form string) (Entry, int, bool) {
+	kana := jtext.IsKana(form)
+	reading := ""
+	if kana {
+		reading = jtext.ToHiragana(form)
+	}
+	commonSpelling := func(f Form) bool {
+		return f.Common && (f.Text == form || (kana && f.Reading == reading))
+	}
 	best, bestScore, bestSense := -1, -1, 0
 	for i, e := range entries {
 		if len(e.Senses) == 0 {
 			continue
 		}
+		// Each test outweighs all the ones after it put together.
 		score, sense := 0, e.Senses[0].Index
 		for _, s := range e.Senses {
 			if senseFits(cat, s.PartsOfSpeech) {
-				score, sense = 4, s.Index
+				score, sense = 8, s.Index
 				break
 			}
 		}
 		if class != "" && slices.ContainsFunc(e.Senses, func(s Sense) bool { return slices.Contains(s.PartsOfSpeech, class) }) {
+			score += 4
+		}
+		if slices.ContainsFunc(e.Forms, commonSpelling) {
 			score += 2
 		}
 		if kana && slices.ContainsFunc(e.Senses, func(s Sense) bool { return slices.Contains(s.Misc, "uk") }) {
