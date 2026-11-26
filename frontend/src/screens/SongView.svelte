@@ -222,7 +222,10 @@
     margin-top: 24px;
   }
 
+  /* border-box because the current line is a <div> and the others are <button>s, which are border-box already:
+     without it the current line's padding came on top of its width and pushed it past the right edge. */
   .line {
+    box-sizing: border-box;
     display: block;
     width: 100%;
     min-height: var(--tap);
