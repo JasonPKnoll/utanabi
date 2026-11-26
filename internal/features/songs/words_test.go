@@ -69,7 +69,25 @@ func TestFindWords(t *testing.T) {
 		{text: "Monday 星が光る", want: []string{
 			"星 星/ほし content", "が が/が particle ga-subject", "光る 光る/ひかる content v5r",
 		}},
-		{text: "1番", want: []string{"番 番/ばん content"}},
+		{text: "1番", want: []string{"1番 一番/ content"}},
+		{text: "12番", want: []string{"12番 12番/ content"}},
+		{text: "だれでも", want: []string{"だれでも だれでも/だれでも content"}},
+		{text: "このまま", want: []string{"このまま このまま/このまま content"}},
+		{text: "おサラバする", want: []string{"おサラバする おサラバする/おさらばする content vs"}},
+		{text: "鏡よ鏡よ この世", want: []string{
+			"鏡 鏡/かがみ content", "よ よ/よ particle yo-calling", "鏡 鏡/かがみ content", "よ よ/よ particle yo-calling",
+			"この世 この世/このよ content",
+		}},
+		{text: "大丈夫だよ", want: []string{
+			"大丈夫だ 大丈夫/だいじょうぶ content adj-na", "よ よ/よ particle yo-emphasis",
+		}},
+		{text: "変わることのない愛", want: []string{
+			"変わる 変わる/かわる content v5r", "こと こと/こと content", "の の/の particle no-subject",
+			"ない ない/ない content adj-i", "愛 愛/あい content",
+		}},
+		{text: "するよか", want: []string{"する する/する content vs-i", "よか よ/よ particle yori-than"}},
+		{text: "治してみせます", want: []string{"治してみせます 治す/なおす content v5s [te-form te-miseru polite-masu]"}},
+
 		{text: "美しかった", want: []string{"美しかった 美しい/うつくしい content adj-i [past]"}},
 		{text: "行こう", want: []string{"行こう 行く/いく content v5k-s [volitional]"}},
 		{text: "会えない", want: []string{"会えない 会える/あえる content v1 [negative]"}},
@@ -178,6 +196,9 @@ func TestFindWordsCoversEveryTokenButPunctuationOnce(t *testing.T) {
 			}
 		}
 		for i, tok := range tokens {
+			if numberBeforeCounter(tokens, i) {
+				continue
+			}
 			if inWord := owner[i] != -1; inWord == outsideWords(tok) {
 				t.Errorf("%q: token %q in a word = %v, want %v", text, tok.Surface, inWord, !outsideWords(tok))
 			}

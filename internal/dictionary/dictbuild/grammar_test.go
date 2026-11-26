@@ -28,8 +28,8 @@ func TestGrammarListIsValid(t *testing.T) {
 	t.Parallel()
 
 	list := readGrammarList(t)
-	if len(list) < 50 || len(list) > 100 {
-		t.Errorf("grammar.json has %d points, want 50 to 100", len(list))
+	if len(list) < 50 || len(list) > 200 {
+		t.Errorf("grammar.json has %d points, want 50 to 200", len(list))
 	}
 	byID := make(map[string]dictionary.GrammarPoint, len(list))
 	for _, g := range list {

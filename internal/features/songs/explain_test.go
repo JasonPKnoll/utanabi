@@ -39,6 +39,12 @@ func TestLineGlossIsWordByWord(t *testing.T) {
 		{name: "a copula and a set phrase", dict: noMeanings, text: "夢じゃない、君だ",
 			want: "is not · is"},
 		{name: "only punctuation", dict: noMeanings, text: "、！", want: ""},
+		{name: "a negative says not", dict: withMeanings, text: "消えない", want: "not disappear"},
+		{name: "の after a verb is the act", dict: noMeanings, text: "死ぬのがいい", want: "(-ing) · (subject)"},
+		{name: "の after an adjective is the one", dict: noMeanings, text: "ダサいのは", want: "(one) · (topic)"},
+		{name: "の before よ explains", dict: noMeanings, text: "いいのよ", want: "(it's that) · (!)"},
+		{name: "なんて after a clause", dict: noMeanings, text: "会えるなんて", want: "(to think…)"},
+		{name: "よ calling out", dict: noMeanings, text: "星よ光れ", want: "(calling) · 光る"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -266,7 +272,7 @@ func TestWordGlossLeavesOutAWordThatOnlyRepeatsItself(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := wordGloss(tt.word); got != tt.want {
+			if got := wordGloss(tt.word, Token{}, Token{}); got != tt.want {
 				t.Errorf("wordGloss(%q) = %q, want %q", tt.word.Text, got, tt.want)
 			}
 		})

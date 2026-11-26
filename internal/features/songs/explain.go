@@ -9,6 +9,7 @@ import (
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
 	"github.com/JasonPKnoll/utanabi/internal/common/jtext"
+	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 )
 
 const maxGlossLen = 60
@@ -75,7 +76,14 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 			pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[next:a.FirstToken]), Word: -1})
 		}
 		w := explainWord(dict, entries, line.Tokens, a)
-		w.Short = wordGloss(w)
+		var before, after Token
+		if a.FirstToken > 0 {
+			before = line.Tokens[a.FirstToken-1]
+		}
+		if a.LastToken+1 < len(line.Tokens) {
+			after = line.Tokens[a.LastToken+1]
+		}
+		w.Short = wordGloss(w, before, after)
 		pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[a.FirstToken : a.LastToken+1]), Word: len(words)})
 		words = append(words, w)
 		if w.Short != "" {
@@ -166,17 +174,28 @@ func shortGloss(gloss string) string {
 
 // wordGloss is a word's part of the line's gloss: the meaning of a content word without "to" ("shine"), a short
 // English word for a particle where one fits ("'s", "in"), and otherwise the grammar title in parentheses. A word
-// the dictionary doesn't explain shows its dictionary form, or nothing when that is the word itself.
-func wordGloss(w Word) string {
+// the dictionary doesn't explain shows its dictionary form, or nothing when that is the word itself. A negative
+// content word says so ("not need"). prev and next are the tokens just before and after the word, zero at the line's
+// edges.
+func wordGloss(w Word, prev, next Token) string {
+	g := glossOf(w, prev, next)
 	// Without a meaning, a word can only show itself again, which adds nothing under it.
-	if g := glossOf(w); g != w.Text {
-		return g
+	if g == w.Text {
+		return ""
 	}
-	return ""
+	if w.Kind == WordContent && w.Gloss != "" && slices.ContainsFunc(w.Steps, func(s GrammarPoint) bool {
+		return s.ID == "negative"
+	}) {
+		return "not " + g
+	}
+	return g
 }
 
-func glossOf(w Word) string {
+func glossOf(w Word, prev, next Token) string {
 	if w.Grammar != nil {
+		if g := contextGloss(w.Grammar.ID, w.Text, prev, next); g != "" {
+			return g
+		}
 		if g, ok := grammarGlosses[w.Grammar.ID]; ok {
 			return g
 		}
@@ -194,6 +213,26 @@ func glossOf(w Word) string {
 	return w.Lemma
 }
 
+// contextGloss is the English for a grammar word whose use reads differently by what is around it, or "".
+func contextGloss(id, text string, prev, next Token) string {
+	predicate := prev.POS == morph.Verb || prev.POS == morph.Adjective || prev.POS == morph.Auxiliary
+	switch {
+	case id == "no-nominalizer" && prev.POS == morph.Verb:
+		// 死ぬのがいい: the act, dying.
+		return "(-ing)"
+	case id == "no-nominalizer":
+		// ダサいのは: the one, or the thing.
+		return "(one)"
+	case id == "no-question" && (next.base() == "よ" || next.base() == "ね" || next.base() == "さ"):
+		// いいのよ explains; it doesn't ask.
+		return "(it's that)"
+	case id == "nanka-casual" && text == "なんて" && predicate:
+		// 気がつくなんて: surprise at the whole clause.
+		return "(to think…)"
+	}
+	return ""
+}
+
 // grammarGlosses are the short English words particles and set phrases take in a line's gloss. A particle with no
 // English word, such as が, shows its grammar title instead.
 var grammarGlosses = map[string]string{
@@ -202,7 +241,8 @@ var grammarGlosses = map[string]string{
 	"ni-destination": "to", "ni-purpose": "to", "ni-change": "into", "ni-agent": "by", "de-place": "at",
 	"de-means": "with", "he-direction": "toward", "to-and": "and", "to-with": "with", "to-quote": "(quote)",
 	"to-when": "when", "tte-quote": "(quote)", "no-possession": "'s", "no-nominalizer": "(the one that)",
-	"no-question": "(?)", "mo-also": "also", "demo-even": "even", "sae-even": "even", "koso-emphasis": "(indeed)",
+	"no-question": "(?)", "no-subject": "(subject)", "yo-calling": "(calling)", "mo-also": "also",
+	"demo-even": "even", "sae-even": "even", "koso-emphasis": "(indeed)",
 	"kara-from": "from", "kara-because": "because", "node-because": "so", "noni-although": "even though",
 	"shi-and": "and", "made-until": "until", "yori-than": "than", "ya-and-so-on": "and", "toka-like": "or such",
 	"nado-and-so-on": "and so on", "nanka-casual": "(like)", "tari-and": "(and so on)", "ka-question": "(?)",
@@ -224,7 +264,8 @@ var stepLabels = map[string]string{ //nolint:gosec // G101: the key "passive" is
 	"causative-passive": "causative passive", "volitional": "volitional", "conditional-ba": "〜ば",
 	"conditional-tara": "〜たら", "imperative": "command", "tai-want": "〜たい", "te-shimau": "〜てしまう",
 	"chau": "〜ちゃう", "adverbial": "adverb", "na-attributive": "〜な", "te-iku": "〜ていく", "te-kuru": "〜てくる",
-	"te-kureru": "〜てくれる", "sou-looks": "〜そう",
+	"te-kureru": "〜てくれる", "sou-looks": "〜そう", "te-miseru": "〜てみせる", "te-itadaku": "〜ていただく",
+	"te-miru": "〜てみる", "te-morau": "〜てもらう", "te-ageru": "〜てあげる", "te-oku": "〜ておく",
 }
 
 // formSentence says in plain words how a word is conjugated: "探す, in the 〜ている form", or "食べる, in the
@@ -234,7 +275,8 @@ func formSentence(lemma string, steps []string) string {
 	for i, id := range steps {
 		if id == "te-form" && i+1 < len(steps) {
 			switch steps[i+1] {
-			case "teiru", "teru", "te-shimau", "te-iku", "te-kuru", "te-kureru":
+			case "teiru", "teru", "te-shimau", "te-iku", "te-kuru", "te-kureru", "te-miseru", "te-itadaku", "te-miru",
+				"te-morau", "te-ageru", "te-oku":
 				continue
 			}
 		}

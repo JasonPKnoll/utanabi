@@ -49,7 +49,10 @@ func (m *meanings) lookup(ctx context.Context, form, reading string) ([]Entry, e
 
 // analyzeWords sets a line's words from its tokens, and looks up the meaning of each content word.
 func (m *meanings) analyzeWords(ctx context.Context, line *Line) error {
-	words := findWords(line.Tokens)
+	words, err := m.joinPhrases(ctx, findWords(line.Tokens), line.Tokens)
+	if err != nil {
+		return err
+	}
 	for i := range words {
 		w := &words[i]
 		if w.Kind != WordContent {
@@ -72,12 +75,60 @@ func (m *meanings) analyzeWords(ctx context.Context, line *Line) error {
 	return nil
 }
 
+// joinPhrases makes a set phrase one word when the dictionary has it whole: a noun, then が, を, or に, then a verb,
+// as in 気がつく, to notice. Apart, its words would read 気 "spirit" and つく "be lit". The phrase conjugates as its
+// verb, so it keeps the verb's steps and class.
+func (m *meanings) joinPhrases(ctx context.Context, words []WordAnalysis, tokens []Token) ([]WordAnalysis, error) {
+	var out []WordAnalysis
+	for k := 0; k < len(words); k++ {
+		if k+2 < len(words) && phraseShape(words[k:k+3], tokens) {
+			noun, particle, verb := words[k], tokens[words[k+1].FirstToken], words[k+2]
+			lemma := noun.Lemma + particle.Surface + verb.Lemma
+			entries, err := m.lookup(ctx, lemma, "")
+			if err != nil {
+				return nil, err
+			}
+			if len(entries) > 0 {
+				reading := ""
+				if noun.LemmaReading != "" && verb.LemmaReading != "" {
+					reading = noun.LemmaReading + jtext.ToHiragana(particle.Reading) + verb.LemmaReading
+				}
+				verb.FirstToken = noun.FirstToken
+				verb.Lemma, verb.LemmaReading = cleanLemma(lemma, reading)
+				verb.altLemma, verb.altReading = "", ""
+				out = append(out, verb)
+				k += 2
+				continue
+			}
+		}
+		out = append(out, words[k])
+	}
+	return out, nil
+}
+
+func phraseShape(w []WordAnalysis, tokens []Token) bool {
+	noun, particle, verb := w[0], w[1], w[2]
+	if noun.Kind != WordContent || noun.FirstToken != noun.LastToken || tokens[noun.FirstToken].POS != morph.Noun {
+		return false
+	}
+	if particle.Kind != WordParticle || particle.FirstToken != noun.LastToken+1 || particle.LastToken != particle.FirstToken {
+		return false
+	}
+	switch tokens[particle.FirstToken].base() {
+	case "が", "を", "に":
+	default:
+		return false
+	}
+	return verb.Kind == WordContent && verb.FirstToken == particle.LastToken+1 && strings.HasPrefix(verb.ConjClass, "v")
+}
+
 // category is the broad kind of a content word, for matching it to a dictionary sense.
 type category int
 
 const (
 	catUnknown category = iota
 	catNoun
+	catPronoun
 	catVerb
 	catAdjective
 	catNaAdjective
@@ -103,7 +154,9 @@ func wordCategory(w WordAnalysis, tokens []Token) category {
 			if i == w.LastToken {
 				return catPrefix
 			}
-		case morph.Noun, morph.Pronoun, morph.Suffix:
+		case morph.Pronoun:
+			return catPronoun
+		case morph.Noun, morph.Suffix:
 			return catNoun
 		case morph.Verb:
 			return catVerb
@@ -133,6 +186,8 @@ func codeFits(cat category, c string) bool {
 	switch cat {
 	case catNoun:
 		return c == "n" || c == "pn" || c == "num" || c == "ctr" || strings.HasPrefix(c, "n-")
+	case catPronoun:
+		return c == "pn"
 	case catVerb:
 		return isVerbCode(c)
 	case catAdjective:
@@ -200,43 +255,44 @@ func (m *meanings) resolve(ctx context.Context, w *WordAnalysis, cat category) (
 	return false, nil
 }
 
-// pick chooses the entry that best fits the word, and the first of its senses that fits, or sense 0. An entry with a
-// fitting sense wins, then one whose senses name the word's conjugation class, then one whose spelling of the word is
-// in common use (だれ is 誰 "who", whose だれ is common, not 垂れ "sauce", whose common spelling is たれ), then, for a
-// word written in kana, one usually written in kana (いる is 居る, not 射る). Ties go to the dictionary's order, most
-// common first.
+// pick chooses the entry that best fits the word, and the first of its senses that fits, or sense 0. The tests, each
+// outweighing all the ones after it:
+//   - a sense that fits the word's part of speech (for a pronoun, a pronoun sense, then a noun one: なん is 何, not 難);
+//   - a sense that names the word's conjugation class;
+//   - a spelling exactly as the line writes it (ホラ is 法螺 "boasting", spelled ホラ, not 洞 "hollow", spelled ほら);
+//   - a spelling of the word in common use (だれ is 誰, whose だれ is common, not 垂れ, whose common spelling is たれ);
+//   - for a word written in kana, a sense usually written in kana (いる is 居る, not 射る).
+//
+// Ties go to the dictionary's order, most common first.
 func pick(entries []Entry, cat category, class, form string) (Entry, int, bool) {
 	kana := jtext.IsKana(form)
 	reading := ""
 	if kana {
 		reading = jtext.ToHiragana(form)
 	}
-	commonSpelling := func(f Form) bool {
-		return f.Common && (f.Text == form || (kana && f.Reading == reading))
-	}
-	best, bestScore, bestSense := -1, -1, 0
+	spelled := func(f Form) bool { return f.Text == form || (kana && f.Reading == reading) }
+	best, bestSense := -1, 0
+	var bestScore [5]int
 	for i, e := range entries {
 		if len(e.Senses) == 0 {
 			continue
 		}
-		// Each test outweighs all the ones after it put together.
-		score, sense := 0, e.Senses[0].Index
-		for _, s := range e.Senses {
-			if senseFits(cat, s.PartsOfSpeech) {
-				score, sense = 8, s.Index
-				break
-			}
-		}
+		var score [5]int
+		fit, sense := senseFit(e.Senses, cat)
+		score[0] = fit
 		if class != "" && slices.ContainsFunc(e.Senses, func(s Sense) bool { return slices.Contains(s.PartsOfSpeech, class) }) {
-			score += 4
+			score[1] = 1
 		}
-		if slices.ContainsFunc(e.Forms, commonSpelling) {
-			score += 2
+		if slices.ContainsFunc(e.Forms, func(f Form) bool { return f.Text == form }) {
+			score[2] = 1
+		}
+		if slices.ContainsFunc(e.Forms, func(f Form) bool { return f.Common && spelled(f) }) {
+			score[3] = 1
 		}
 		if kana && slices.ContainsFunc(e.Senses, func(s Sense) bool { return slices.Contains(s.Misc, "uk") }) {
-			score++
+			score[4] = 1
 		}
-		if score > bestScore {
+		if best < 0 || slices.Compare(score[:], bestScore[:]) > 0 {
 			best, bestScore, bestSense = i, score, sense
 		}
 	}
@@ -244,6 +300,24 @@ func pick(entries []Entry, cat category, class, form string) (Entry, int, bool) 
 		return Entry{}, 0, false
 	}
 	return entries[best], bestSense, true
+}
+
+// senseFit scores how well an entry's senses fit the word's part of speech: 2 for a sense that fits, 1 for a pronoun
+// with only a noun sense, 0 for none. It returns the first sense at that score, or the first sense.
+func senseFit(senses []Sense, cat category) (int, int) {
+	for _, s := range senses {
+		if senseFits(cat, s.PartsOfSpeech) {
+			return 2, s.Index
+		}
+	}
+	if cat == catPronoun {
+		for _, s := range senses {
+			if senseFits(catNoun, s.PartsOfSpeech) {
+				return 1, s.Index
+			}
+		}
+	}
+	return 0, senses[0].Index
 }
 
 // dictionaryClass is the conjugation class the dictionary gives a verb or adjective: the first fitting code of the

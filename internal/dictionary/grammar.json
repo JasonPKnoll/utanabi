@@ -804,5 +804,75 @@
     "meaning": "Says something looks like it is so, or is about to happen.",
     "explanation": "〜そう after a stem gives an impression from what you see: 泣きそう, about to cry; 嬉しそう, looks happy. Before a noun it takes な (楽しそうな声), and before a verb に. Don't confuse it with そうだ after a plain form, which means \"I hear that\".",
     "formation": "Verbs: the stem plus そう (泣きそう, 消えそう). い-adjectives (adj-i): drop い and add そう (嬉しそう); いい becomes よさそう. な-adjectives (adj-na): add そう (幸せそう)."
+  },
+  {
+    "id": "no-subject",
+    "kind": "particle",
+    "pattern": "の",
+    "title": "Subject in a describing phrase",
+    "meaning": "Marks the subject inside a phrase that describes a noun, in place of が.",
+    "explanation": "In a phrase that describes the noun after it, the subject can take の instead of が: 変わることのない愛, a love that never changes (literally, a love where change doesn't exist); 君の好きな歌, the song you like. It reads like が. Look for の followed by a verb or by ない, not by a noun."
+  },
+  {
+    "id": "yo-calling",
+    "kind": "particle",
+    "pattern": "よ",
+    "title": "Calling out",
+    "meaning": "After a name or a noun, calls out to it, like \"O\" in \"O mirror\".",
+    "explanation": "よ right after a noun can address it directly, the way a poem or a prayer does: 鏡よ鏡よ, mirror, mirror on the wall; 星よ, O stars. It's literary and common in lyrics. At the end of a sentence, よ is emphasis instead."
+  },
+  {
+    "id": "te-miseru",
+    "kind": "pattern",
+    "pattern": "〜てみせる",
+    "title": "Show you I will",
+    "meaning": "Does something to show others, or promises firmly to do it: \"I'll show you\".",
+    "explanation": "〜てみせる is the te form plus みせる, to show. It can mean showing how something is done (書いてみせる, write it to show you), but in lyrics it is usually a determined promise: 治してみせます, I'll cure it, you'll see.",
+    "formation": "The te form plus みせる, which conjugates as an ichidan verb."
+  },
+  {
+    "id": "te-itadaku",
+    "kind": "pattern",
+    "pattern": "〜ていただく",
+    "title": "Have someone do (humble)",
+    "meaning": "Receives an action from someone, humbly: \"have you do\", \"be allowed to\".",
+    "explanation": "〜ていただく is the humble form of 〜てもらう: the speaker receives an action from someone above them. With the causative, 〜させていただく asks or announces permission very politely: 飲ませていただきます, I'll humbly be made to drink it (I'll drink it, if you'll allow me).",
+    "formation": "The te form plus いただく, which conjugates as a godan verb: 〜ていただきます, 〜ていただけますか."
+  },
+  {
+    "id": "te-miru",
+    "kind": "pattern",
+    "pattern": "〜てみる",
+    "title": "Try doing",
+    "meaning": "Does something to see what it's like or what happens: \"try\".",
+    "explanation": "〜てみる is the te form plus みる, to see: you do it and see how it goes. 歌ってみた, I tried singing it; 信じてみる, I'll try believing.",
+    "formation": "The te form plus みる, which conjugates as an ichidan verb."
+  },
+  {
+    "id": "te-morau",
+    "kind": "pattern",
+    "pattern": "〜てもらう",
+    "title": "Have someone do",
+    "meaning": "Receives an action someone does for you: \"have them do\", \"get them to\".",
+    "explanation": "〜てもらう says the speaker gets someone to do something, or receives it as a favor: 教えてもらった, someone taught me. The polite and humble form is 〜ていただく.",
+    "formation": "The te form plus もらう, which conjugates as a godan verb."
+  },
+  {
+    "id": "te-ageru",
+    "kind": "pattern",
+    "pattern": "〜てあげる",
+    "title": "Do for someone",
+    "meaning": "Does something for someone else, as a favor: \"for you\".",
+    "explanation": "〜てあげる says the speaker or their side does something for another person: 抱きしめてあげる, I'll hold you. It is the opposite direction from 〜てくれる.",
+    "formation": "The te form plus あげる, which conjugates as an ichidan verb."
+  },
+  {
+    "id": "te-oku",
+    "kind": "pattern",
+    "pattern": "〜ておく",
+    "title": "Do ahead, or leave as is",
+    "meaning": "Does something in advance, or leaves things in a state: \"get it done\", \"leave it\".",
+    "explanation": "〜ておく says an action is done ahead of time or for later (覚えておく, keep it in mind), or that something is left as it is (そのままにしておく). In speech it shortens to 〜とく: 言っとく, let me tell you.",
+    "formation": "The te form plus おく, which conjugates as a godan verb."
   }
 ]

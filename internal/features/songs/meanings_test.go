@@ -56,6 +56,13 @@ func newFakeDictionary(t *testing.T) *fakeDictionary {
 			entry(1150450, "愛する", "あいする", sense(0, "to love", "vs-s", "vt")),
 			entry(1512670, "勉強", "べんきょう", sense(0, "study", "n", "vs", "vt")),
 			entry(1591900, "綺麗", "きれい", sense(0, "pretty", "adj-na")),
+			entry(1221520, "気", "き", sense(0, "spirit", "n")),
+			entry(1495740, "付く", "つく", sense(0, "to be attached", "v5k", "vi")),
+			{ID: 1591050, Forms: []Form{{Text: "気がつく", Reading: "きがつく"}, {Text: "気が付く", Reading: "きがつく"}},
+				Senses: []Sense{sense(0, "to notice", "exp", "v5k")}},
+			entry(1395570, "難", "なん", sense(0, "difficulty", "n")),
+			entry(1188490, "何", "なん", sense(0, "what", "pn")),
+			entry(1165970, "一番", "いちばん", sense(0, "number one", "n", "adv")),
 		},
 		tags: map[string]string{"v5s": "Godan verb with 'su' ending", "vt": "transitive verb", "uk": "usually kana"},
 	}
@@ -135,6 +142,10 @@ func TestWordsTakeTheirMeaningFromTheDictionary(t *testing.T) {
 		{text: "愛する", want: []string{"愛する 1150450/0 vs-s"}},
 		{text: "勉強する", want: []string{"勉強する 1512670/0 vs"}},
 		{text: "綺麗な", want: []string{"綺麗 1591900/0 adj-na"}},
+		{text: "気がつく", want: []string{"気がつく 1591050/0 v5k"}},
+		{text: "気が付いた", want: []string{"気が付く 1591050/0 v5k"}},
+		{text: "なんだ", want: []string{"なん 1188490/0 ", "だ 0/0 "}},
+		{text: "1番", want: []string{"一番 1165970/0 "}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.text, func(t *testing.T) {
@@ -208,6 +219,13 @@ func TestPickPrefersAFittingSenseThenTheClassThenKana(t *testing.T) {
 		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"pn"}}}}
 	commonNoun := Entry{ID: 8, Forms: []Form{{Text: "た", Reading: "た", Common: true}},
 		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}}}}
+	hollow := Entry{ID: 9, Forms: []Form{{Text: "洞", Reading: "ほら", Common: true}, {Text: "ほら", Reading: "ほら", Common: true}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}}}}
+	boasting := Entry{ID: 10, Forms: []Form{{Text: "法螺", Reading: "ほら"}, {Text: "ホラ", Reading: "ほら"}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}}}}
+	difficulty := Entry{ID: 11, Forms: []Form{{Text: "なん", Reading: "なん", Common: true}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}}}}
+	what := Entry{ID: 12, Forms: []Form{{Text: "なん", Reading: "なん"}}, Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"pn"}}}}
 	tests := []struct {
 		name      string
 		entries   []Entry
@@ -228,6 +246,12 @@ func TestPickPrefersAFittingSenseThenTheClassThenKana(t *testing.T) {
 			form: "だれ", wantID: 7},
 		{name: "common in katakana too", entries: []Entry{sauce, who}, cat: catNoun, form: "ダレ", wantID: 7},
 		{name: "a fitting sense over a common word", entries: []Entry{commonNoun, ichidan}, cat: catVerb, wantID: 4},
+		{name: "the spelling as written over a common one", entries: []Entry{hollow, boasting}, cat: catNoun,
+			form: "ホラ", wantID: 10},
+		{name: "a pronoun sense for a pronoun", entries: []Entry{difficulty, what}, cat: catPronoun, form: "なん",
+			wantID: 12},
+		{name: "a noun sense when a pronoun has no pronoun sense", entries: []Entry{ichidan, difficulty},
+			cat: catPronoun, form: "なん", wantID: 11},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
