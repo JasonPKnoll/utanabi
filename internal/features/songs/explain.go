@@ -78,7 +78,9 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 		w.Short = wordGloss(w)
 		pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[a.FirstToken : a.LastToken+1]), Word: len(words)})
 		words = append(words, w)
-		glosses = append(glosses, w.Short)
+		if w.Short != "" {
+			glosses = append(glosses, w.Short)
+		}
 		next = a.LastToken + 1
 	}
 	if next < len(line.Tokens) {
@@ -164,8 +166,16 @@ func shortGloss(gloss string) string {
 
 // wordGloss is a word's part of the line's gloss: the meaning of a content word without "to" ("shine"), a short
 // English word for a particle where one fits ("'s", "in"), and otherwise the grammar title in parentheses. A word
-// the dictionary doesn't explain shows its dictionary form.
+// the dictionary doesn't explain shows its dictionary form, or nothing when that is the word itself.
 func wordGloss(w Word) string {
+	// Without a meaning, a word can only show itself again, which adds nothing under it.
+	if g := glossOf(w); g != w.Text {
+		return g
+	}
+	return ""
+}
+
+func glossOf(w Word) string {
 	if w.Grammar != nil {
 		if g, ok := grammarGlosses[w.Grammar.ID]; ok {
 			return g

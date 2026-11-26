@@ -71,7 +71,13 @@
 
   /* Punctuation and other text that isn't a word sits close to its neighbours. */
   .bare {
+    flex-shrink: 1;
     padding-inline: 0;
+  }
+
+  /* An English phrase in the line is one piece, so it wraps like text instead of running off the screen. */
+  .bare .ja {
+    white-space: normal;
   }
 
   .ja {

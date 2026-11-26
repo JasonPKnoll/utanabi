@@ -62,7 +62,7 @@ type WordAnalysis struct {
 
 // findWords groups a line's tokens into words. A content word takes the suffixes, auxiliaries, and conjugation pieces
 // that attach to it, so 探し, て, いる is one word, 探す in the 〜ている form. Particles are words of their own.
-// Punctuation, symbols, and spaces belong to no word. It needs the analyzer's IPA fields; tokens read back from the
+// Punctuation, symbols, spaces, and text with no Japanese in it (English, numbers) belong to no word. It needs the analyzer's IPA fields; tokens read back from the
 // database don't have them.
 func findWords(tokens []Token) []WordAnalysis {
 	var words []WordAnalysis
@@ -89,7 +89,15 @@ func findWords(tokens []Token) []WordAnalysis {
 }
 
 func outsideWords(t Token) bool {
-	return t.POS == morph.Symbol || strings.TrimFunc(t.Surface, unicode.IsSpace) == ""
+	return t.POS == morph.Symbol || !hasJapanese(t.Surface)
+}
+
+// hasJapanese reports whether s has kana or kanji in it. An English phrase in a Japanese song stays as it's sung,
+// not cut into words that only repeat themselves.
+func hasJapanese(s string) bool {
+	return strings.ContainsFunc(s, func(r rune) bool {
+		return unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana)
+	})
 }
 
 // wordDraft is a word while its tokens are being gathered.

@@ -250,7 +250,7 @@ func TestOpeningASongSavedBeforeWordsFindsThem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSong: %v", err)
 	}
-	if want := "夜 · 's · 空 · in · 星 · (subject) · 光る"; got.Lines[0].Gloss != want {
+	if want := "'s · in · (subject)"; got.Lines[0].Gloss != want {
 		t.Errorf("gloss = %q, want %q", got.Lines[0].Gloss, want)
 	}
 	stored, err := repo.SongByID(t.Context(), old.ID)

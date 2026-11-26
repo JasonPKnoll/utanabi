@@ -45,8 +45,9 @@ The song view's "Aa" button, top right, opens the Display sheet (`frontend/src/c
 - **The English is set apart from the Japanese:** 14px, weight 500, in the system Latin face and `--muted`. A particle's or grammar word's English is its role, in `--link` amber italics, so grammar never blurs into meaning.
 - **Each line is its own soft card** (`--surface` at about half strength, no outline) with space between cards. The current line's card is full `--surface` with a thin `--link` ring, and its words are the 44px buttons that open the word sheet, underlined in dotted amber.
 - Punctuation sits close to its neighbours with no English under it.
+- English, numbers, and other text with no Japanese in it (an English chorus, "Monday") stay as they're sung: one plain run of text that wraps, with nothing under it and nothing to tap.
 
-Without the dictionary, content words show their dictionary form instead of a meaning, and particles still show their role.
+A word's English is never just the word again. Without a meaning, a conjugated word shows its dictionary form (探す under 探して), and a word already in that form shows nothing under it. Particles always show their role.
 
 ## Tapping a word
 

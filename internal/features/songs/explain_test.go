@@ -33,11 +33,11 @@ func TestLineGlossIsWordByWord(t *testing.T) {
 		{name: "with meanings", dict: withMeanings,
 			text: "夜の空に星が光る", want: "night · 's · sky · in · star · (subject) · shine"},
 		{name: "without meanings", dict: noMeanings, text: "夜の空に星が光る",
-			want: "夜 · 's · 空 · in · 星 · (subject) · 光る"},
+			want: "'s · in · (subject)"},
 		{name: "a conjugated verb", dict: withMeanings,
 			text: "君の声を探している", want: "you · 's · voice · (object) · search for"},
 		{name: "a copula and a set phrase", dict: noMeanings, text: "夢じゃない、君だ",
-			want: "夢 · is not · 君 · is"},
+			want: "is not · is"},
 		{name: "only punctuation", dict: noMeanings, text: "、！", want: ""},
 	}
 	for _, tt := range tests {
@@ -132,7 +132,7 @@ func TestWordsThatDontFitTheTokensAreLeftOut(t *testing.T) {
 		{FirstToken: 0, LastToken: 3, Kind: WordContent, Lemma: "星空"},
 	}}
 	words, _, gloss := explainLine(noMeanings(t), nil, line)
-	if len(words) != 1 || gloss != "星" {
+	if len(words) != 1 || words[0].Lemma != "星" || gloss != "" {
 		t.Errorf("words = %+v, gloss = %q, want only the word that fits", words, gloss)
 	}
 }
@@ -248,5 +248,27 @@ func TestGetSongFillsMeaningsFoundWithoutTheDictionary(t *testing.T) {
 	}
 	if len(repo.meaningSaves) != 0 {
 		t.Errorf("saved %d meanings without the dictionary, want none", len(repo.meaningSaves))
+	}
+}
+
+func TestWordGlossLeavesOutAWordThatOnlyRepeatsItself(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		word Word
+		want string
+	}{
+		{name: "no meaning, same form", word: Word{Text: "げんまん", Lemma: "げんまん", Kind: WordContent}, want: ""},
+		{name: "no meaning, other form", word: Word{Text: "探して", Lemma: "探す", Kind: WordContent}, want: "探す"},
+		{name: "a meaning", word: Word{Text: "星", Lemma: "星", Kind: WordContent, Gloss: "star"}, want: "star"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := wordGloss(tt.word); got != tt.want {
+				t.Errorf("wordGloss(%q) = %q, want %q", tt.word.Text, got, tt.want)
+			}
+		})
 	}
 }
