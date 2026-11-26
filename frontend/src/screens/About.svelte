@@ -2,7 +2,7 @@
   import { AboutService, type About } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
   import ThemePicker from "../components/ThemePicker.svelte";
   import { account, signedOut } from "../lib/account.svelte";
-  import { addPasskey, signOut } from "../lib/auth";
+  import { addPasskey, rememberAccountHere, signOut } from "../lib/auth";
   import { toAppError, type AppError } from "../lib/errors";
   import { homeHref } from "../lib/route";
 
@@ -23,6 +23,7 @@
     accountNote = null;
     try {
       await addPasskey();
+      rememberAccountHere();
       accountNote = { ok: true, text: "Passkey added. You can sign in with it on that device now." };
     } catch (err) {
       accountNote = { ok: false, text: toAppError(err).message };

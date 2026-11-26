@@ -121,6 +121,11 @@ The top bar counts learned cards ("12/39"), with a bar in `--success` under it. 
 
 ## Sign-in
 
-On a server with accounts (`frontend/src/screens/SignIn.svelte`), nothing shows until someone signs in. The screen is one column, centred: the うたなび mark, "Sign in to Utanabi", a line saying it's a passkey (Face ID, a fingerprint, or the device's PIN) with no password, and the primary "Sign in with a passkey" button. Under it, in a card, "New here?" asks for a username and the server's sign-up code, with "Create an account with a passkey". When the server takes no new accounts, that card is a line saying so. Field errors show under their field; anything else shows as an alert under the button.
+On a server with accounts (`frontend/src/screens/SignIn.svelte`), nothing shows until someone signs in. The screen is one column, centred: the うたなび mark, a heading, and a line saying it's a passkey (Face ID, a fingerprint, or the device's PIN) with no password. Then two cards:
+
+- **Make your account:** a line on what happens (pick a username, enter the sign-up code, and the device saves a passkey: no password and no QR code), "Choose a username", "Sign-up code", and "Create an account with a passkey". The passkey is made on this device first (the `client-device` hint), so on an iPhone it's one Face ID.
+- **Sign in:** a "Username" field whose autofill offers the site's saved passkeys (`autocomplete="username webauthn"`, with a sign-in waiting in the background, WebAuthn's conditional mediation), and "Sign in with a passkey". Tapping a saved passkey, or the button, signs in; the button also offers a passkey from another device, by QR code.
+
+A browser that has never signed in leads with making an account ("Welcome to Utanabi"); one that has (remembered in `localStorage`) leads with signing in ("Sign in to Utanabi"). When the server takes no new accounts, the account card is a line saying so. Field errors show under their field; anything else shows as an alert above the cards.
 
 The About screen gains an **Account** section when signed in: "Signed in as hana", a note to add a passkey on each device used, "Add a passkey on this device", and "Sign out", which goes back to the sign-in screen at the library's address. A call that finds the session has ended (`unauthorized`) goes back to the sign-in screen too. The desktop and phone apps have no accounts and never show any of this.

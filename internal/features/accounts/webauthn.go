@@ -61,6 +61,11 @@ func (w *WebAuthn) BeginRegistration(site Site, a Account) (json.RawMessage, []b
 		}),
 		webauthn.WithConveyancePreference(protocol.PreferNoAttestation),
 		webauthn.WithExclusions(exclude),
+		// Save it on this device (Face ID, Touch ID, Windows Hello) rather than offering another one by QR code
+		// first, so making an account on a phone is one step.
+		webauthn.WithPublicKeyCredentialHints([]protocol.PublicKeyCredentialHints{
+			protocol.PublicKeyCredentialHintClientDevice,
+		}),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("accounts: begin passkey registration failed (%v)", err)
@@ -85,9 +90,14 @@ func (w *WebAuthn) FinishRegistration(_ Site, a Account, state, response []byte)
 	return fromCredential(*cred), nil
 }
 
-// BeginSignIn asks for any of this site's passkeys, checked by who's using it.
-func (w *WebAuthn) BeginSignIn(site Site) (json.RawMessage, []byte, error) {
-	assertion, session, err := w.wa.BeginDiscoverableLogin(
+// BeginSignIn asks for any of this site's passkeys, checked by who's using it. A conditional sign-in shows them in the
+// browser's autofill instead of a prompt.
+func (w *WebAuthn) BeginSignIn(site Site, conditional bool) (json.RawMessage, []byte, error) {
+	mediation := protocol.MediationDefault
+	if conditional {
+		mediation = protocol.MediationConditional
+	}
+	assertion, session, err := w.wa.BeginDiscoverableMediatedLogin(mediation,
 		webauthn.WithLoginRelyingPartyID(site.ID),
 		webauthn.WithLoginOrigin(site.Origin),
 		webauthn.WithUserVerification(protocol.VerificationRequired),

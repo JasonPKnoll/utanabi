@@ -131,7 +131,7 @@ func TestSessionCookieIsLockedDown(t *testing.T) {
 		c.MaxAge != int(SessionLife/time.Second) || !validToken(c.Value) {
 		t.Errorf("session cookie = %+v, want HttpOnly, Secure, SameSite=Lax, a 30-day token", c)
 	}
-	if _, ok := s.cookies[ceremonyCookie]; ok {
+	if _, ok := s.cookies[ceremonyCookieFor("signup")]; ok {
 		t.Error("the ceremony cookie outlived its ceremony")
 	}
 	// The cookie is only a lookup key: the server keeps its hash, never the token.
@@ -228,19 +228,19 @@ func TestACeremonyIsAnsweredOnceOnItsOwnSite(t *testing.T) {
 	s.do(local, http.MethodPost, "/auth/signout", "{}")
 
 	s.do(local, http.MethodPost, "/auth/signin/begin", "{}")
-	ceremonyID := s.cookies[ceremonyCookie].Value
+	ceremonyID := s.cookies[ceremonyCookieFor("signin")].Value
 	if w := s.do(local, http.MethodPost, "/auth/signin/finish", "good:hana"); w.Code != http.StatusOK {
 		t.Fatalf("sign-in = %d %s", w.Code, w.Body)
 	}
-	replay := func(r *http.Request) { r.AddCookie(&http.Cookie{Name: ceremonyCookie, Value: ceremonyID}) } //nolint:gosec // G124: a request cookie in a test.
+	replay := func(r *http.Request) { r.AddCookie(&http.Cookie{Name: ceremonyCookieFor("signin"), Value: ceremonyID}) } //nolint:gosec // G124: a request cookie in a test.
 	if w := s.do(local, http.MethodPost, "/auth/signin/finish", "good:hana", replay); w.Code != http.StatusBadRequest {
 		t.Errorf("answering the same challenge again = %d %s, want refused", w.Code, w.Body)
 	}
 
 	// A ceremony begun on localhost can't be finished on the ngrok site.
 	s.do(local, http.MethodPost, "/auth/signin/begin", "{}")
-	moved := s.cookies[ceremonyCookie].Value
-	carry := func(r *http.Request) { r.AddCookie(&http.Cookie{Name: ceremonyCookie, Value: moved}) } //nolint:gosec // G124: a request cookie in a test.
+	moved := s.cookies[ceremonyCookieFor("signin")].Value
+	carry := func(r *http.Request) { r.AddCookie(&http.Cookie{Name: ceremonyCookieFor("signin"), Value: moved}) } //nolint:gosec // G124: a request cookie in a test.
 	if w := s.do(ngrok, http.MethodPost, "/auth/signin/finish", "good:hana", carry); w.Code != http.StatusBadRequest {
 		t.Errorf("finishing on another site = %d %s, want refused", w.Code, w.Body)
 	}
@@ -333,10 +333,10 @@ func TestAddAPasskeyNeedsTheSignedInUser(t *testing.T) {
 
 	// A ceremony begun as hana can't add a key once the browser is signed in as someone else.
 	s.do(local, http.MethodPost, "/auth/passkeys/begin", "{}")
-	pending := s.cookies[ceremonyCookie]
+	pending := s.cookies[ceremonyCookieFor("passkey")]
 	other := newServerSharing(t, s)
 	other.signUp(local, "kaze")
-	other.cookies[ceremonyCookie] = pending
+	other.cookies[ceremonyCookieFor("passkey")] = pending
 	if w := other.do(local, http.MethodPost, "/auth/passkeys/finish", "good"); w.Code != http.StatusBadRequest {
 		t.Errorf("finishing hana's ceremony as kaze = %d %s, want refused", w.Code, w.Body)
 	}
@@ -399,5 +399,20 @@ func TestEveryResponseCarriesTheSecurityHeaders(t *testing.T) {
 			h.Get("Referrer-Policy") != "no-referrer" {
 			t.Errorf("GET %s headers = %v, want the security headers", path, h)
 		}
+	}
+}
+
+func TestABackgroundSignInDoesNotStandInTheWayOfSigningUp(t *testing.T) {
+	t.Parallel()
+
+	s := newServer(t, testCode)
+	w := s.do(local, http.MethodPost, "/auth/signin/begin", `{"conditional":true}`)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"mediation":"conditional"`) {
+		t.Fatalf("a conditional sign-in = %d %s, want options with conditional mediation", w.Code, w.Body)
+	}
+	waiting := s.cookies[ceremonyCookieFor("signin")]
+	s.signUp(local, "hana")
+	if s.cookies[ceremonyCookieFor("signin")] != waiting {
+		t.Error("signing up replaced the sign-in waiting in the background")
 	}
 }

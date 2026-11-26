@@ -24,8 +24,8 @@ async function signUp(page: Page): Promise<string> {
   const name = `smoke-${Date.now()}-${Math.floor(Math.random() * 1e6)}`.slice(0, 32);
   await addAuthenticator(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Sign in to Utanabi" })).toBeVisible();
-  await page.getByLabel("Username").fill(name);
+  await expect(page.getByRole("heading", { name: "Welcome to Utanabi" })).toBeVisible();
+  await page.getByLabel("Choose a username").fill(name);
   await page.getByLabel("Sign-up code").fill(signupCode);
   await page.getByRole("button", { name: "Create an account with a passkey" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
@@ -279,19 +279,34 @@ test("service calls need a signed-in user", async ({ request }) => {
   expect((await res.json()).cause.code).toBe("unauthorized");
 });
 
-test("signing out, then back in with the same passkey", async ({ page }) => {
+test("signing out, then back in with the same passkey", async ({ page, request }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
   const name = await signUp(page);
+  const session = (await page.context().cookies()).find((c) => c.name === "utanabi_session")?.value;
+  expect(session).toBeTruthy();
 
   await page.getByRole("link", { name: "About Utanabi" }).click();
   await expect(page.getByText(`Signed in as ${name}`)).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByRole("heading", { name: "Sign in to Utanabi" })).toBeVisible();
 
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "Sign in to Utanabi" })).toBeVisible();
-  await page.getByRole("button", { name: "Sign in with a passkey" }).click();
+  // The old session is over on the server, not just forgotten by the browser.
+  await expect
+    .poll(async () => {
+      const res = await request.post("/wails/runtime", {
+        headers: { Origin: "http://localhost:18080", Cookie: `utanabi_session=${session}` },
+        data: {},
+      });
+      return res.status();
+    })
+    .toBe(401);
+
+  // The same passkey signs back in: from the username field's autofill, which Chrome's test authenticator answers
+  // by itself (a real phone waits for the person to pick it), or from the button.
+  const button = page.getByRole("button", { name: "Sign in with a passkey" });
+  if (await button.isVisible()) {
+    await button.click().catch(() => {});
+  }
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
   expect(errors).toEqual([]);
 });
@@ -299,11 +314,14 @@ test("signing out, then back in with the same passkey", async ({ page }) => {
 test("a new account needs the sign-up code", async ({ page }) => {
   await addAuthenticator(page);
   await page.goto("/");
-  await page.getByLabel("Username").fill("smoke-wrong-code");
+  // A first visit leads with making an account, and the sign-in field offers saved passkeys in its autofill.
+  await expect(page.getByRole("heading", { name: "Welcome to Utanabi" })).toBeVisible();
+  await expect(page.getByLabel("Username", { exact: true })).toHaveAttribute("autocomplete", "username webauthn");
+  await page.getByLabel("Choose a username").fill("smoke-wrong-code");
   await page.getByLabel("Sign-up code").fill("not the code at all");
   await page.getByRole("button", { name: "Create an account with a passkey" }).click();
   await expect(page.getByText("code isn't right")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Sign in to Utanabi" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome to Utanabi" })).toBeVisible();
 });
 
 test("each user's library is their own", async ({ browser }) => {

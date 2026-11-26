@@ -250,7 +250,14 @@ func (h *HTTP) signUpFinish(w http.ResponseWriter, r *http.Request, site Site) {
 }
 
 func (h *HTTP) signInBegin(w http.ResponseWriter, r *http.Request, site Site) {
-	options, state, err := h.cer.BeginSignIn(site)
+	var in struct {
+		Conditional bool `json:"conditional"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		h.fail(w, r, errNotJSON)
+		return
+	}
+	options, state, err := h.cer.BeginSignIn(site, in.Conditional)
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -334,7 +341,8 @@ func (h *HTTP) startCeremony(w http.ResponseWriter, r *http.Request, site Site, 
 		h.fail(w, r, err)
 		return
 	}
-	h.setCookie(w, site, ceremonyCookie, id, "/auth/", int(ceremonyTimeout/time.Second), http.SameSiteStrictMode)
+	h.setCookie(w, site, ceremonyCookieFor(c.kind), id, "/auth/", int(ceremonyTimeout/time.Second),
+		http.SameSiteStrictMode)
 	writeJSON(w, http.StatusOK, struct {
 		Options json.RawMessage `json:"options"`
 	}{options})
@@ -344,8 +352,8 @@ func (h *HTTP) startCeremony(w http.ResponseWriter, r *http.Request, site Site, 
 func (h *HTTP) finishCeremony(w http.ResponseWriter, r *http.Request, site Site, kind string) (
 	ceremony, []byte, bool,
 ) {
-	h.setCookie(w, site, ceremonyCookie, "", "/auth/", -1, http.SameSiteStrictMode)
-	cookie, err := r.Cookie(ceremonyCookie)
+	h.setCookie(w, site, ceremonyCookieFor(kind), "", "/auth/", -1, http.SameSiteStrictMode)
+	cookie, err := r.Cookie(ceremonyCookieFor(kind))
 	if err != nil {
 		h.fail(w, r, errNoCeremony)
 		return ceremony{}, nil, false
@@ -488,6 +496,12 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.WriteHeader(status)
 	// The status is sent; a client that hung up has nothing left to read.
 	_, _ = w.Write(append(b, '\n'))
+}
+
+// ceremonyCookieFor names the cookie of each kind of ceremony, so a sign-in waiting quietly in the background never
+// stands in the way of signing up.
+func ceremonyCookieFor(kind string) string {
+	return ceremonyCookie + "_" + kind
 }
 
 // ceremony is the first half of a passkey ceremony, waiting for the browser's answer.

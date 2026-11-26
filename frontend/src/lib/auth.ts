@@ -33,11 +33,52 @@ export async function signUp(name: string, code: string): Promise<string> {
   return userName(await post("/auth/signup/finish", attestationJSON(credential)));
 }
 
-// Signs in with any of this site's passkeys on this device, or one nearby (a phone, by QR code).
-export async function signIn(): Promise<string> {
-  const { options } = (await post("/auth/signin/begin", {})) as { options: RequestJSON };
-  const credential = await get(options);
+// Signs in with any of this site's passkeys on this device, or one nearby (a phone, by QR code). A background
+// sign-in (conditional) opens no prompt: it waits for the person to pick a passkey from the username field's
+// autofill, until signal aborts it.
+export async function signIn(background?: { signal: AbortSignal }): Promise<string> {
+  const { options } = (await post("/auth/signin/begin", { conditional: !!background })) as {
+    options: RequestJSON;
+  };
+  const credential = await get(options, background?.signal);
   return userName(await post("/auth/signin/finish", assertionJSON(credential)));
+}
+
+// Whether this browser can offer passkeys in a username field's autofill, which iOS 16 and later do.
+export async function canAutofillPasskeys(): Promise<boolean> {
+  try {
+    return (
+      typeof window.PublicKeyCredential?.isConditionalMediationAvailable === "function" &&
+      (await PublicKeyCredential.isConditionalMediationAvailable())
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Whether a failed sign-in was only stopped on purpose, which is nothing to show.
+export function wasStopped(err: unknown): boolean {
+  return err instanceof Error && isAppError(err.cause) && err.cause.code === "aborted";
+}
+
+const hadAccountKey = "utanabi.hadAccount";
+
+// Whether someone has signed in on this browser before, so the sign-in screen can lead with signing in rather than
+// making an account. Storage can refuse; then it's a first visit.
+export function hadAccountHere(): boolean {
+  try {
+    return window.localStorage.getItem(hadAccountKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function rememberAccountHere(): void {
+  try {
+    window.localStorage.setItem(hadAccountKey, "1");
+  } catch {
+    // Without storage the screen leads with making an account, which still works.
+  }
 }
 
 // Adds a passkey on this device to the signed-in account, so losing one device doesn't lock its owner out.
@@ -84,6 +125,8 @@ function failure(cause: AppError): Error {
 function promptFailure(err: unknown): Error {
   const name = err instanceof DOMException ? err.name : "";
   switch (name) {
+    case "AbortError":
+      return failure({ code: "aborted", message: "Stopped." });
     case "NotAllowedError":
       return failure({ code: "canceled", message: "The passkey prompt was closed or timed out. Try again." });
     case "InvalidStateError":
@@ -109,12 +152,15 @@ async function create(options: CreationJSON): Promise<PublicKeyCredential> {
   throw promptFailure(null);
 }
 
-async function get(options: RequestJSON): Promise<PublicKeyCredential> {
+async function get(options: RequestJSON, signal?: AbortSignal): Promise<PublicKeyCredential> {
   if (!window.PublicKeyCredential) {
     throw failure({ code: "invalid_input", message: "This browser doesn't support passkeys." });
   }
   try {
-    const credential = await navigator.credentials.get({ publicKey: requestOptions(options) });
+    const credential = await navigator.credentials.get({
+      publicKey: requestOptions(options),
+      ...(signal ? { mediation: "conditional" as CredentialMediationRequirement, signal } : {}),
+    });
     if (credential instanceof PublicKeyCredential) {
       return credential;
     }
@@ -132,7 +178,7 @@ interface DescriptorJSON {
   transports?: AuthenticatorTransport[];
 }
 
-interface CreationJSON {
+export interface CreationJSON {
   publicKey: Omit<PublicKeyCredentialCreationOptions, "challenge" | "user" | "excludeCredentials"> & {
     challenge: string;
     user: { id: string; name: string; displayName: string };
@@ -140,7 +186,7 @@ interface CreationJSON {
   };
 }
 
-interface RequestJSON {
+export interface RequestJSON {
   publicKey: Omit<PublicKeyCredentialRequestOptions, "challenge" | "allowCredentials"> & {
     challenge: string;
     allowCredentials?: DescriptorJSON[];

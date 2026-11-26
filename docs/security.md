@@ -25,7 +25,7 @@
 ### Passkeys and sessions
 
 - **No passwords.** A passkey's private key stays on the user's device or in their password manager. The server stores only the public key (`passkeys`), which can't sign anyone in, so a leaked database has nothing to crack.
-- **Every passkey must check who's using it** (Face ID, a fingerprint, or a PIN: user verification is required), and is discoverable, so signing in needs no username.
+- **Every passkey must check who's using it** (Face ID, a fingerprint, or a PIN: user verification is required), and is discoverable, so signing in needs no username. New passkeys are asked for on the device itself first (the `client-device` hint). The sign-in screen also waits in the background for a passkey picked from the username field's autofill (conditional mediation); that ceremony has its own cookie, so it never gets in the way of signing up.
 - **Each ceremony is one-time and bound to its site.** The challenge is kept server-side for five minutes, in memory, under a random ID in an HttpOnly, SameSite=Strict cookie; it's taken once, and only for the same kind of ceremony on the same host and origin it began on. go-webauthn checks the relying party ID, origin, challenge, and signature.
 - **A copied passkey can't sign in.** A sign count that goes backwards (go-webauthn's clone warning) is refused.
 - **Sessions are random 256-bit tokens** in an `HttpOnly`, `Secure` (except on localhost, which is plain HTTP), `SameSite=Lax` cookie that lasts 30 days. The database keeps only the token's SHA-256, so the `sessions` table alone signs no one in. Signing out deletes the session; run-out sessions are cleared when the next one is made.

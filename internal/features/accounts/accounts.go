@@ -77,7 +77,9 @@ type Ceremonies interface {
 	// FinishRegistration checks the browser's response against state and returns the new passkey, or
 	// ErrPasskeyRejected.
 	FinishRegistration(site Site, a Account, state, response []byte) (Passkey, error)
-	BeginSignIn(site Site) (options json.RawMessage, state []byte, err error)
+	// BeginSignIn starts a sign-in. A conditional one waits quietly for the person to pick a passkey from their
+	// browser's autofill, rather than opening a prompt.
+	BeginSignIn(site Site, conditional bool) (options json.RawMessage, state []byte, err error)
 	// FinishSignIn checks the browser's response against state, finding the account by the user handle the
 	// passkey carries, and returns the account and the passkey as it is now; or ErrPasskeyRejected.
 	FinishSignIn(site Site, state, response []byte, find func(handle []byte) (Account, error)) (Account, Passkey, error)

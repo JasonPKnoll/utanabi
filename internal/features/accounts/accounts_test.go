@@ -204,8 +204,12 @@ func (f *fakeCeremonies) FinishRegistration(site Site, a Account, state, respons
 	return Passkey{ID: []byte("key-" + a.Name + "-" + strconv.Itoa(len(a.Passkeys))), PublicKey: []byte{1}}, nil
 }
 
-func (*fakeCeremonies) BeginSignIn(site Site) (json.RawMessage, []byte, error) {
-	return json.RawMessage(`{"publicKey":{"rpId":"` + site.ID + `"}}`), []byte("signin:" + site.ID), nil
+func (*fakeCeremonies) BeginSignIn(site Site, conditional bool) (json.RawMessage, []byte, error) {
+	mediation := ""
+	if conditional {
+		mediation = `,"mediation":"conditional"`
+	}
+	return json.RawMessage(`{"publicKey":{"rpId":"` + site.ID + `"}` + mediation + `}`), []byte("signin:" + site.ID), nil
 }
 
 func (f *fakeCeremonies) FinishSignIn(site Site, state, response []byte, find func([]byte) (Account, error)) (
@@ -244,7 +248,7 @@ func TestSignUpThenSignIn(t *testing.T) {
 		t.Errorf("SignUp with a bad passkey: %v, want rejected", err)
 	}
 
-	_, state, _ = cer.BeginSignIn(site)
+	_, state, _ = cer.BeginSignIn(site, false)
 	got, err := SignIn(t.Context(), repo, cer, site, state, []byte("good:hana"), time.Unix(2, 0))
 	if err != nil || got.ID != a.ID {
 		t.Fatalf("SignIn = %+v, %v, want hana", got, err)
