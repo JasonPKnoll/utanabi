@@ -85,29 +85,74 @@ func (s *SQLite) Song(ctx context.Context, songID int64) (Song, error) {
 	return song, nil
 }
 
-func (s *SQLite) TrackFor(ctx context.Context, songID int64) (string, error) {
+func (s *SQLite) TrackFor(ctx context.Context, songID int64) (Track, error) {
 	owner, err := s.owners.Of(ctx)
 	if err != nil {
-		return "", err
+		return Track{}, err
 	}
-	var trackID string
+	var track Track
+	var duration sql.NullInt64
 	err = s.db.Querier().QueryRowContext(ctx,
-		`SELECT t.track_id FROM spotify_tracks t
+		`SELECT t.track_id, t.duration_ms FROM spotify_tracks t
 		 WHERE t.song_id = ? AND EXISTS (SELECT 1 FROM library_songs b WHERE b.owner = ? AND b.song_id = t.song_id)`,
 		songID, owner,
-	).Scan(&trackID)
-	return trackID, store.Translate(err)
+	).Scan(&track.ID, &duration)
+	if err != nil {
+		return Track{}, store.Translate(err)
+	}
+	track.DurationMS = duration.Int64
+	return track, nil
 }
 
-func (s *SQLite) SaveTrack(ctx context.Context, songID int64, trackID string, now time.Time) error {
+func (s *SQLite) SaveTrack(ctx context.Context, songID int64, track Track, now time.Time) error {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return err
+	}
+	var duration sql.NullInt64
+	if track.DurationMS > 0 {
+		duration = sql.NullInt64{Int64: track.DurationMS, Valid: true}
+	}
+	_, err = s.db.Querier().ExecContext(ctx,
+		`INSERT INTO spotify_tracks (song_id, track_id, duration_ms, matched_at)
+		 SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM library_songs b WHERE b.owner = ? AND b.song_id = ?)
+		 ON CONFLICT (song_id) DO UPDATE SET track_id = excluded.track_id, duration_ms = excluded.duration_ms,
+		   matched_at = excluded.matched_at`,
+		songID, track.ID, duration, now.UnixMilli(), owner, songID)
+	return store.Translate(err)
+}
+
+func (s *SQLite) Offset(ctx context.Context, songID int64) (int64, error) {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var offset int64
+	err = s.db.Querier().QueryRowContext(ctx,
+		`SELECT offset_ms FROM lyric_offsets WHERE owner = ? AND song_id = ?`, owner, songID,
+	).Scan(&offset)
+	return offset, store.Translate(err)
+}
+
+func (s *SQLite) SaveOffset(ctx context.Context, songID, offsetMS int64) error {
 	owner, err := s.owners.Of(ctx)
 	if err != nil {
 		return err
 	}
 	_, err = s.db.Querier().ExecContext(ctx,
-		`INSERT INTO spotify_tracks (song_id, track_id, matched_at)
+		`INSERT INTO lyric_offsets (owner, song_id, offset_ms)
 		 SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM library_songs b WHERE b.owner = ? AND b.song_id = ?)
-		 ON CONFLICT (song_id) DO UPDATE SET track_id = excluded.track_id, matched_at = excluded.matched_at`,
-		songID, trackID, now.UnixMilli(), owner, songID)
+		 ON CONFLICT (owner, song_id) DO UPDATE SET offset_ms = excluded.offset_ms`,
+		owner, songID, offsetMS, owner, songID)
+	return store.Translate(err)
+}
+
+func (s *SQLite) DeleteOffset(ctx context.Context, songID int64) error {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Querier().ExecContext(ctx,
+		`DELETE FROM lyric_offsets WHERE owner = ? AND song_id = ?`, owner, songID)
 	return store.Translate(err)
 }

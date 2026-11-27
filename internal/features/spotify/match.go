@@ -112,13 +112,36 @@ func closer(a, b Track, songMS int64) bool {
 	return b.DurationMS <= 0 || abs(a.DurationMS-songMS) < abs(b.DurationMS-songMS)
 }
 
-// otherLength is how long the song's lyrics are timed for, when that is more than a few seconds off the track
-// playing, and 0 otherwise: lyrics from a video or a live recording don't line up with the studio track.
-func otherLength(song Song, track Track) int64 {
-	if song.DurationMS <= 0 || track.DurationMS <= 0 || abs(song.DurationMS-track.DurationMS) <= 5000 {
+// The lengths lyrics can differ from their track by and still be shifted to fit it on their own: under a second
+// they line up anyway, and past 10 seconds they're for another cut of the song (Matsuri's video is 23 seconds
+// longer), not the same one with a longer intro. maxOffsetMS is the most an owner can shift them by.
+const (
+	sameCutMinMS = 1000
+	sameCutMaxMS = 10000
+	maxOffsetMS  = 60000
+)
+
+// autoOffset is how far to shift lyrics lyricsMS long to fit a track trackMS long: the difference, taken to be in
+// the intro, which is where versions of a song most often differ (Shinunoga E-Wa's lyrics are 3:11, its track
+// 3:05). 0 when the lengths agree, differ too much to guess, or aren't known.
+func autoOffset(lyricsMS, trackMS int64) int64 {
+	if lyricsMS <= 0 || trackMS <= 0 {
 		return 0
 	}
-	return song.DurationMS
+	diff := trackMS - lyricsMS
+	if abs(diff) < sameCutMinMS || abs(diff) > sameCutMaxMS {
+		return 0
+	}
+	return diff
+}
+
+// otherLength is how long the song's lyrics are timed for, when that is too far off the track's length to shift them
+// on their own, and 0 otherwise: lyrics from a video or a live recording don't line up with the studio track.
+func otherLength(lyricsMS, trackMS int64) int64 {
+	if lyricsMS <= 0 || trackMS <= 0 || abs(lyricsMS-trackMS) <= sameCutMaxMS {
+		return 0
+	}
+	return lyricsMS
 }
 
 // titled reports whether a track's name is the song's title, or the title has it, in either form.

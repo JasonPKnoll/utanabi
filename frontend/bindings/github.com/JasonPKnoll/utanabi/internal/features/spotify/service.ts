@@ -44,6 +44,13 @@ export function Play(songID: number, positionMs: number): $CancellablePromise<$m
 }
 
 /**
+ * ResetOffset goes back to lining the song's lyrics up on their own.
+ */
+export function ResetOffset(songID: number): $CancellablePromise<void> {
+    return $Call.ByID(2158581260, songID);
+}
+
+/**
  * Resume carries on with what's paused on your Spotify.
  */
 export function Resume(): $CancellablePromise<void> {
@@ -55,6 +62,13 @@ export function Resume(): $CancellablePromise<void> {
  */
 export function Seek(positionMs: number): $CancellablePromise<void> {
     return $Call.ByID(3427274880, positionMs);
+}
+
+/**
+ * SetOffset shifts the song's lyrics by offsetMs, yours alone, to line them up with Spotify's track.
+ */
+export function SetOffset(songID: number, offsetMs: number): $CancellablePromise<void> {
+    return $Call.ByID(228839291, songID, offsetMs);
 }
 
 /**

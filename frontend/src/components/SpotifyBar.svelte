@@ -7,9 +7,10 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/spotify";
   import type { Line } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
-  import { hasTimes, lineAt, positionAt, trackLink } from "../lib/follow";
+  import { hasTimes, lineAt, lyricsTime, positionAt, trackLink, trackTime } from "../lib/follow";
   import { formatDuration } from "../lib/sources";
   import SpotifyOpenSheet from "./SpotifyOpenSheet.svelte";
+  import TimingSheet from "./TimingSheet.svelte";
 
   // The song's Spotify controls, at the bottom within thumb reach, once you've connected Spotify in Settings. Play
   // starts the song on your Spotify, from the line you're on, and the lyrics follow it: the app asks Spotify how far
@@ -40,9 +41,17 @@
   let waiting = $state(false);
   // The track's web link while the sheet asking you to open Spotify is up.
   let opening = $state("");
+  let timing = $state(false);
 
   let synced = $derived(hasTimes(lines));
   let playing = $derived(following && (playback?.playing ?? false));
+  // How far the lyrics are shifted onto the track; lines, Play, and jumps all go through it.
+  let offset = $derived(playback?.offsetMs ?? 0);
+
+  // Where the song is on the track now, counting on from Spotify's last answer.
+  function trackNow(): number {
+    return playback ? positionAt(playback.progressMs, playback.playing, askedAt, performance.now()) : 0;
+  }
 
   Spotify.Status()
     .then((s) => (connected = s.enabled && s.connected))
@@ -112,7 +121,7 @@
       if (!following || !playback) {
         return;
       }
-      const at = lineAt(lines, positionAt(playback.progressMs, playback.playing, askedAt, performance.now()));
+      const at = lineAt(lines, lyricsTime(trackNow(), offset));
       if (at >= 0 && at !== last) {
         last = at;
         oncurrent(at);
@@ -125,7 +134,7 @@
     busy = true;
     failure = null;
     try {
-      const result = await Spotify.Play(songId, Math.max(0, startMs));
+      const result = await Spotify.Play(songId, trackTime(Math.max(0, startMs), offset));
       if (result.started) {
         await ask();
       } else {
@@ -152,9 +161,30 @@
     }
   }
 
+  // Your timing for this song: shown at once, and saved for next time.
+  async function setOffset(ms: number) {
+    if (playback) {
+      playback = { ...playback, offsetMs: ms, offsetSet: true, timedForMs: 0 };
+    }
+    try {
+      await Spotify.SetOffset(songId, ms);
+    } catch (err) {
+      failure = toAppError(err);
+    }
+  }
+
+  async function resetOffset() {
+    try {
+      await Spotify.ResetOffset(songId);
+      await ask();
+    } catch (err) {
+      failure = toAppError(err);
+    }
+  }
+
   // Jumps the song to ms, such as the start of a line tapped while the lyrics follow.
   export function seek(ms: number) {
-    void control(() => Spotify.Seek(Math.max(0, ms)));
+    void control(() => Spotify.Seek(trackTime(Math.max(0, ms), offset)));
   }
 
   async function control(fn: () => Promise<void>) {
@@ -187,7 +217,7 @@
       }
       if (playback.timedForMs) {
         // Lyrics from a video or a live recording: following would put the wrong line up.
-        return `${playback.playing ? "Playing" : "Paused"}${where}. These lyrics are timed for a ${formatDuration(playback.timedForMs)} version, so they may not line up.`;
+        return `${playback.playing ? "Playing" : "Paused"}${where}. These lyrics are timed for a ${formatDuration(playback.timedForMs)} version: set the timing to line them up.`;
       }
       return playback.playing ? `Playing${where}, the lyrics follow` : `Paused${where}`;
     }
@@ -221,7 +251,34 @@
       {/if}
     </button>
     <p class="note" class:alert={failure !== null} role="status">{note()}</p>
+    {#if following && synced}
+      <button type="button" class="icon-button" aria-label="Lyrics timing" onclick={() => (timing = true)}>
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5M10 2h4M12 2v3" /></svg
+        >
+      </button>
+    {/if}
   </div>
+{/if}
+
+{#if timing && playback}
+  <TimingSheet
+    offsetMs={playback.offsetMs}
+    offsetSet={playback.offsetSet}
+    {lines}
+    now={trackNow}
+    onchange={setOffset}
+    onreset={resetOffset}
+    onclose={() => (timing = false)}
+  />
 {/if}
 
 {#if opening}

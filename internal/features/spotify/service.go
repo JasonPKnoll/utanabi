@@ -79,3 +79,19 @@ func (s *Service) Seek(ctx context.Context, positionMs int64) error {
 	}
 	return app.Fail(ctx, s.player.Seek(ctx, positionMs))
 }
+
+// SetOffset shifts the song's lyrics by offsetMs, yours alone, to line them up with Spotify's track.
+func (s *Service) SetOffset(ctx context.Context, songID, offsetMs int64) error {
+	if !s.enabled {
+		return app.Fail(ctx, errNotSetUp)
+	}
+	return app.Fail(ctx, s.player.SetOffset(ctx, songID, offsetMs))
+}
+
+// ResetOffset goes back to lining the song's lyrics up on their own.
+func (s *Service) ResetOffset(ctx context.Context, songID int64) error {
+	if !s.enabled {
+		return app.Fail(ctx, errNotSetUp)
+	}
+	return app.Fail(ctx, s.player.ResetOffset(ctx, songID))
+}

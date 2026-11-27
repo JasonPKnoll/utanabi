@@ -26,8 +26,15 @@ export interface Playback {
     "ready": boolean;
 
     /**
-     * TimedForMS is the length the lyrics are timed for, when it is a few seconds or more off the track playing, so
-     * the lyrics won't line up; 0 otherwise.
+     * OffsetMS is how far the lyrics are shifted to line up with the track: a line timed at t is sung at
+     * t + OffsetMS. It's the one you set (OffsetSet), or else one worked out from the two lengths.
+     */
+    "offsetMs": number;
+    "offsetSet": boolean;
+
+    /**
+     * TimedForMS is the length the lyrics are timed for, when it is too far off the track's to shift them on its
+     * own, so they won't line up unless you set the offset; 0 otherwise.
      */
     "timedForMs": number;
 }

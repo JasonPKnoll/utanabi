@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasTimes, lineAt, positionAt, trackLink } from "./follow";
+import { describeOffset, hasTimes, lineAt, lyricsTime, nextLine, positionAt, trackLink, trackTime } from "./follow";
 
 const lines = [{ startMs: 1000 }, { startMs: 4500 }, { startMs: null }, { startMs: 9000 }];
 
@@ -57,4 +57,36 @@ describe("trackLink", () => {
       expect(trackLink(uri)).toBe("");
     },
   );
+});
+
+describe("offsets", () => {
+  it("move a line's time onto the track, and back", () => {
+    expect(trackTime(10000, -5500)).toBe(4500);
+    expect(lyricsTime(4500, -5500)).toBe(10000);
+    expect(trackTime(10000, 2000)).toBe(12000);
+  });
+
+  it("never put a line before the track starts", () => {
+    expect(trackTime(1000, -5500)).toBe(0);
+  });
+
+  it.each([
+    [0, "on time"],
+    [40, "on time"],
+    [-5500, "5.5 s earlier"],
+    [2000, "2.0 s later"],
+  ])("%d ms is %s", (offset, want) => {
+    expect(describeOffset(offset)).toBe(want);
+  });
+});
+
+describe("nextLine", () => {
+  it.each([
+    [0, 0],
+    [1000, 1],
+    [4500, 3],
+    [9000, -1],
+  ])("after %d ms is line %d", (ms, want) => {
+    expect(nextLine(lines, ms)).toBe(want);
+  });
 });

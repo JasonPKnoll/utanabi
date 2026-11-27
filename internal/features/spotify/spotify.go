@@ -107,9 +107,14 @@ type Repository interface {
 	DeleteLink(ctx context.Context) error
 	// Song returns a song in the owner's library, or fault.ErrNotFound.
 	Song(ctx context.Context, songID int64) (Song, error)
-	// TrackFor returns the Spotify track found for a song in the owner's library, or fault.ErrNotFound.
-	TrackFor(ctx context.Context, songID int64) (string, error)
-	SaveTrack(ctx context.Context, songID int64, trackID string, now time.Time) error
+	// TrackFor returns the Spotify track found for a song in the owner's library, or fault.ErrNotFound. Its
+	// DurationMS is 0 when not known yet.
+	TrackFor(ctx context.Context, songID int64) (Track, error)
+	SaveTrack(ctx context.Context, songID int64, track Track, now time.Time) error
+	// Offset returns how far the owner has shifted a song's lyrics, or fault.ErrNotFound when they haven't.
+	Offset(ctx context.Context, songID int64) (int64, error)
+	SaveOffset(ctx context.Context, songID, offsetMS int64) error
+	DeleteOffset(ctx context.Context, songID int64) error
 }
 
 // Status is whether Spotify can be used here, and whether the caller has connected theirs.
@@ -131,8 +136,12 @@ type Playback struct {
 	ProgressMS int64  `json:"progressMs"`
 	Device     string `json:"device"`
 	Ready      bool   `json:"ready"`
-	// TimedForMS is the length the lyrics are timed for, when it is a few seconds or more off the track playing, so
-	// the lyrics won't line up; 0 otherwise.
+	// OffsetMS is how far the lyrics are shifted to line up with the track: a line timed at t is sung at
+	// t + OffsetMS. It's the one you set (OffsetSet), or else one worked out from the two lengths.
+	OffsetMS  int64 `json:"offsetMs"`
+	OffsetSet bool  `json:"offsetSet"`
+	// TimedForMS is the length the lyrics are timed for, when it is too far off the track's to shift them on its
+	// own, so they won't line up unless you set the offset; 0 otherwise.
 	TimedForMS int64 `json:"timedForMs"`
 }
 
@@ -208,11 +217,11 @@ func (p *Player) NowPlaying(ctx context.Context, songID int64) (Playback, error)
 	}
 	var out Playback
 	err = p.withToken(ctx, func(access redact.Secret) error {
-		trackID, err := p.track(ctx, access, songID, song)
+		track, err := p.track(ctx, access, songID, song)
 		if err != nil {
 			return err
 		}
-		out = Playback{TrackURI: uri(trackID)}
+		out = Playback{TrackURI: uri(track.ID)}
 		state, active, err := p.api.PlaybackState(ctx, access)
 		if err != nil {
 			return err
@@ -220,26 +229,79 @@ func (p *Player) NowPlaying(ctx context.Context, songID int64) (Playback, error)
 		if !active {
 			devices, err := p.api.Devices(ctx, access)
 			out.Ready = len(devices) > 0
-			return err
+			if err != nil {
+				return err
+			}
+			return p.lineUp(ctx, &out, songID, song, track.DurationMS)
 		}
 		out.Active, out.Ready, out.Playing = true, true, state.Playing
 		out.ProgressMS, out.Device = state.ProgressMS, state.Device.Name
 		switch {
 		case state.Track.ID == "":
-		case state.Track.ID == trackID:
-			out.Matches, out.TimedForMS = true, otherLength(song, state.Track)
-		case trackID == "":
+		case state.Track.ID == track.ID:
+			out.Matches = true
+			if track.DurationMS == 0 && state.Track.DurationMS > 0 {
+				// Matched before tracks kept their length: keep it now, for lining up before it plays.
+				if err := p.repo.SaveTrack(ctx, songID, state.Track, p.now()); err != nil {
+					return err
+				}
+			}
+			track.DurationMS = state.Track.DurationMS
+		case track.ID == "":
 			// Played from Spotify itself before the app found the song there: when it's the song, remember it.
 			same, err := p.sameSong(ctx, state.Track, song)
 			if err != nil || !same {
 				return err
 			}
-			out.Matches, out.TrackURI, out.TimedForMS = true, uri(state.Track.ID), otherLength(song, state.Track)
-			return p.repo.SaveTrack(ctx, songID, state.Track.ID, p.now())
+			out.Matches, out.TrackURI, track = true, uri(state.Track.ID), state.Track
+			if err := p.repo.SaveTrack(ctx, songID, state.Track, p.now()); err != nil {
+				return err
+			}
 		}
-		return nil
+		return p.lineUp(ctx, &out, songID, song, track.DurationMS)
 	})
 	return out, err
+}
+
+// lineUp says how far the song's lyrics are shifted to line up with its track, trackMS long: by the offset the owner
+// set, or else by the difference in length when it's small enough to be the intro. When it's too big for that, it
+// says how long the lyrics are timed for instead, while the song plays.
+func (p *Player) lineUp(ctx context.Context, out *Playback, songID int64, song Song, trackMS int64) error {
+	offset, err := p.repo.Offset(ctx, songID)
+	if err == nil {
+		out.OffsetMS, out.OffsetSet = offset, true
+		return nil
+	}
+	if !errors.Is(err, fault.ErrNotFound) {
+		return err
+	}
+	out.OffsetMS = autoOffset(song.DurationMS, trackMS)
+	if out.Matches {
+		out.TimedForMS = otherLength(song.DurationMS, trackMS)
+	}
+	return nil
+}
+
+// SetOffset shifts the song's lyrics by offsetMS for the caller, to line them up with its track.
+func (p *Player) SetOffset(ctx context.Context, songID, offsetMS int64) error {
+	if songID <= 0 {
+		return fault.Invalid("songId", "must be positive")
+	}
+	if abs(offsetMS) > maxOffsetMS {
+		return fault.Invalid("offsetMs", "must be within a minute")
+	}
+	if _, err := p.repo.Song(ctx, songID); err != nil {
+		return err
+	}
+	return p.repo.SaveOffset(ctx, songID, offsetMS)
+}
+
+// ResetOffset goes back to lining the song's lyrics up on their own, by the two lengths.
+func (p *Player) ResetOffset(ctx context.Context, songID int64) error {
+	if songID <= 0 {
+		return fault.Invalid("songId", "must be positive")
+	}
+	return p.repo.DeleteOffset(ctx, songID)
 }
 
 // Play plays the song songID on the caller's Spotify from positionMS. With no device to play on, it doesn't start,
@@ -257,14 +319,14 @@ func (p *Player) Play(ctx context.Context, songID, positionMS int64) (PlayResult
 	}
 	var out PlayResult
 	err = p.withToken(ctx, func(access redact.Secret) error {
-		trackID, err := p.track(ctx, access, songID, song)
+		track, err := p.track(ctx, access, songID, song)
 		if err != nil {
 			return err
 		}
-		if trackID == "" {
+		if track.ID == "" {
 			return errNotOnSpotify
 		}
-		out = PlayResult{TrackURI: uri(trackID)}
+		out = PlayResult{TrackURI: uri(track.ID)}
 		devices, err := p.api.Devices(ctx, access)
 		if err != nil {
 			return err
@@ -273,7 +335,7 @@ func (p *Player) Play(ctx context.Context, songID, positionMS int64) (PlayResult
 		if !ok {
 			return nil
 		}
-		err = p.api.Play(ctx, access, device.ID, trackID, positionMS)
+		err = p.api.Play(ctx, access, device.ID, track.ID, positionMS)
 		if errors.Is(err, ErrNoDevice) {
 			return nil
 		}
@@ -357,20 +419,20 @@ func friendly(err error) error {
 
 // track returns the song's Spotify track, finding it the first time by searching for its title and artist, and
 // empty when Spotify doesn't seem to have it.
-func (p *Player) track(ctx context.Context, access redact.Secret, songID int64, song Song) (string, error) {
-	trackID, err := p.repo.TrackFor(ctx, songID)
+func (p *Player) track(ctx context.Context, access redact.Secret, songID int64, song Song) (Track, error) {
+	track, err := p.repo.TrackFor(ctx, songID)
 	if err == nil || !errors.Is(err, fault.ErrNotFound) {
-		return trackID, err
+		return track, err
 	}
 	tracks, err := p.api.SearchTracks(ctx, access, strings.TrimSpace(song.Title+" "+song.Artist))
 	if err != nil {
-		return "", err
+		return Track{}, err
 	}
 	best, ok, err := p.bestMatch(ctx, tracks, song)
 	if err != nil || !ok {
-		return "", err
+		return Track{}, err
 	}
-	return best.ID, p.repo.SaveTrack(ctx, songID, best.ID, p.now())
+	return best, p.repo.SaveTrack(ctx, songID, best, p.now())
 }
 
 // pick chooses where to play: the device playing now, then a phone, then any.

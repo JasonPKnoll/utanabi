@@ -19,15 +19,17 @@ type fakeRepo struct {
 	link    *Link
 	deleted bool
 	songs   map[int64]Song
-	tracks  map[int64]string
+	tracks  map[int64]Track
+	offsets map[int64]int64
 }
 
 func newFakeRepo() *fakeRepo {
 	return &fakeRepo{
 		link: &Link{AccessToken: redact.New("access"), RefreshToken: redact.New("refresh"),
 			ExpiresAt: clock.Add(time.Hour), DisplayName: "Hana", ConnectedAt: clock},
-		songs:  map[int64]Song{1: {Title: "Fujii Kaze - Shinunoga E-Wa", Artist: "Fujii Kaze", DurationMS: 185000}},
-		tracks: map[int64]string{},
+		songs:   map[int64]Song{1: {Title: "Fujii Kaze - Shinunoga E-Wa", Artist: "Fujii Kaze", DurationMS: 185000}},
+		tracks:  map[int64]Track{},
+		offsets: map[int64]int64{},
 	}
 }
 
@@ -56,16 +58,34 @@ func (f *fakeRepo) Song(_ context.Context, id int64) (Song, error) {
 	return s, nil
 }
 
-func (f *fakeRepo) TrackFor(_ context.Context, id int64) (string, error) {
+func (f *fakeRepo) TrackFor(_ context.Context, id int64) (Track, error) {
 	t, ok := f.tracks[id]
 	if !ok {
-		return "", fault.ErrNotFound
+		return Track{}, fault.ErrNotFound
 	}
 	return t, nil
 }
 
-func (f *fakeRepo) SaveTrack(_ context.Context, id int64, trackID string, _ time.Time) error {
-	f.tracks[id] = trackID
+func (f *fakeRepo) SaveTrack(_ context.Context, id int64, track Track, _ time.Time) error {
+	f.tracks[id] = Track{ID: track.ID, DurationMS: track.DurationMS}
+	return nil
+}
+
+func (f *fakeRepo) Offset(_ context.Context, id int64) (int64, error) {
+	o, ok := f.offsets[id]
+	if !ok {
+		return 0, fault.ErrNotFound
+	}
+	return o, nil
+}
+
+func (f *fakeRepo) SaveOffset(_ context.Context, id, offsetMS int64) error {
+	f.offsets[id] = offsetMS
+	return nil
+}
+
+func (f *fakeRepo) DeleteOffset(_ context.Context, id int64) error {
+	delete(f.offsets, id)
 	return nil
 }
 
@@ -276,12 +296,15 @@ func TestNotConnected(t *testing.T) {
 func TestNowPlaying(t *testing.T) {
 	t.Parallel()
 
+	shorter := int64(-3000)
 	tests := []struct {
-		name   string
-		cached string
-		state  *State
-		phone  bool
-		want   Playback
+		name     string
+		cached   string
+		cachedMS int64
+		offset   *int64
+		state    *State
+		phone    bool
+		want     Playback
 	}{
 		{name: "nothing playing, Spotify open on the phone", phone: true,
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Ready: true}},
@@ -304,6 +327,16 @@ func TestNowPlaying(t *testing.T) {
 			state: &State{Playing: true, ProgressMS: 1000, Track: Track{ID: kazeTrack, DurationMS: 185500}},
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Matches: true,
 				ProgressMS: 1000, Ready: true}},
+		{name: "this song, its track a few seconds shorter, so the lyrics shift by that", cached: kazeTrack,
+			state: &State{Playing: true, ProgressMS: 1000, Track: Track{ID: kazeTrack, DurationMS: 179500}},
+			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Matches: true,
+				ProgressMS: 1000, Ready: true, OffsetMS: -5500}},
+		{name: "this song, with an offset you set", cached: kazeTrack, offset: &shorter,
+			state: &State{Playing: true, ProgressMS: 1000, Track: Track{ID: kazeTrack, DurationMS: 160000}},
+			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Matches: true,
+				ProgressMS: 1000, Ready: true, OffsetMS: -3000, OffsetSet: true}},
+		{name: "nothing playing, lined up by the track's saved length", cached: kazeTrack, cachedMS: 190000,
+			phone: true, want: Playback{TrackURI: "spotify:track:" + kazeTrack, Ready: true, OffsetMS: 5000}},
 		{name: "a podcast", cached: kazeTrack, state: &State{Playing: true, Device: Device{Name: "iPhone"}},
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Device: "iPhone",
 				Ready: true}},
@@ -313,7 +346,10 @@ func TestNowPlaying(t *testing.T) {
 			t.Parallel()
 			repo, api := newFakeRepo(), newFakeAPI()
 			if tt.cached != "" {
-				repo.tracks[1] = tt.cached
+				repo.tracks[1] = Track{ID: tt.cached, DurationMS: tt.cachedMS}
+			}
+			if tt.offset != nil {
+				repo.offsets[1] = *tt.offset
 			}
 			api.state = tt.state
 			if tt.phone {
@@ -340,8 +376,9 @@ func TestNowPlayingFindsTheSongOnceAndRemembersIt(t *testing.T) {
 			t.Fatalf("NowPlaying: %v", err)
 		}
 	}
-	if api.searches != 1 || repo.tracks[1] != kazeTrack {
-		t.Errorf("%d searches, track %q; want one search finding the studio version", api.searches, repo.tracks[1])
+	if api.searches != 1 || repo.tracks[1].ID != kazeTrack || repo.tracks[1].DurationMS != 185500 {
+		t.Errorf("%d searches, track %+v; want one search finding the studio version, with its length", api.searches,
+			repo.tracks[1])
 	}
 }
 
@@ -356,8 +393,8 @@ func TestNowPlayingRecognisesTheSongPlayedFromSpotify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NowPlaying: %v", err)
 	}
-	if !got.Matches || got.TrackURI != "spotify:track:"+kazeTrack || repo.tracks[1] != kazeTrack {
-		t.Errorf("got %+v, saved %q; want it matched and remembered", got, repo.tracks[1])
+	if !got.Matches || got.TrackURI != "spotify:track:"+kazeTrack || repo.tracks[1].ID != kazeTrack {
+		t.Errorf("got %+v, saved %+v; want it matched and remembered", got, repo.tracks[1])
 	}
 }
 
@@ -548,6 +585,91 @@ func TestFolded(t *testing.T) {
 	for _, tt := range tests {
 		if got := folded(tt.in); got != tt.want {
 			t.Errorf("folded(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestNowPlayingKeepsTheLengthOfATrackMatchedWithoutIt(t *testing.T) {
+	t.Parallel()
+
+	repo, api := newFakeRepo(), newFakeAPI()
+	repo.tracks[1] = Track{ID: kazeTrack}
+	api.state = &State{Playing: true, Track: Track{ID: kazeTrack, DurationMS: 179500}}
+	if _, err := newTestPlayer(repo, api).NowPlaying(t.Context(), 1); err != nil {
+		t.Fatalf("NowPlaying: %v", err)
+	}
+	if got := repo.tracks[1]; got.DurationMS != 179500 {
+		t.Errorf("saved %+v, want the track's length kept", got)
+	}
+}
+
+func TestSetOffset(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeRepo()
+	p := newTestPlayer(repo, newFakeAPI())
+	if err := p.SetOffset(t.Context(), 1, -5500); err != nil {
+		t.Fatalf("SetOffset: %v", err)
+	}
+	if repo.offsets[1] != -5500 {
+		t.Errorf("offset = %d, want -5500", repo.offsets[1])
+	}
+	if err := p.ResetOffset(t.Context(), 1); err != nil {
+		t.Fatalf("ResetOffset: %v", err)
+	}
+	if _, ok := repo.offsets[1]; ok {
+		t.Error("ResetOffset kept the offset")
+	}
+}
+
+func TestSetOffsetRejectsBadInput(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		songID    int64
+		offsetMS  int64
+		wantField string
+	}{
+		{name: "no song", songID: 0, wantField: "songId"},
+		{name: "more than a minute early", songID: 1, offsetMS: -60001, wantField: "offsetMs"},
+		{name: "more than a minute late", songID: 1, offsetMS: 60001, wantField: "offsetMs"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := newTestPlayer(newFakeRepo(), newFakeAPI()).SetOffset(t.Context(), tt.songID, tt.offsetMS)
+			if got := invalidField(err); got != tt.wantField {
+				t.Errorf("SetOffset error = %v, want invalid %s", err, tt.wantField)
+			}
+		})
+	}
+	err := newTestPlayer(newFakeRepo(), newFakeAPI()).SetOffset(t.Context(), 99, 0)
+	if !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("SetOffset on a song not in your library = %v, want not found", err)
+	}
+}
+
+func TestAutoOffset(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name               string
+		lyricsMS, trackMS  int64
+		want, wantTimedFor int64
+	}{
+		{name: "the same length", lyricsMS: 191000, trackMS: 190500},
+		{name: "a track with a shorter intro", lyricsMS: 191000, trackMS: 185500, want: -5500},
+		{name: "a track with a longer intro", lyricsMS: 180000, trackMS: 188000, want: 8000},
+		{name: "another cut of the song", lyricsMS: 249000, trackMS: 225920, wantTimedFor: 249000},
+		{name: "no length for the lyrics", trackMS: 185500},
+	}
+	for _, tt := range tests {
+		if got := autoOffset(tt.lyricsMS, tt.trackMS); got != tt.want {
+			t.Errorf("%s: autoOffset = %d, want %d", tt.name, got, tt.want)
+		}
+		if got := otherLength(tt.lyricsMS, tt.trackMS); got != tt.wantTimedFor {
+			t.Errorf("%s: otherLength = %d, want %d", tt.name, got, tt.wantTimedFor)
 		}
 	}
 }
