@@ -17,8 +17,8 @@ type Service struct {
 
 var errNotSetUp = fault.Invalid("spotify", "isn't set up on this server")
 
-func NewService(repo Repository, api API, enabled bool) *Service {
-	return &Service{player: NewPlayer(repo, api, time.Now), enabled: enabled}
+func NewService(repo Repository, api API, romaji Romanizer, enabled bool) *Service {
+	return &Service{player: NewPlayer(repo, api, romaji, time.Now), enabled: enabled}
 }
 
 // Status says whether Spotify can be used here, and whether you've connected yours.

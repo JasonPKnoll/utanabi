@@ -119,16 +119,18 @@ func run() (err error) {
 		signIn = application.ChainMiddleware(signIn, connect)
 	}
 
+	// One analyzer for every slice that reads Japanese, so its dictionary loads once.
+	analyzer := morph.New()
 	credits := []app.Credit{
 		{Name: "JMdict", Text: dictionary.Attribution()},
 		{Name: "IPA dictionary", Text: morph.Attribution()},
 	}
 	services := append([]application.Service{
 		application.NewService(app.NewAboutService(cfg, credits...)),
-		application.NewService(songs.NewService(songs.NewSQLite(db, owners), songs.NewMorph(morph.New()), meanings,
+		application.NewService(songs.NewService(songs.NewSQLite(db, owners), songs.NewMorph(analyzer), meanings,
 			sources...)),
 		application.NewService(study.NewService(study.NewSQLite(db, owners), study.NewJMdict(dict), cfg.StudyStreak)),
-		application.NewService(spotify.NewService(spotifyRepo, spotifyAPI, spotifyOn)),
+		application.NewService(spotify.NewService(spotifyRepo, spotifyAPI, spotify.NewMorph(analyzer), spotifyOn)),
 	}, serverOnly...)
 	a := app.New(cfg, log, dist, signIn, append(services, app.CloseOnShutdown(closers...))...)
 

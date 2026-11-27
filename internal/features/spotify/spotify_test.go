@@ -3,6 +3,7 @@ package spotify
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -162,8 +163,24 @@ func (f *fakeAPI) Seek(_ context.Context, access redact.Secret, positionMS int64
 	return f.check(access)
 }
 
+// fakeRomaji reads the Japanese names the tests use, and leaves everything else as written.
+type fakeRomaji struct{ err error }
+
+var romajiOf = map[string]string{"私生活": "shiseikatsu", "東京事変": "toukyou jihen", "夜に駆ける": "yoru ni kakeru",
+	"愛": "ai"}
+
+func (f fakeRomaji) Romaji(_ context.Context, text string) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	for ja, r := range romajiOf {
+		text = strings.ReplaceAll(text, ja, r)
+	}
+	return text, nil
+}
+
 func newTestPlayer(repo *fakeRepo, api *fakeAPI) *Player {
-	return NewPlayer(repo, api, func() time.Time { return clock })
+	return NewPlayer(repo, api, fakeRomaji{}, func() time.Time { return clock })
 }
 
 func invalidField(err error) string {
@@ -451,36 +468,86 @@ func TestSeek(t *testing.T) {
 func TestBestMatch(t *testing.T) {
 	t.Parallel()
 
-	song := Song{Title: "夜に駆ける", Artist: "YOASOBI", DurationMS: 261000}
+	yoasobi := Song{Title: "夜に駆ける", Artist: "YOASOBI", DurationMS: 261000}
+	jihen := Song{Title: "Shiseikatsu", Artist: "Tokyo Jihen", DurationMS: 229546}
 	tests := []struct {
 		name   string
+		song   Song
 		tracks []Track
 		want   string
 	}{
-		{name: "the one by the artist with the title",
+		{name: "the one by the artist with the title", song: yoasobi,
 			tracks: []Track{{ID: "a", Name: "夜に駆ける", Artists: []string{"Cover Band"}},
 				{ID: "b", Name: "夜に駆ける", Artists: []string{"YOASOBI"}, DurationMS: 261500}}, want: "b"},
-		{name: "the closest in length",
+		{name: "the closest in length", song: yoasobi,
 			tracks: []Track{{ID: "a", Name: "夜に駆ける - Live", Artists: []string{"YOASOBI"}, DurationMS: 300000},
 				{ID: "b", Name: "夜に駆ける", Artists: []string{"YOASOBI"}, DurationMS: 260800}}, want: "b"},
-		{name: "full-width letters and case don't matter",
+		{name: "full-width letters and case don't matter", song: yoasobi,
 			tracks: []Track{{ID: "a", Name: "夜に駆ける", Artists: []string{"ＹＯＡＳＯＢＩ"}}}, want: "a"},
-		{name: "nothing by the artist", tracks: []Track{{ID: "a", Name: "夜に駆ける", Artists: []string{"Someone"}}}},
-		{name: "by the artist, but another song",
+		{name: "nothing by the artist", song: yoasobi,
+			tracks: []Track{{ID: "a", Name: "夜に駆ける", Artists: []string{"Someone"}}}},
+		{name: "by the artist, but another song", song: yoasobi,
 			tracks: []Track{{ID: "a", Name: "群青", Artists: []string{"YOASOBI"}, DurationMS: 250000}}},
-		{name: "the title over another song of the same length",
+		{name: "the title over another song of the same length", song: yoasobi,
 			tracks: []Track{{ID: "a", Name: "群青", Artists: []string{"YOASOBI"}, DurationMS: 261000},
 				{ID: "b", Name: "夜に駆ける", Artists: []string{"YOASOBI"}, DurationMS: 238000}}, want: "b"},
-		{name: "the title with no length", tracks: []Track{{ID: "a", Name: "夜に駆ける", Artists: []string{"YOASOBI"}}},
-			want: "a"},
+		{name: "the title with no length", song: yoasobi,
+			tracks: []Track{{ID: "a", Name: "夜に駆ける", Artists: []string{"YOASOBI"}}}, want: "a"},
+		{name: "a title in romaji matches it in kanji", song: Song{Title: "Yoru ni Kakeru", Artist: "YOASOBI"},
+			tracks: []Track{{ID: "a", Name: "夜に駆ける", Artists: []string{"YOASOBI"}}}, want: "a"},
+		{name: "an artist in romaji matches them in kanji, with the long vowels spelled another way",
+			song:   Song{Title: "Shiseikatsu", Artist: "Tōkyō Jihen"},
+			tracks: []Track{{ID: "a", Name: "私生活", Artists: []string{"東京事変"}}}, want: "a"},
+		{name: "a translated artist with the title and the length", song: jihen,
+			tracks: []Track{{ID: "a", Name: "私生活 - 新訳版", Artists: []string{"Tokyo Incidents"}, DurationMS: 218000},
+				{ID: "b", Name: "私生活", Artists: []string{"Tokyo Incidents"}, DurationMS: 229546}}, want: "b"},
+		{name: "a translated artist with the title but another length", song: jihen,
+			tracks: []Track{{ID: "a", Name: "私生活", Artists: []string{"Tokyo Incidents"}, DurationMS: 240000}}},
+		{name: "the artist over a cover of the same length", song: jihen,
+			tracks: []Track{{ID: "a", Name: "私生活", Artists: []string{"Cover Band"}, DurationMS: 229546},
+				{ID: "b", Name: "私生活", Artists: []string{"Tokyo Jihen"}, DurationMS: 231000}}, want: "b"},
+		{name: "a short romaji title must match whole", song: Song{Title: "Kaikai Kitan", Artist: "Eve"},
+			tracks: []Track{{ID: "a", Name: "愛", Artists: []string{"Eve"}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, ok := bestMatch(tt.tracks, song)
+			p := newTestPlayer(newFakeRepo(), newFakeAPI())
+			got, ok, err := p.bestMatch(t.Context(), tt.tracks, tt.song)
+			if err != nil {
+				t.Fatalf("bestMatch: %v", err)
+			}
 			if got.ID != tt.want || ok != (tt.want != "") {
 				t.Errorf("got %q, %v; want %q", got.ID, ok, tt.want)
 			}
 		})
+	}
+}
+
+func TestBestMatchFailsWhenRomajiFails(t *testing.T) {
+	t.Parallel()
+
+	failure := errors.New("morph: analysis failed")
+	p := NewPlayer(newFakeRepo(), newFakeAPI(), fakeRomaji{err: failure}, func() time.Time { return clock })
+	_, _, err := p.bestMatch(t.Context(), []Track{{ID: "a", Name: "私生活"}}, Song{Title: "Shiseikatsu"})
+	if !errors.Is(err, failure) {
+		t.Errorf("err = %v, want the romanizer's error", err)
+	}
+}
+
+func TestFolded(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct{ in, want string }{
+		{in: "Tōkyō Jihen", want: "tokyojihen"},
+		{in: "toukyou jihen", want: "tokyojihen"},
+		{in: "Tokyo Jihen", want: "tokyojihen"},
+		{in: "Ookii", want: "oki"},
+		{in: "Shiseikatsu", want: "shiseikatsu"},
+	}
+	for _, tt := range tests {
+		if got := folded(tt.in); got != tt.want {
+			t.Errorf("folded(%q) = %q, want %q", tt.in, got, tt.want)
+		}
 	}
 }

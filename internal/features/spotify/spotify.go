@@ -7,12 +7,8 @@ package spotify
 import (
 	"context"
 	"errors"
-	"slices"
 	"strings"
 	"time"
-	"unicode"
-
-	"golang.org/x/text/unicode/norm"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
 	"github.com/JasonPKnoll/utanabi/internal/common/redact"
@@ -78,6 +74,12 @@ var (
 	// ErrBusy means Spotify asked the app to slow down.
 	ErrBusy = errors.New("spotify: too many requests")
 )
+
+// Romanizer writes Japanese text in romaji, so a title or a name written in one script matches it in another:
+// Spotify lists 私生活, where the lyrics say Shiseikatsu.
+type Romanizer interface {
+	Romaji(ctx context.Context, text string) (string, error)
+}
 
 // API is Spotify's Web API, for one owner's tokens.
 type API interface {
@@ -168,13 +170,14 @@ func Connect(ctx context.Context, repo Repository, api API, code, verifier, redi
 
 // Player is the caller's Spotify: what's playing, and playing, pausing, and seeking.
 type Player struct {
-	repo Repository
-	api  API
-	now  func() time.Time
+	repo   Repository
+	api    API
+	romaji Romanizer
+	now    func() time.Time
 }
 
-func NewPlayer(repo Repository, api API, now func() time.Time) *Player {
-	return &Player{repo: repo, api: api, now: now}
+func NewPlayer(repo Repository, api API, romaji Romanizer, now func() time.Time) *Player {
+	return &Player{repo: repo, api: api, romaji: romaji, now: now}
 }
 
 // Status says whether the caller has connected Spotify.
@@ -225,8 +228,12 @@ func (p *Player) NowPlaying(ctx context.Context, songID int64) (Playback, error)
 		case state.Track.ID == "":
 		case state.Track.ID == trackID:
 			out.Matches, out.TimedForMS = true, otherLength(song, state.Track)
-		case trackID == "" && sameSong(state.Track, song):
-			// Played from Spotify itself before the app found the song there: it's the song, so remember it.
+		case trackID == "":
+			// Played from Spotify itself before the app found the song there: when it's the song, remember it.
+			same, err := p.sameSong(ctx, state.Track, song)
+			if err != nil || !same {
+				return err
+			}
 			out.Matches, out.TrackURI, out.TimedForMS = true, uri(state.Track.ID), otherLength(song, state.Track)
 			return p.repo.SaveTrack(ctx, songID, state.Track.ID, p.now())
 		}
@@ -359,72 +366,11 @@ func (p *Player) track(ctx context.Context, access redact.Secret, songID int64, 
 	if err != nil {
 		return "", err
 	}
-	best, ok := bestMatch(tracks, song)
-	if !ok {
-		return "", nil
+	best, ok, err := p.bestMatch(ctx, tracks, song)
+	if err != nil || !ok {
+		return "", err
 	}
 	return best.ID, p.repo.SaveTrack(ctx, songID, best.ID, p.now())
-}
-
-// bestMatch picks the search result that is the song: one by its artist, with its title, closest in length. A title
-// from a lyrics source often has the artist in it ("Fujii Kaze - Shinunoga E-Wa"), so the title is matched loosely.
-// Both the artist and the title must match, or nothing is picked, rather than playing the wrong song: another song
-// by the artist can be as long as the lyrics are (Hana for Matsuri's video). Length only chooses among versions,
-// since lyrics timed to a video can be longer than the track.
-func bestMatch(tracks []Track, song Song) (Track, bool) {
-	var best Track
-	found := false
-	for _, t := range tracks {
-		if !sameSong(t, song) {
-			continue
-		}
-		if !found || closer(t, best, song.DurationMS) {
-			best, found = t, true
-		}
-	}
-	return best, found
-}
-
-// closer reports whether a is closer to the song's length than b. Without a length to go by, neither is.
-func closer(a, b Track, songMS int64) bool {
-	if songMS <= 0 || a.DurationMS <= 0 {
-		return false
-	}
-	return b.DurationMS <= 0 || abs(a.DurationMS-songMS) < abs(b.DurationMS-songMS)
-}
-
-// otherLength is how long the song's lyrics are timed for, when that is more than a few seconds off the track
-// playing, and 0 otherwise: lyrics from a video or a live recording don't line up with the studio track.
-func otherLength(song Song, track Track) int64 {
-	if song.DurationMS <= 0 || track.DurationMS <= 0 || abs(song.DurationMS-track.DurationMS) <= 5000 {
-		return 0
-	}
-	return song.DurationMS
-}
-
-// sameSong: a track played from Spotify is the song when it's by the song's artist and has its title.
-func sameSong(t Track, song Song) bool {
-	return byArtist(t, song) && titled(t.Name, song.Title)
-}
-
-func byArtist(t Track, song Song) bool {
-	who := plain(song.Artist + " " + song.Title)
-	return slices.ContainsFunc(t.Artists, func(a string) bool { a = plain(a); return a != "" && strings.Contains(who, a) })
-}
-
-func titled(name, title string) bool {
-	n, s := plain(name), plain(title)
-	return n != "" && (strings.Contains(s, n) || strings.Contains(n, s))
-}
-
-// plain is text for comparing: NFKC, lower case, letters and digits only, so "Shinunoga E-Wa" is "shinunogaewa".
-func plain(s string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			return unicode.ToLower(r)
-		}
-		return -1
-	}, norm.NFKC.String(s))
 }
 
 // pick chooses where to play: the device playing now, then a phone, then any.
