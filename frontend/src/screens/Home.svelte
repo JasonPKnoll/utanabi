@@ -9,7 +9,6 @@
   import { initial } from "../lib/lyrics";
   import { placeholderSongs } from "../lib/placeholders";
   import { addHref, searchHref, settingsHref, songHref } from "../lib/route";
-  import { sourceLabel } from "../lib/sources";
 
   let songs = $state<Summary[] | null>(null);
   let failure = $state<AppError | null>(null);
@@ -71,7 +70,7 @@
       <!-- Stand-in songs, drawn as rows like the real ones, as a skeleton in the library's shape. -->
       <ul class="songs skeleton-wait" aria-hidden="true" inert>
         {#each placeholderSongs as stand, i (i)}
-          <li>{@render row(stand.title, `${stand.artist} · LRCLIB`)}</li>
+          <li>{@render row(stand.title, `${stand.artist} · Not synced`)}</li>
         {/each}
       </ul>
     {:else if songs.length === 0}
@@ -87,7 +86,11 @@
       <ul class="songs">
         {#each songs as song (song.id)}
           <li>
-            {@render row(song.title, `${song.artist || "Unknown artist"} · ${sourceLabel(song.source)}`, song.id)}
+            {@render row(
+              song.title,
+              `${song.artist || "Unknown artist"} · ${song.synced ? "Synced" : "Not synced"}`,
+              song.id,
+            )}
           </li>
         {/each}
       </ul>

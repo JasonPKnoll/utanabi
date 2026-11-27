@@ -81,15 +81,22 @@ func TestSQLiteSongsNewestFirst(t *testing.T) {
 
 	repo := newSQLite(t)
 	first := addSong(t, repo, "星の歌")
-	second := addSong(t, repo, "春の手紙")
+	lines := sampleLines()
+	start := int64(4200)
+	lines[1].StartMS = &start
+	second, err := repo.AddSong(t.Context(), Song{Title: "春の手紙", Artist: "Demo Artist", Source: SourceUser,
+		Lines: lines})
+	if err != nil {
+		t.Fatalf("AddSong: %v", err)
+	}
 
 	got, err := repo.Songs(t.Context())
 	if err != nil {
 		t.Fatalf("Songs: %v", err)
 	}
 	want := []Summary{
-		{ID: second.ID, Title: "春の手紙", Artist: "Demo Artist", Source: SourceUser},
-		{ID: first.ID, Title: "星の歌", Artist: "Demo Artist", Source: SourceUser},
+		{ID: second.ID, Title: "春の手紙", Artist: "Demo Artist", Synced: true},
+		{ID: first.ID, Title: "星の歌", Artist: "Demo Artist"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %+v, want %+v", got, want)

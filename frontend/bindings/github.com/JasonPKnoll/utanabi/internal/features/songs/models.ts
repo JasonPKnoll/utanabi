@@ -136,7 +136,11 @@ export interface Summary {
     "id": number;
     "title": string;
     "artist": string;
-    "source": string;
+
+    /**
+     * Synced is true when the lyrics have line times, so they can follow the song.
+     */
+    "synced": boolean;
 }
 
 /**

@@ -76,7 +76,8 @@ func (s *SQLite) Songs(ctx context.Context) ([]Summary, error) {
 		return nil, err
 	}
 	rows, err := s.db.Querier().QueryContext(ctx,
-		`SELECT s.id, s.title, s.artist, s.source
+		`SELECT s.id, s.title, s.artist,
+		   EXISTS (SELECT 1 FROM lyric_lines x WHERE x.song_id = s.id AND x.start_ms IS NOT NULL)
 		 FROM songs s JOIN library_songs l ON l.song_id = s.id
 		 WHERE l.owner = ?
 		 ORDER BY l.added_at DESC, s.id DESC`, owner)
@@ -88,7 +89,7 @@ func (s *SQLite) Songs(ctx context.Context) ([]Summary, error) {
 	list := []Summary{}
 	for rows.Next() {
 		var sum Summary
-		if err := rows.Scan(&sum.ID, &sum.Title, &sum.Artist, &sum.Source); err != nil {
+		if err := rows.Scan(&sum.ID, &sum.Title, &sum.Artist, &sum.Synced); err != nil {
 			return nil, store.Translate(err)
 		}
 		list = append(list, sum)

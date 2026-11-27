@@ -185,7 +185,8 @@ type Summary struct {
 	ID     int64  `json:"id"`
 	Title  string `json:"title"`
 	Artist string `json:"artist"`
-	Source string `json:"source"`
+	// Synced is true when the lyrics have line times, so they can follow the song.
+	Synced bool `json:"synced"`
 }
 
 // NewSong is a song the user adds with their own lyrics, pasted or typed as text: one sung line per line, and a blank

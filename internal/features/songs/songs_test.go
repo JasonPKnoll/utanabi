@@ -34,7 +34,8 @@ func (f *fakeRepo) AddSong(_ context.Context, song Song) (Song, error) {
 func (f *fakeRepo) Songs(context.Context) ([]Summary, error) {
 	list := []Summary{}
 	for _, s := range f.songs {
-		list = append(list, Summary{ID: s.ID, Title: s.Title, Artist: s.Artist, Source: s.Source})
+		synced := slices.ContainsFunc(s.Lines, func(l Line) bool { return l.StartMS != nil })
+		list = append(list, Summary{ID: s.ID, Title: s.Title, Artist: s.Artist, Synced: synced})
 	}
 	return list, nil
 }
