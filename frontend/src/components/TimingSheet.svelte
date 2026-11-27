@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
+
   import type { Line } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { describeOffset, lyricsTime, nextLine } from "../lib/follow";
   import Sheet from "./Sheet.svelte";
@@ -16,6 +18,7 @@
     onchange,
     onreset,
     onclose,
+    more,
   }: {
     offsetMs: number;
     offsetSet: boolean;
@@ -26,6 +29,8 @@
     onchange: (offsetMs: number) => void;
     onreset: () => void;
     onclose: () => void;
+    // More for the player, such as lyrics timed for the track, at the end.
+    more?: Snippet;
   } = $props();
 
   const limit = 60000;
@@ -127,6 +132,7 @@
     {#if offsetSet}
       <button type="button" class="button reset" onclick={onreset}>Reset to the lyrics' timing</button>
     {/if}
+    {@render more?.()}
   {/snippet}
 </Sheet>
 

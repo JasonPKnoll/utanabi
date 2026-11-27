@@ -22,6 +22,7 @@
   } from "../lib/follow";
   import { formatDuration } from "../lib/sources";
   import { activateWebPlayer, startWebPlayer, webPlayer, webPlayerName } from "../lib/webPlayer.svelte";
+  import LyricsForTrack from "./LyricsForTrack.svelte";
   import SpotifyOpenSheet from "./SpotifyOpenSheet.svelte";
   import TimingSheet from "./TimingSheet.svelte";
 
@@ -38,6 +39,8 @@
     following = $bindable(false),
     switchTo = "",
     onswitch,
+    lyricsMs = 0,
+    query = "",
   }: {
     songId: number;
     lines: Line[];
@@ -48,6 +51,9 @@
     // The other player the song can play along with, such as "YouTube", and switching to it; none when there's none.
     switchTo?: string;
     onswitch?: () => void;
+    // How long the lyrics are timed for, and what to search for lyrics timed for the track instead.
+    lyricsMs?: number;
+    query?: string;
   } = $props();
 
   let connected = $state(false);
@@ -96,12 +102,13 @@
       const at = answeredAt(p.progressMs, p.playing, askedAt, now);
       failure = null;
       if (move && playback && !caughtUp(move, { ...p, progressMs: at }, now)) {
-        // Spotify hasn't caught up with the move yet: keep counting from where it put the song, and take the rest.
+        // Spotify hasn't made the move yet: the lyrics wait where it will put the song, and take the rest.
         playback = { ...p, progressMs: playback.progressMs, playing: playback.playing, matches: true, active: true };
         return;
       }
-      // Still this song, a little off: steer towards Spotify. Anything else sets the clock outright.
-      const same = following && p.active && p.matches && playback?.matches;
+      // Still this song, a little off: steer towards Spotify. Just after a move, or anything else, sets the clock
+      // outright, from where Spotify is.
+      const same = !move && following && p.active && p.matches && playback?.matches;
       clock = steer(same ? clock : null, at, p.playing, now);
       move = null;
       playback = p;
@@ -118,9 +125,12 @@
     move = { trackMs, playing: playingNow, at: now };
     if (playback) {
       playback = { ...playback, progressMs: trackMs, playing: playingNow, active: true, matches: true };
-      clock = { at: now, ms: trackMs, rate: 1, playing: playingNow };
+      // The lyrics go there at once, but hold still: Spotify takes a moment to jump, and they'd run ahead of the
+      // song. They count on once Spotify says it's there.
+      clock = { at: now, ms: trackMs, rate: 1, playing: false };
       following = true;
     }
+    soon?.();
   }
 
   // Ask while the page is on screen: every 2 seconds while this song plays, every 5 otherwise. Only connecting
@@ -136,10 +146,14 @@
     return untrack(() => poll());
   });
 
+  // Asks again soon, after a move, rather than when the next ask was due; set while asking runs.
+  let soon: (() => void) | null = null;
+
   function poll(): () => void {
     void ask();
     let timer = 0;
     const schedule = () => {
+      window.clearTimeout(timer);
       timer = window.setTimeout(
         async () => {
           if (document.visibilityState === "visible") {
@@ -147,10 +161,12 @@
           }
           schedule();
         },
-        following && playback?.playing ? 2000 : 5000,
+        // Every half second while waiting for Spotify to make a move, so the lyrics don't wait long.
+        move ? 500 : following && playback?.playing ? 2000 : 5000,
       );
     };
     schedule();
+    soon = schedule;
     const back = () => {
       if (document.visibilityState !== "visible") {
         return;
@@ -165,6 +181,7 @@
     document.addEventListener("visibilitychange", back);
     return () => {
       window.clearTimeout(timer);
+      soon = null;
       document.removeEventListener("visibilitychange", back);
     };
   }
@@ -383,7 +400,11 @@
     onchange={setOffset}
     onreset={resetOffset}
     onclose={() => (timing = false)}
-  />
+  >
+    {#snippet more()}
+      <LyricsForTrack {songId} {lyricsMs} trackMs={playback?.trackMs ?? 0} {query} />
+    {/snippet}
+  </TimingSheet>
 {/if}
 
 {#if opening}

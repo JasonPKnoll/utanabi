@@ -163,6 +163,8 @@ type Playback struct {
 	// TimedForMS is the length the lyrics are timed for, when it's off the track's and you haven't set an offset, so
 	// they may not line up; 0 otherwise.
 	TimedForMS int64 `json:"timedForMs"`
+	// TrackMS is the track's length, when known, so lyrics timed for it can be looked for.
+	TrackMS int64 `json:"trackMs"`
 }
 
 // PlayResult says whether the song started. When it didn't, no device was there to play on: opening TrackURI opens
@@ -288,6 +290,7 @@ func (p *Player) NowPlaying(ctx context.Context, songID int64) (Playback, error)
 // set, or not at all. Without one, while the song plays, it says how long the lyrics are timed for when that's off
 // the track's length, so the bar can suggest setting the timing.
 func (p *Player) lineUp(ctx context.Context, out *Playback, songID int64, song Song, trackMS int64) error {
+	out.TrackMS = trackMS
 	offset, err := p.repo.Offset(ctx, songID)
 	if err == nil {
 		out.OffsetMS, out.OffsetSet = offset, true

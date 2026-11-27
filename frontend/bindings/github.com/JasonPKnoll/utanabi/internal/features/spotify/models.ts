@@ -46,6 +46,11 @@ export interface Playback {
      * they may not line up; 0 otherwise.
      */
     "timedForMs": number;
+
+    /**
+     * TrackMS is the track's length, when known, so lyrics timed for it can be looked for.
+     */
+    "trackMs": number;
 }
 
 /**

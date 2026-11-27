@@ -22,6 +22,7 @@
   import { aboutHref, homeHref, studyHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
   import { lineSweep } from "../lib/sweep";
+  import { searchFor } from "../lib/versions";
 
   let { id }: { id: number } = $props();
 
@@ -310,6 +311,8 @@
         startMs={lines[current]?.startMs ?? 0}
         oncurrent={follow}
         switchTo={available.includes("youtube") ? "YouTube" : ""}
+        lyricsMs={song.durationMs ?? 0}
+        query={searchFor(song.title, song.artist)}
         onswitch={() => choosePlayer("youtube")}
       />
     {:else if song && player === "youtube"}
@@ -320,7 +323,7 @@
         {lines}
         startMs={lines[current]?.startMs ?? 0}
         searchable={youtubeSearch}
-        query={`${song.artist} ${song.title}`.trim()}
+        query={searchFor(song.title, song.artist)}
         oncurrent={follow}
         switchTo={available.includes("spotify") ? "Spotify" : ""}
         onswitch={() => choosePlayer("spotify")}
