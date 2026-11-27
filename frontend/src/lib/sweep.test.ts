@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { beats, lineEnd, lineSweep, pieceBeats, sweep } from "./sweep";
+import { beats, lineEnd, lineSweep, pieceBeats, songPace, sweep } from "./sweep";
 
 describe("beats", () => {
   it.each([
@@ -44,8 +44,11 @@ describe("lineEnd", () => {
     expect(lineEnd(lines, 0, 10)).toBe(4000);
   });
 
-  it("ends sooner when the gap is longer than its beats take at the slowest", () => {
-    expect(lineEnd([{ startMs: 1000 }, { startMs: 30000 }], 0, 5)).toBe(3000);
+  it("ends sooner when the gap is longer than its beats take at the song's pace, with some slack", () => {
+    // 5 beats at 400 ms, the pace without a measured one, and 30% slack: 2.6 s.
+    expect(lineEnd([{ startMs: 1000 }, { startMs: 30000 }], 0, 5)).toBe(3600);
+    // A fast song, at 200 ms a beat: 1.3 s, but at least a second.
+    expect(lineEnd([{ startMs: 1000 }, { startMs: 30000 }], 0, 5, 200)).toBe(2300);
   });
 
   it("takes at least a second", () => {
@@ -53,7 +56,7 @@ describe("lineEnd", () => {
   });
 
   it("ends by its beats when it's the last line", () => {
-    expect(lineEnd(lines, 2, 5)).toBe(6000);
+    expect(lineEnd(lines, 2, 5)).toBe(6600);
   });
 
   it("is null for a line with no time", () => {
@@ -95,12 +98,47 @@ describe("lineSweep", () => {
     { startMs: null, ruby: null, pieces: [{ ruby: [{ text: "うた", reading: "" }] }] },
   ];
 
-  it("sweeps a timed line, the last one over at least a second", () => {
-    expect(lineSweep(lines, 0, 1400)?.[0]).toBeCloseTo(0.4);
+  it("sweeps a timed line, the last one over its beats at the song's pace", () => {
+    // Two beats at 400 ms with 30% slack: 1.04 s, so 0.4 s in is 400 / 1040.
+    expect(lineSweep(lines, 0, 1400)?.[0]).toBeCloseTo(400 / 1040);
+  });
+
+  it("sweeps faster in a faster song", () => {
+    // 2 beats at 200 ms with slack is 520 ms, but a line takes at least a second: 0.4 s in is 40%.
+    expect(lineSweep(lines, 0, 1400, 200)?.[0]).toBeCloseTo(0.4);
+    // Five beats over 1.3 s at 200 ms a beat: 0.65 s in is half.
+    const five = [{ startMs: 1000, ruby: null, pieces: [{ ruby: [{ text: "あいうえお", reading: "" }] }] }];
+    expect(lineSweep(five, 0, 1650, 200)?.[0]).toBeCloseTo(0.5);
   });
 
   it("is null with no time to go by, or for a line with no time", () => {
     expect(lineSweep(lines, 0, null)).toBeNull();
     expect(lineSweep(lines, 1, 1400)).toBeNull();
+  });
+});
+
+describe("songPace", () => {
+  // Lines of four beats each (あいうえ): most sung back to back at 200 ms a beat, some before a pause.
+  const line = (startMs: number | null) => ({ startMs, pieces: [{ ruby: [{ text: "あいうえ", reading: "" }] }] });
+
+  it("is the pace of the song's faster lines, not its pauses", () => {
+    const lines = [0, 800, 1600, 2400, 3200, 8000, 8800, 9600, 10400, 16000].map(line);
+    expect(songPace(lines)).toBe(200);
+  });
+
+  it("is 400 ms without enough lines to tell", () => {
+    expect(songPace([line(0), line(800), line(1600)])).toBe(400);
+    expect(songPace([])).toBe(400);
+  });
+
+  it("leaves out short lines and lines with no time", () => {
+    const yeah = { startMs: 0, pieces: [{ ruby: [{ text: "yeah", reading: "" }] }] };
+    const lines = [yeah, line(100), line(900), line(null), line(1700), line(2500), line(3300), line(4100)];
+    expect(songPace(lines)).toBe(200);
+  });
+
+  it("stays between 100 and 600 ms a beat", () => {
+    expect(songPace([0, 100, 200, 300, 400, 500].map(line))).toBe(100);
+    expect(songPace([0, 4000, 8000, 12000, 16000, 20000].map(line))).toBe(600);
   });
 });

@@ -21,7 +21,7 @@
   import { hasRomaji, loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
   import { aboutHref, homeHref, studyHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
-  import { lineSweep } from "../lib/sweep";
+  import { lineSweep, songPace } from "../lib/sweep";
   import { searchFor } from "../lib/versions";
 
   let { id }: { id: number } = $props();
@@ -71,7 +71,10 @@
   // The lyric time, read from the Spotify bar every frame while the lyrics follow it, and how far through each piece
   // of the current line the singing is, for the sweep across it.
   let clock = $state<number | null>(null);
-  let sung = $derived(lineSweep(lines, current, clock));
+  // How fast the song is sung, measured once from its lines, so each line's sweep ends when its words are sung, not
+  // when the next line starts after a pause.
+  let pace = $derived(songPace(lines));
+  let sung = $derived(lineSweep(lines, current, clock, pace));
   $effect(() => {
     if (!following) {
       clock = null;

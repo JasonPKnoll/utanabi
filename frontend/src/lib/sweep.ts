@@ -18,9 +18,18 @@ export interface Timed {
 // Small kana share a beat with the kana before them: きゃ is one beat.
 const small = new Set("ぁぃぅぇぉゃゅょゎゕゖァィゥェォャュョヮヵヶ");
 
-// The slowest a line is taken to be sung, per beat. A line ends when the next one starts, but not later than this, so
-// a line before a long instrumental doesn't crawl through it.
-const slowestBeatMs = 400;
+// A song's pace, per beat, when there aren't enough lines to measure it by, and the bounds of a measured one.
+const defaultBeatMs = 400;
+const fastestBeatMs = 100;
+const slowestBeatMs = 600;
+// The lines a pace is measured by: the fastest quarter of a song's lines, by time per beat from each line's start to
+// the next's. Most lines run into the next, so the fast ones show how fast the song is sung; a line before a pause or
+// an instrumental shows a slower pace than it's sung at. Short lines (a "yeah") say little, so they're left out.
+const paceQuantile = 0.25;
+const paceMinBeats = 3;
+const paceMinLines = 4;
+// How much slower than the song's pace a line may be sung before its sweep is taken to be done.
+const paceSlack = 1.3;
 const shortestLineMs = 1000;
 
 // How many beats text takes to sing: one per kana (ー and っ included), two per kanji with no reading, one per group of
@@ -56,14 +65,48 @@ export function pieceBeats(piece: Piece): number {
 
 // When line i is taken to end: when the next timed line starts, but no later than its beats at the slowest pace. null
 // for a line with no time.
-export function lineEnd(lines: readonly Timed[], i: number, lineBeats: number): number | null {
+export function lineEnd(
+  lines: readonly Timed[],
+  i: number,
+  lineBeats: number,
+  beatMs: number = defaultBeatMs,
+): number | null {
   const start = lines[i]?.startMs;
   if (start === null || start === undefined) {
     return null;
   }
-  const slowest = start + Math.max(shortestLineMs, lineBeats * slowestBeatMs);
-  const next = lines.slice(i + 1).find((l) => l.startMs !== null && l.startMs > start)?.startMs;
-  return next === null || next === undefined ? slowest : Math.min(next, slowest);
+  const slowest = start + Math.max(shortestLineMs, lineBeats * beatMs * paceSlack);
+  const next = nextStart(lines, i);
+  return next === null ? slowest : Math.min(next, slowest);
+}
+
+// When the next timed line after line i starts, or null when none does.
+function nextStart(lines: readonly Timed[], i: number): number | null {
+  const start = lines[i]?.startMs;
+  if (start === null || start === undefined) {
+    return null;
+  }
+  return lines.slice(i + 1).find((l) => l.startMs !== null && l.startMs > start)?.startMs ?? null;
+}
+
+// How fast a song is sung, in ms per beat: the time per beat of the fastest quarter of its lines, from each line's
+// start to the next's, between 100 and 600 ms. Usseewa is sung at about 190 ms a beat, Shiseikatsu at about 490.
+// Without enough timed lines to tell, 400.
+export function songPace(lines: readonly (Timed & { pieces: Piece[] | null })[]): number {
+  const paces: number[] = [];
+  lines.forEach((line, i) => {
+    const next = nextStart(lines, i);
+    const beats = (line.pieces ?? []).reduce((n, p) => n + pieceBeats(p), 0);
+    if (line.startMs !== null && next !== null && beats >= paceMinBeats) {
+      paces.push((next - line.startMs) / beats);
+    }
+  });
+  if (paces.length < paceMinLines) {
+    return defaultBeatMs;
+  }
+  paces.sort((a, b) => a - b);
+  const pace = paces[Math.floor(paceQuantile * (paces.length - 1))] ?? defaultBeatMs;
+  return Math.min(slowestBeatMs, Math.max(fastestBeatMs, pace));
 }
 
 // How far through each piece the singing is at ms, from 0 to 1, for a line sung from startMs to endMs. Pieces with no
@@ -93,6 +136,7 @@ export function lineSweep(
   lines: readonly (Timed & Piece & { pieces: Piece[] | null })[],
   i: number,
   ms: number | null,
+  beatMs: number = defaultBeatMs,
 ): number[] | null {
   const line = lines[i];
   if (ms === null || !line || line.startMs === null) {
@@ -103,6 +147,7 @@ export function lineSweep(
     lines,
     i,
     pieces.reduce((n, p) => n + pieceBeats(p), 0),
+    beatMs,
   );
   return end === null ? null : sweep(pieces, line.startMs, end, ms);
 }
