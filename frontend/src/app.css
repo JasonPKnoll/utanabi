@@ -131,7 +131,9 @@ rt {
   background: linear-gradient(to bottom, transparent, var(--bg) 24px);
 }
 
+/* border-box, as a <button> is already, so a link styled as one fits the width it's given, padding and all. */
 .button {
+  box-sizing: border-box;
   flex: 1;
   display: inline-flex;
   align-items: center;
