@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/common/redact"
+	"github.com/JasonPKnoll/utanabi/internal/identity"
 )
 
 var clock = time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC)
@@ -64,17 +66,23 @@ type fakeSearch struct {
 	err      error
 	searches int
 	queries  []string
+	keys     []string
 }
 
-func (f *fakeSearch) Videos(_ context.Context, query string) ([]Video, error) {
+func (f *fakeSearch) Videos(_ context.Context, key redact.Secret, query string) ([]Video, error) {
 	f.searches++
 	f.queries = append(f.queries, query)
+	f.keys = append(f.keys, key.Reveal())
 	return f.found, f.err
 }
 
-func (f *fakeSearch) Video(_ context.Context, id string) (Video, error) {
+func (f *fakeSearch) Video(_ context.Context, key redact.Secret, id string) (Video, error) {
+	f.keys = append(f.keys, key.Reveal())
 	if f.err != nil {
 		return Video{}, f.err
+	}
+	if id == checkVideo {
+		return Video{ID: checkVideo, Title: "Me at the zoo"}, nil
 	}
 	for _, v := range f.found {
 		if v.ID == id {
@@ -84,8 +92,42 @@ func (f *fakeSearch) Video(_ context.Context, id string) (Video, error) {
 	return Video{}, fault.ErrNotFound
 }
 
+// fakeKeys keeps the admin's key in memory.
+type fakeKeys struct{ key string }
+
+func (f *fakeKeys) APIKey(context.Context) (redact.Secret, error) {
+	if f.key == "" {
+		return redact.Secret{}, fault.ErrNotFound
+	}
+	return redact.New(f.key), nil
+}
+
+func (f *fakeKeys) SaveAPIKey(_ context.Context, key redact.Secret, _ time.Time) error {
+	f.key = key.Reveal()
+	return nil
+}
+
+func (f *fakeKeys) DeleteAPIKey(context.Context) error {
+	f.key = ""
+	return nil
+}
+
+const (
+	adminKey  = "AIzaAdminKeyAdminKeyAdminKeyAdmin12"
+	serverKey = "AIzaServerKeyServerKeyServerKeyServ"
+)
+
+// newFinder is a finder that searches with the admin's key when search is given, and can't search otherwise.
 func newFinder(repo *fakeRepo, search Search) *Finder {
-	return NewFinder(repo, search, func() time.Time { return clock })
+	keys := &fakeKeys{}
+	if search != nil {
+		keys.key = adminKey
+	}
+	return NewFinder(repo, keys, redact.Secret{}, search, func() time.Time { return clock })
+}
+
+func admin(ctx context.Context) context.Context {
+	return identity.Into(ctx, identity.User{ID: 1, Name: "hana", Admin: true})
 }
 
 func invalidField(err error) string {
@@ -286,5 +328,127 @@ func TestSetOffsetAndForget(t *testing.T) {
 	}
 	if _, ok := repo.videos[1]; ok {
 		t.Error("ForgetVideo kept the video")
+	}
+}
+
+func TestTheKeySearchesUse(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		admin     string
+		server    string
+		wantKey   string
+		wantFrom  string
+		searchble bool
+	}{
+		{name: "the admin's, over the server's", admin: adminKey, server: serverKey, wantKey: adminKey,
+			wantFrom: KeyFromSettings, searchble: true},
+		{name: "the server's when no admin set one", server: serverKey, wantKey: serverKey, wantFrom: KeyFromServer,
+			searchble: true},
+		{name: "none"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			search := &fakeSearch{found: []Video{official}}
+			f := NewFinder(newFakeRepo(), &fakeKeys{key: tt.admin}, redact.New(tt.server), search,
+				func() time.Time { return clock })
+			status, err := f.Status(t.Context())
+			if err != nil || status.KeyFrom != tt.wantFrom || status.Searchable != tt.searchble || status.CanSetKey {
+				t.Errorf("Status = %+v, %v; want from %q, and no key setting for someone not an admin", status, err,
+					tt.wantFrom)
+			}
+			if _, err := f.Video(t.Context(), 1); err != nil {
+				t.Fatalf("Video: %v", err)
+			}
+			if tt.wantKey == "" && search.searches != 0 {
+				t.Errorf("searched with no key")
+			}
+			if tt.wantKey != "" && (len(search.keys) != 1 || search.keys[0] != tt.wantKey) {
+				t.Errorf("searched with %q, want %q", search.keys, tt.wantKey)
+			}
+		})
+	}
+}
+
+func TestSetAPIKey(t *testing.T) {
+	t.Parallel()
+
+	keys, search := &fakeKeys{}, &fakeSearch{}
+	f := NewFinder(newFakeRepo(), keys, redact.Secret{}, search, func() time.Time { return clock })
+	if err := f.SetAPIKey(admin(t.Context()), "  "+adminKey+"\n"); err != nil {
+		t.Fatalf("SetAPIKey: %v", err)
+	}
+	if keys.key != adminKey || search.keys[0] != adminKey {
+		t.Errorf("kept %q after checking %q, want the key, trimmed, checked with Google first", keys.key, search.keys)
+	}
+	status, err := f.Status(admin(t.Context()))
+	if err != nil || !status.CanSetKey || status.KeyFrom != KeyFromSettings {
+		t.Errorf("Status for an admin = %+v, %v", status, err)
+	}
+	if err := f.ClearAPIKey(admin(t.Context())); err != nil || keys.key != "" {
+		t.Errorf("ClearAPIKey: %v, key %q; want it gone", err, keys.key)
+	}
+}
+
+func TestSetAPIKeyRefuses(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		ctx       func(context.Context) context.Context
+		key       string
+		googleErr error
+		want      func(error) bool
+	}{
+		{name: "someone not signed in", ctx: func(c context.Context) context.Context { return c }, key: adminKey,
+			want: func(err error) bool { return errors.Is(err, fault.ErrUnauthorized) }},
+		{name: "someone not an admin",
+			ctx: func(c context.Context) context.Context { return identity.Into(c, identity.User{ID: 2, Name: "kaze"}) },
+			key: adminKey, want: func(err error) bool { return errors.Is(err, fault.ErrForbidden) }},
+		{name: "text that isn't a key", ctx: admin, key: "not a key",
+			want: func(err error) bool { return invalidField(err) == "key" }},
+		{name: "a key Google turns down", ctx: admin, key: adminKey, googleErr: ErrKeyRejected,
+			want: func(err error) bool { return invalidField(err) == "key" }},
+		{name: "a key whose project hasn't switched on YouTube", ctx: admin, key: adminKey, googleErr: ErrAPIOff,
+			want: func(err error) bool { return invalidField(err) == "key" }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			keys := &fakeKeys{}
+			f := NewFinder(newFakeRepo(), keys, redact.Secret{}, &fakeSearch{err: tt.googleErr},
+				func() time.Time { return clock })
+			if err := f.SetAPIKey(tt.ctx(t.Context()), tt.key); !tt.want(err) {
+				t.Errorf("err = %v", err)
+			}
+			if keys.key != "" {
+				t.Error("kept a key it refused")
+			}
+		})
+	}
+	if err := NewFinder(newFakeRepo(), &fakeKeys{key: adminKey}, redact.Secret{}, &fakeSearch{},
+		func() time.Time { return clock }).ClearAPIKey(t.Context()); !errors.Is(err, fault.ErrUnauthorized) {
+		t.Errorf("ClearAPIKey with no one signed in: %v", err)
+	}
+}
+
+func TestSetAPIKeyKeepsAKeyOutOfQuota(t *testing.T) {
+	t.Parallel()
+
+	keys := &fakeKeys{}
+	f := NewFinder(newFakeRepo(), keys, redact.Secret{}, &fakeSearch{err: ErrQuota}, func() time.Time { return clock })
+	if err := f.SetAPIKey(admin(t.Context()), adminKey); err != nil || keys.key != adminKey {
+		t.Errorf("SetAPIKey: %v, kept %q; want a key out of quota today kept", err, keys.key)
+	}
+}
+
+func TestVideoWithABrokenKey(t *testing.T) {
+	t.Parallel()
+
+	_, err := newFinder(newFakeRepo(), &fakeSearch{err: ErrKeyRejected}).Video(t.Context(), 1)
+	if invalidField(err) != "youtube" {
+		t.Errorf("err = %v, want one saying an admin can replace the key", err)
 	}
 }

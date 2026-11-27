@@ -237,6 +237,7 @@ Only in server mode, with `UTANABI_SPOTIFY_CLIENT_ID` set (`internal/features/sp
 | `spotify_tracks` | The Spotify track each song is: `song_id` (primary key, cascade), `track_id` (22 letters and digits), and `duration_ms` (the track's length, from 010; empty for a track matched before it, until it plays), found once by the song's title, artist, and length, and shared, like the song. |
 | `lyric_offsets` | How far an owner has shifted a song's lyrics to line up with its track: `owner`, `song_id` (cascade), and `offset_ms`, within a minute either way; a line timed at t is sung at t + `offset_ms`. Each owner's own, since the song is shared. Without one, the lyrics play as timed, and when they're timed for a length more than a second off the track's, the bar suggests setting the timing. The app doesn't guess the offset from the lengths: a difference in length doesn't say where in the song it is (Shinunoga E-Wa's lyrics are 5.4 seconds longer than its track, yet start only 0.9 seconds late). Added in 010. |
 | `youtube_videos` | Each owner's YouTube video for a song: `owner`, `song_id` (cascade; primary key with `owner`), `video_id` (YouTube's 11 characters), `title`, `channel`, `duration_ms` (empty for a pasted video with no search to read it), `offset_ms` (within a minute either way, as for `lyric_offsets`), `chosen` (1 when pasted, 0 when search found it), and `matched_at`. Each owner's own, since the song is shared. Removing a user removes theirs. Added in 012. |
+| `server_secrets` | Secrets the server keeps for everyone, each sealed under the server's own key (`secret.key` in the data folder, never in the database): `name` (primary key, such as `youtube_api_key`), `sealed` (the nonce, then the sealed value and its tag), and `updated_at`. Not scoped to an owner, since they're the server's; only admins and the admin command change them. Added in 013. |
 
 ### Accounts and owners
 
@@ -361,6 +362,7 @@ The songs slice fills `line_words` and `word_inflections` from kagome's tokens a
 | 010 | `spotify_tracks.duration_ms`, `lyric_offsets` | Built. The spotify slice lines each song's lyrics up with its track. |
 | 011 | `spotify_links.scopes` | Built. The spotify slice knows whether a connection lets the page play. |
 | 012 | `youtube_videos` | Built. The youtube slice keeps each owner's video for their songs, and its offset. |
+| 013 | `server_secrets` | Built. The youtube slice keeps the YouTube API key an admin enters, sealed. |
 | `dictionary.db` | `meta`, `tags`, `entries`, `entry_forms`, `senses`, `grammar_points` | Built (#9): `task dictionary` and the `internal/dictionary` lookup package, which the songs slice uses for word meanings and the word sheet. Packaging with the apps is a follow-up. |
 
 New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number (`dictionary.SchemaVersion`, stored in `meta`), checked at startup.

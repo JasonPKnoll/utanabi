@@ -5,10 +5,13 @@ package youtube
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/common/redact"
+	"github.com/JasonPKnoll/utanabi/internal/common/secretbox"
 	"github.com/JasonPKnoll/utanabi/internal/identity"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 	"github.com/JasonPKnoll/utanabi/internal/store/storetest"
@@ -32,7 +35,11 @@ func twoUsers(t *testing.T) (*SQLite, context.Context, context.Context) {
 	}
 	hana := identity.Into(t.Context(), identity.User{ID: 1, Name: "hana"})
 	kaze := identity.Into(t.Context(), identity.User{ID: 2, Name: "kaze"})
-	return NewSQLite(db, identity.Accounts()), hana, kaze
+	box, err := secretbox.New([]byte("0123456789abcdef0123456789abcdef"))
+	if err != nil {
+		t.Fatalf("secretbox: %v", err)
+	}
+	return NewSQLite(db, identity.Accounts(), box), hana, kaze
 }
 
 func TestSQLiteSongInTheOwnersLibrary(t *testing.T) {
@@ -113,5 +120,50 @@ func TestSQLiteNeedsASignedInUserWithAccounts(t *testing.T) {
 		if !errors.Is(err, fault.ErrUnauthorized) {
 			t.Errorf("%s with no one signed in: %v, want unauthorized", name, err)
 		}
+	}
+}
+
+func TestSQLiteKeepsTheAPIKeySealed(t *testing.T) {
+	t.Parallel()
+
+	repo, hana, _ := twoUsers(t)
+	if _, err := repo.APIKey(hana); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("before one is saved: %v, want not found", err)
+	}
+	const key = "AIzaSealedKeySealedKeySealedKeySeal"
+	if err := repo.SaveAPIKey(hana, redact.New(key), time.UnixMilli(1)); err != nil {
+		t.Fatalf("SaveAPIKey: %v", err)
+	}
+	var stored []byte
+	if err := repo.db.Querier().QueryRowContext(hana,
+		`SELECT sealed FROM server_secrets WHERE name = 'youtube_api_key'`).Scan(&stored); err != nil {
+		t.Fatalf("read the row: %v", err)
+	}
+	if strings.Contains(string(stored), key) || strings.Contains(string(stored), "AIza") {
+		t.Error("the database holds the key in the clear")
+	}
+	if got, err := repo.APIKey(t.Context()); err != nil || got.Reveal() != key {
+		t.Errorf("APIKey = %q, %v; want the key, for any caller, since it's the server's", got.Reveal(), err)
+	}
+	if err := repo.SaveAPIKey(hana, redact.New(key+"x"), time.UnixMilli(2)); err != nil {
+		t.Fatalf("SaveAPIKey again: %v", err)
+	}
+	if got, _ := repo.APIKey(hana); got.Reveal() != key+"x" {
+		t.Errorf("APIKey = %q, want the newer key", got.Reveal())
+	}
+
+	other, err := secretbox.New([]byte("ffffffffffffffffffffffffffffffff"))
+	if err != nil {
+		t.Fatalf("secretbox: %v", err)
+	}
+	if _, err := NewSQLite(repo.db, identity.Accounts(), other).APIKey(hana); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("with another server key: %v, want as good as none", err)
+	}
+
+	if err := repo.DeleteAPIKey(hana); err != nil {
+		t.Fatalf("DeleteAPIKey: %v", err)
+	}
+	if _, err := repo.APIKey(hana); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("after DeleteAPIKey: %v, want not found", err)
 	}
 }

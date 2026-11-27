@@ -6,6 +6,7 @@ import (
 
 	"github.com/JasonPKnoll/utanabi/internal/app"
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/common/redact"
 )
 
 // Service is the bound Wails service for YouTube. Every exported method here is callable by the frontend. Off (not
@@ -17,17 +18,35 @@ type Service struct {
 
 var errNotSetUp = fault.Invalid("youtube", "isn't set up on this server")
 
-// NewService returns the service over repo. search is nil when the server has no YouTube API key.
-func NewService(repo Repository, search Search, enabled bool) *Service {
-	return &Service{finder: NewFinder(repo, search, time.Now), enabled: enabled}
+// NewService returns the service over repo, searching with the key an admin enters (kept in keys) or else serverKey,
+// which is empty when the server has none.
+func NewService(repo Repository, keys Keys, serverKey redact.Secret, search Search, enabled bool) *Service {
+	return &Service{finder: NewFinder(repo, keys, serverKey, search, time.Now), enabled: enabled}
 }
 
-// Status says whether YouTube can be used here, and whether it can search for videos.
-func (s *Service) Status(context.Context) (Status, error) {
+// Status says whether YouTube can be used here, whether it can search for videos, and with which key.
+func (s *Service) Status(ctx context.Context) (Status, error) {
 	if !s.enabled {
 		return Status{}, nil
 	}
-	return Status{Enabled: true, Searchable: s.finder.Searchable()}, nil
+	status, err := s.finder.Status(ctx)
+	return status, app.Fail(ctx, err)
+}
+
+// SetAPIKey checks a YouTube Data API key with Google and keeps it, sealed, for everyone's searches. Admins only.
+func (s *Service) SetAPIKey(ctx context.Context, key string) error {
+	if !s.enabled {
+		return app.Fail(ctx, errNotSetUp)
+	}
+	return app.Fail(ctx, s.finder.SetAPIKey(ctx, key))
+}
+
+// ClearAPIKey forgets the key an admin entered. Admins only.
+func (s *Service) ClearAPIKey(ctx context.Context) error {
+	if !s.enabled {
+		return app.Fail(ctx, errNotSetUp)
+	}
+	return app.Fail(ctx, s.finder.ClearAPIKey(ctx))
 }
 
 // Video is your video for the song: the one you chose or search found before, or else one search finds now. Its ID

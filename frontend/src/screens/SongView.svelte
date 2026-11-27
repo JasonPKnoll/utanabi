@@ -320,6 +320,7 @@
         {lines}
         startMs={lines[current]?.startMs ?? 0}
         searchable={youtubeSearch}
+        query={`${song.artist} ${song.title}`.trim()}
         oncurrent={follow}
         switchTo={available.includes("spotify") ? "Spotify" : ""}
         onswitch={() => choosePlayer("spotify")}

@@ -26,7 +26,7 @@ func fakeYouTube(t *testing.T, handle func(w http.ResponseWriter, r *http.Reques
 		handle(w, r)
 	}))
 	t.Cleanup(srv.Close)
-	return NewDataAPI(srv.URL, redact.New(testKey))
+	return NewDataAPI(srv.URL)
 }
 
 func writeBody(t *testing.T, w io.Writer, body string) {
@@ -61,7 +61,7 @@ func TestVideosSearchesThenReadsLengths(t *testing.T) {
 			t.Errorf("unexpected path %s", r.URL.Path)
 		}
 	})
-	got, err := api.Videos(t.Context(), "Fujii Kaze Matsuri")
+	got, err := api.Videos(t.Context(), redact.New(testKey), "Fujii Kaze Matsuri")
 	if err != nil {
 		t.Fatalf("Videos: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestVideoLooksOneUp(t *testing.T) {
 	t.Parallel()
 
 	api := fakeYouTube(t, func(w http.ResponseWriter, _ *http.Request) { writeBody(t, w, `{"items":[]}`) })
-	if _, err := api.Video(t.Context(), "AAAAAAAAAAA"); !errors.Is(err, fault.ErrNotFound) {
+	if _, err := api.Video(t.Context(), redact.New(testKey), "AAAAAAAAAAA"); !errors.Is(err, fault.ErrNotFound) {
 		t.Errorf("a video YouTube doesn't have: %v, want not found", err)
 	}
 }
@@ -90,7 +90,7 @@ func TestQuotaSpent(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 		writeBody(t, w, `{"error":{"code":403,"errors":[{"reason":"quotaExceeded"}]}}`)
 	})
-	if _, err := api.Videos(t.Context(), "x"); !errors.Is(err, ErrQuota) {
+	if _, err := api.Videos(t.Context(), redact.New(testKey), "x"); !errors.Is(err, ErrQuota) {
 		t.Errorf("err = %v, want the quota spent", err)
 	}
 }
@@ -102,7 +102,7 @@ func TestARefusalNamesNoKey(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 		writeBody(t, w, `{"error":{"code":400,"errors":[{"reason":"keyInvalid"}]}}`)
 	})
-	_, err := api.Videos(t.Context(), "x")
+	_, err := api.Videos(t.Context(), redact.New(testKey), "x")
 	if err == nil || strings.Contains(err.Error(), testKey) {
 		t.Errorf("err = %v, want a refusal that doesn't name the key", err)
 	}
@@ -116,5 +116,40 @@ func TestISOMillis(t *testing.T) {
 		if got := isoMillis(in); got != want {
 			t.Errorf("isoMillis(%q) = %d, want %d", in, got, want)
 		}
+	}
+}
+
+func TestKeyRefusals(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		status int
+		body   string
+		want   error
+	}{
+		{name: "a key that isn't valid", status: 400,
+			body: `{"error":{"code":400,"errors":[{"reason":"badRequest"}],` +
+				`"details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID"}]}}`,
+			want: ErrKeyRejected},
+		{name: "a key restricted to other APIs", status: 403,
+			body: `{"error":{"code":403,"details":[{"reason":"API_KEY_SERVICE_BLOCKED"}]}}`, want: ErrKeyRejected},
+		{name: "a project without the YouTube Data API", status: 403,
+			body: `{"error":{"code":403,"errors":[{"reason":"accessNotConfigured"}],` +
+				`"details":[{"reason":"SERVICE_DISABLED"}]}}`, want: ErrAPIOff},
+		{name: "a day's quota spent", status: 403, body: `{"error":{"errors":[{"reason":"quotaExceeded"}]}}`,
+			want: ErrQuota},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			api := fakeYouTube(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+				writeBody(t, w, tt.body)
+			})
+			if _, err := api.Video(t.Context(), redact.New(testKey), "AAAAAAAAAAA"); !errors.Is(err, tt.want) {
+				t.Errorf("err = %v, want %v", err, tt.want)
+			}
+		})
 	}
 }

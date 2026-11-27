@@ -1,15 +1,22 @@
-// Command admin manages who's an admin on a server. Admins make invites in the app; being one is set only here, on
-// the server's own machine, so nobody can make themselves one through the app.
+// Command admin manages who's an admin on a server, and the server's YouTube API key. Admins make invites in the app;
+// being one is set only here, on the server's own machine, so nobody can make themselves one through the app.
 //
 //	go run ./cmd/admin -list
 //	go run ./cmd/admin -grant <username>
 //	go run ./cmd/admin -revoke <username>
+//	go run ./cmd/admin -youtube-key < key.txt
+//	go run ./cmd/admin -youtube-key-clear
+//
+// -youtube-key reads the key from standard input, so it isn't kept in the shell's history, checks it with Google,
+// and saves it sealed with the server's secret.key, as entering it in Settings does. make youtube-key makes one and
+// saves it this way.
 //
 // It works on utanabi.db in -data, which defaults to UTANABI_DATA_DIR, then ./data. A running server sees the change
 // on the user's next request.
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"flag"
@@ -19,7 +26,10 @@ import (
 	"time"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/common/secretbox"
 	"github.com/JasonPKnoll/utanabi/internal/features/accounts"
+	"github.com/JasonPKnoll/utanabi/internal/features/youtube"
+	"github.com/JasonPKnoll/utanabi/internal/identity"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 )
 
@@ -39,10 +49,12 @@ func run() (err error) {
 	list := flag.Bool("list", false, "list the accounts and who's an admin")
 	grant := flag.String("grant", "", "make this user an admin")
 	revoke := flag.String("revoke", "", "make this user no longer an admin")
+	setKey := flag.Bool("youtube-key", false, "check the YouTube API key on standard input, and save it")
+	clearKey := flag.Bool("youtube-key-clear", false, "forget the YouTube API key saved before")
 	flag.Parse()
-	if !*list && *grant == "" && *revoke == "" {
+	if !*list && *grant == "" && *revoke == "" && !*setKey && !*clearKey {
 		flag.Usage()
-		return errors.New("say -list, -grant <username>, or -revoke <username>")
+		return errors.New("say -list, -grant <username>, -revoke <username>, -youtube-key, or -youtube-key-clear")
 	}
 
 	ctx := context.Background()
@@ -59,6 +71,30 @@ func run() (err error) {
 		return err
 	}
 	repo := accounts.NewSQLite(db)
+
+	if *setKey || *clearKey {
+		box, err := secretbox.LoadOrCreate(filepath.Join(*data, "secret.key"))
+		if err != nil {
+			return err
+		}
+		keys := youtube.NewSQLite(db, identity.Accounts(), box)
+		if *clearKey {
+			if err := keys.DeleteAPIKey(ctx); err != nil {
+				return err
+			}
+			fmt.Println("The YouTube API key is gone; songs no longer search YouTube unless the server sets one.")
+		}
+		if *setKey {
+			line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil && line == "" {
+				return fmt.Errorf("no key on standard input (%v)", err)
+			}
+			if err := youtube.SaveKey(ctx, keys, youtube.NewDataAPI(youtube.APIURL), line, time.Now()); err != nil {
+				return err
+			}
+			fmt.Println("The YouTube API key is saved, sealed; songs now find their videos on YouTube.")
+		}
+	}
 
 	for name, admin := range map[string]bool{*grant: true, *revoke: false} {
 		if name == "" {

@@ -16,10 +16,24 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
+ * ClearAPIKey forgets the key an admin entered. Admins only.
+ */
+export function ClearAPIKey(): $CancellablePromise<void> {
+    return $Call.ByID(878203321);
+}
+
+/**
  * ForgetVideo drops your video for the song, so the next look searches again.
  */
 export function ForgetVideo(songID: number): $CancellablePromise<void> {
     return $Call.ByID(1823178675, songID);
+}
+
+/**
+ * SetAPIKey checks a YouTube Data API key with Google and keeps it, sealed, for everyone's searches. Admins only.
+ */
+export function SetAPIKey(key: string): $CancellablePromise<void> {
+    return $Call.ByID(3507862276, key);
 }
 
 /**
@@ -37,7 +51,7 @@ export function SetVideo(songID: number, link: string): $CancellablePromise<$mod
 }
 
 /**
- * Status says whether YouTube can be used here, and whether it can search for videos.
+ * Status says whether YouTube can be used here, whether it can search for videos, and with which key.
  */
 export function Status(): $CancellablePromise<$models.Status> {
     return $Call.ByID(1179758131);

@@ -28,21 +28,20 @@ const (
 	searchSize = 5
 )
 
-// DataAPI is the Search backed by YouTube's Data API, with the server's API key.
+// DataAPI is the Search backed by YouTube's Data API.
 type DataAPI struct {
 	base   string
-	key    redact.Secret
 	client *http.Client
 }
 
-// NewDataAPI returns the API at base (APIURL, or a test server), with key.
-func NewDataAPI(base string, key redact.Secret) *DataAPI {
+// NewDataAPI returns the API at base (APIURL, or a test server).
+func NewDataAPI(base string) *DataAPI {
 	base = strings.TrimRight(base, "/")
 	host := ""
 	if u, err := url.Parse(base); err == nil {
 		host = u.Host
 	}
-	return &DataAPI{base: base, key: key, client: &http.Client{
+	return &DataAPI{base: base, client: &http.Client{
 		Timeout: apiTimeout,
 		// The app talks only to YouTube's API, so a redirect elsewhere is refused rather than followed.
 		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
@@ -59,7 +58,7 @@ type snippetJSON struct {
 	ChannelTitle string `json:"channelTitle"`
 }
 
-func (a *DataAPI) Videos(ctx context.Context, query string) ([]Video, error) {
+func (a *DataAPI) Videos(ctx context.Context, key redact.Secret, query string) ([]Video, error) {
 	var found struct {
 		Items []struct {
 			ID struct {
@@ -67,7 +66,7 @@ func (a *DataAPI) Videos(ctx context.Context, query string) ([]Video, error) {
 			} `json:"id"`
 		} `json:"items"`
 	}
-	err := a.get(ctx, "/search", url.Values{"part": {"id"}, "type": {"video"}, "videoEmbeddable": {"true"},
+	err := a.get(ctx, key, "/search", url.Values{"part": {"id"}, "type": {"video"}, "videoEmbeddable": {"true"},
 		"maxResults": {strconv.Itoa(searchSize)}, "q": {query}}, &found)
 	if err != nil {
 		return nil, err
@@ -81,11 +80,11 @@ func (a *DataAPI) Videos(ctx context.Context, query string) ([]Video, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	return a.details(ctx, ids)
+	return a.details(ctx, key, ids)
 }
 
-func (a *DataAPI) Video(ctx context.Context, id string) (Video, error) {
-	videos, err := a.details(ctx, []string{id})
+func (a *DataAPI) Video(ctx context.Context, key redact.Secret, id string) (Video, error) {
+	videos, err := a.details(ctx, key, []string{id})
 	if err != nil {
 		return Video{}, err
 	}
@@ -96,7 +95,7 @@ func (a *DataAPI) Video(ctx context.Context, id string) (Video, error) {
 }
 
 // details reads the videos' titles, channels, and lengths, in the order of ids.
-func (a *DataAPI) details(ctx context.Context, ids []string) ([]Video, error) {
+func (a *DataAPI) details(ctx context.Context, key redact.Secret, ids []string) ([]Video, error) {
 	var found struct {
 		Items []struct {
 			ID             string      `json:"id"`
@@ -106,7 +105,7 @@ func (a *DataAPI) details(ctx context.Context, ids []string) ([]Video, error) {
 			} `json:"contentDetails"`
 		} `json:"items"`
 	}
-	err := a.get(ctx, "/videos", url.Values{"part": {"snippet,contentDetails"}, "id": {strings.Join(ids, ",")}},
+	err := a.get(ctx, key, "/videos", url.Values{"part": {"snippet,contentDetails"}, "id": {strings.Join(ids, ",")}},
 		&found)
 	if err != nil {
 		return nil, err
@@ -128,12 +127,12 @@ func (a *DataAPI) details(ctx context.Context, ids []string) ([]Video, error) {
 
 // get asks the API for path with query, and reads its answer into out. The key goes in a header, so it's never in a
 // URL that could end up in a log.
-func (a *DataAPI) get(ctx context.Context, path string, query url.Values, out any) error {
+func (a *DataAPI) get(ctx context.Context, key redact.Secret, path string, query url.Values, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.base+path+"?"+query.Encode(), nil)
 	if err != nil {
 		return fmt.Errorf("youtube: build request (%v)", err)
 	}
-	req.Header.Set("X-Goog-Api-Key", a.key.Reveal())
+	req.Header.Set("X-Goog-Api-Key", key.Reveal())
 	req.Header.Set("Accept", "application/json")
 	resp, err := a.client.Do(req)
 	if err != nil {
@@ -145,26 +144,48 @@ func (a *DataAPI) get(ctx context.Context, path string, query url.Values, out an
 		return fmt.Errorf("youtube: read answer (%v)", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		var failed struct {
-			Error struct {
-				Errors []struct {
-					Reason string `json:"reason"`
-				} `json:"errors"`
-			} `json:"error"`
-		}
-		if json.Unmarshal(raw, &failed) == nil {
-			for _, e := range failed.Error.Errors {
-				if e.Reason == "quotaExceeded" || e.Reason == "dailyLimitExceeded" {
-					return ErrQuota
-				}
-			}
-		}
-		return fmt.Errorf("youtube: request refused (GET %s, status %d)", path, resp.StatusCode)
+		return refused(path, resp.StatusCode, raw)
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
 		return fmt.Errorf("youtube: answer isn't JSON (GET %s, %v)", path, err)
 	}
 	return nil
+}
+
+// refused reads why Google turned a request down. It names the reason in two places: the older errors list
+// (quotaExceeded, keyInvalid, accessNotConfigured) and the newer details (API_KEY_INVALID, SERVICE_DISABLED).
+func refused(path string, status int, raw []byte) error {
+	var failed struct {
+		Error struct {
+			Errors []struct {
+				Reason string `json:"reason"`
+			} `json:"errors"`
+			Details []struct {
+				Reason string `json:"reason"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(raw, &failed) == nil {
+		var reasons []string
+		for _, e := range failed.Error.Errors {
+			reasons = append(reasons, e.Reason)
+		}
+		for _, d := range failed.Error.Details {
+			reasons = append(reasons, d.Reason)
+		}
+		for _, r := range reasons {
+			switch r {
+			case "quotaExceeded", "dailyLimitExceeded", "RATE_LIMIT_EXCEEDED":
+				return ErrQuota
+			case "accessNotConfigured", "SERVICE_DISABLED":
+				return ErrAPIOff
+			case "keyInvalid", "keyExpired", "API_KEY_INVALID", "API_KEY_SERVICE_BLOCKED", "API_KEY_HTTP_REFERRER_BLOCKED",
+				"API_KEY_IP_ADDRESS_BLOCKED", "API_KEY_ANDROID_APP_BLOCKED", "API_KEY_IOS_APP_BLOCKED":
+				return ErrKeyRejected
+			}
+		}
+	}
+	return fmt.Errorf("youtube: request refused (GET %s, status %d)", path, status)
 }
 
 var isoDuration = regexp.MustCompile(`^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$`)

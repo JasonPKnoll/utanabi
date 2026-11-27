@@ -29,6 +29,7 @@
     lines,
     startMs,
     searchable,
+    query,
     oncurrent,
     following = $bindable(false),
     switchTo = "",
@@ -39,6 +40,8 @@
     // Where Play starts: the line you're on.
     startMs: number;
     searchable: boolean;
+    // What to search YouTube for: the song's artist and title.
+    query: string;
     oncurrent: (index: number) => void;
     following?: boolean;
     // The other player the song can play along with, such as "YouTube", and switching to it; none when there's none.
@@ -310,7 +313,14 @@
 {/if}
 
 {#if choosing}
-  <YouTubeVideoSheet {video} {searchable} onsave={saveLink} onsearch={searchAgain} onclose={() => (choosing = false)} />
+  <YouTubeVideoSheet
+    {video}
+    {searchable}
+    {query}
+    onsave={saveLink}
+    onsearch={searchAgain}
+    onclose={() => (choosing = false)}
+  />
 {/if}
 
 <style>

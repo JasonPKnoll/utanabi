@@ -6,19 +6,57 @@ import (
 	"time"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/common/redact"
+	"github.com/JasonPKnoll/utanabi/internal/common/secretbox"
 	"github.com/JasonPKnoll/utanabi/internal/identity"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 )
 
-// SQLite is the Repository backed by the app's database. Every video is its owner's, and only for a song in their
-// library.
+// apiKeyName is the API key's row in server_secrets, and what it's sealed for.
+const apiKeyName = "youtube_api_key"
+
+// SQLite is the Repository and Keys backed by the app's database. Every video is its owner's, and only for a song in
+// their library. The API key is the server's, sealed with box.
 type SQLite struct {
 	db     *store.DB
 	owners identity.Owners
+	box    *secretbox.Box
 }
 
-func NewSQLite(db *store.DB, owners identity.Owners) *SQLite {
-	return &SQLite{db: db, owners: owners}
+func NewSQLite(db *store.DB, owners identity.Owners, box *secretbox.Box) *SQLite {
+	return &SQLite{db: db, owners: owners, box: box}
+}
+
+func (s *SQLite) APIKey(ctx context.Context) (redact.Secret, error) {
+	var sealed []byte
+	err := s.db.Querier().QueryRowContext(ctx, `SELECT sealed FROM server_secrets WHERE name = ?`, apiKeyName).
+		Scan(&sealed)
+	if err != nil {
+		return redact.Secret{}, store.Translate(err)
+	}
+	plain, err := s.box.Open(apiKeyName, sealed)
+	if err != nil {
+		// Sealed with another server key, such as one lost or replaced: as good as none.
+		return redact.Secret{}, fault.ErrNotFound
+	}
+	return redact.New(string(plain)), nil
+}
+
+func (s *SQLite) SaveAPIKey(ctx context.Context, key redact.Secret, now time.Time) error {
+	sealed, err := s.box.Seal(apiKeyName, []byte(key.Reveal()))
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Querier().ExecContext(ctx,
+		`INSERT INTO server_secrets (name, sealed, updated_at) VALUES (?, ?, ?)
+		 ON CONFLICT (name) DO UPDATE SET sealed = excluded.sealed, updated_at = excluded.updated_at`,
+		apiKeyName, sealed, now.UnixMilli())
+	return store.Translate(err)
+}
+
+func (s *SQLite) DeleteAPIKey(ctx context.Context) error {
+	_, err := s.db.Querier().ExecContext(ctx, `DELETE FROM server_secrets WHERE name = ?`, apiKeyName)
+	return store.Translate(err)
 }
 
 func (s *SQLite) Song(ctx context.Context, songID int64) (Song, error) {

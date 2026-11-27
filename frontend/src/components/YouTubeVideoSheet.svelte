@@ -8,12 +8,15 @@
   let {
     video,
     searchable,
+    query,
     onsave,
     onsearch,
     onclose,
   }: {
     video: Video | null;
     searchable: boolean;
+    // What to search YouTube for: the song's artist and title.
+    query: string;
     onsave: (link: string) => Promise<void>;
     onsearch: () => Promise<void>;
     onclose: () => void;
@@ -64,6 +67,14 @@
     {:else}
       <p class="muted">No video yet.</p>
     {/if}
+
+    <a
+      class="button youtube-search"
+      href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
+      target="_blank"
+      rel="noopener noreferrer">Search on YouTube</a
+    >
+    <p class="muted small">Find the video, tap Share, then Copy link, and paste it here.</p>
 
     <form
       onsubmit={(event) => {
@@ -122,11 +133,20 @@
     font-size: 0.875rem;
   }
 
+  .youtube-search {
+    width: 100%;
+    margin-top: 16px;
+  }
+
+  .small {
+    font-size: 0.875rem;
+  }
+
   form {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin-top: 20px;
+    margin-top: 16px;
   }
 
   label {

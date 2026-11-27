@@ -3,11 +3,14 @@
 
 /**
  * Status says whether YouTube can be used here, and whether it can search for a song's video, which needs an API key
- * on the server. Without one, a video is pasted as a link.
+ * on the server. Without one, a video is pasted as a link. KeyFrom says where the key is: "settings" for one an admin
+ * entered, "server" for UTANABI_YOUTUBE_API_KEY, or "" for none. CanSetKey is true for an admin.
  */
 export interface Status {
     "enabled": boolean;
     "searchable": boolean;
+    "keyFrom": string;
+    "canSetKey": boolean;
 }
 
 /**

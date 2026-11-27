@@ -40,6 +40,40 @@
     .then((s) => (youtube = s))
     .catch(() => (youtube = null));
 
+  // An admin's YouTube Data API key, for songs to find their videos: checked with Google, then kept sealed.
+  let ytKey = $state("");
+  let ytBusy = $state(false);
+  let ytNote = $state<{ ok: boolean; text: string } | null>(null);
+  const ytKeyId = $props.id();
+
+  async function saveKey() {
+    ytBusy = true;
+    ytNote = null;
+    try {
+      await YouTube.SetAPIKey(ytKey);
+      ytKey = "";
+      youtube = await YouTube.Status();
+      ytNote = { ok: true, text: "Saved. Songs now find their videos on YouTube." };
+    } catch (err) {
+      ytNote = { ok: false, text: toAppError(err).message };
+    } finally {
+      ytBusy = false;
+    }
+  }
+
+  async function clearKey() {
+    ytBusy = true;
+    ytNote = null;
+    try {
+      await YouTube.ClearAPIKey();
+      youtube = await YouTube.Status();
+    } catch (err) {
+      ytNote = { ok: false, text: toAppError(err).message };
+    } finally {
+      ytBusy = false;
+    }
+  }
+
   async function disconnect() {
     spotifyNote = "";
     try {
@@ -153,6 +187,42 @@
               ? "Each song finds its video on YouTube by itself; you can paste a different link."
               : "Paste each song's YouTube or YouTube Music link. This server has no YouTube key to search with."}
           </p>
+          {#if youtube.canSetKey}
+            <form
+              class="key"
+              onsubmit={(event) => {
+                event.preventDefault();
+                void saveKey();
+              }}
+            >
+              <label for={ytKeyId}>
+                {youtube.keyFrom === "settings" ? "Replace the YouTube API key" : "YouTube Data API key"}
+              </label>
+              <input
+                id={ytKeyId}
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="AIza…"
+                bind:value={ytKey}
+                disabled={ytBusy}
+              />
+              <p class="muted small">
+                {youtube.keyFrom === "server"
+                  ? "The server has a key of its own; one saved here is used instead."
+                  : "Make one in Google Cloud for the YouTube Data API v3, or run make youtube-key on the server. It's checked with Google, then kept sealed on the server for everyone's searches."}
+              </p>
+              <button type="submit" class="button primary" disabled={ytBusy || ytKey.trim() === ""}>
+                {ytBusy ? "Checking…" : "Save key"}
+              </button>
+            </form>
+            {#if youtube.keyFrom === "settings"}
+              <button type="button" class="button danger" disabled={ytBusy} onclick={clearKey}>Remove the key</button>
+            {/if}
+            {#if ytNote}
+              <p class:alert={!ytNote.ok} class="note" role="status">{ytNote.text}</p>
+            {/if}
+          {/if}
         </div>
       </section>
     {/if}
@@ -250,6 +320,28 @@
 
   .account .button {
     flex: none;
+  }
+
+  .key {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .key label {
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .key input {
+    min-height: var(--tap);
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    font-size: 1rem;
   }
 
   .badge {

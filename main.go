@@ -9,12 +9,14 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/JasonPKnoll/utanabi/internal/app"
 	"github.com/JasonPKnoll/utanabi/internal/common/morph"
+	"github.com/JasonPKnoll/utanabi/internal/common/secretbox"
 	"github.com/JasonPKnoll/utanabi/internal/config"
 	"github.com/JasonPKnoll/utanabi/internal/dictionary"
 	"github.com/JasonPKnoll/utanabi/internal/features/accounts"
@@ -123,10 +125,13 @@ func run() (err error) {
 	// YouTube plays in the page in server mode, where the page is served over the web. With an API key it can also
 	// search for a song's video; without one, videos are pasted as links. A nil Search means no key.
 	youtubeOn := cfg.Platform == "server"
-	var youtubeSearch youtube.Search
-	if !cfg.Server.YouTubeAPIKey.IsZero() {
-		youtubeSearch = youtube.NewDataAPI(youtube.APIURL, cfg.Server.YouTubeAPIKey)
+	// The server's own key for secrets it keeps in the database, such as the YouTube API key an admin enters: made on
+	// first start, next to the database, readable only by the server's user.
+	secrets, err := secretbox.LoadOrCreate(filepath.Join(filepath.Dir(cfg.DBPath), "secret.key"))
+	if err != nil {
+		return fmt.Errorf("open secret key: %w", err)
 	}
+	youtubeRepo := youtube.NewSQLite(db, owners, secrets)
 
 	// One analyzer for every slice that reads Japanese, so its dictionary loads once.
 	analyzer := morph.New()
@@ -140,15 +145,15 @@ func run() (err error) {
 			sources...)),
 		application.NewService(study.NewService(study.NewSQLite(db, owners), study.NewJMdict(dict), cfg.StudyStreak)),
 		application.NewService(spotify.NewService(spotifyRepo, spotifyAPI, spotify.NewMorph(analyzer), spotifyOn)),
-		application.NewService(youtube.NewService(youtube.NewSQLite(db, owners), youtubeSearch, youtubeOn)),
+		application.NewService(youtube.NewService(youtubeRepo, youtubeRepo, cfg.Server.YouTubeAPIKey,
+			youtube.NewDataAPI(youtube.APIURL), youtubeOn)),
 	}, serverOnly...)
 	a := app.New(cfg, log, dist, signIn, append(services, app.CloseOnShutdown(closers...))...)
 
 	log.InfoContext(ctx, "starting", slog.String("version", cfg.Version), slog.String("platform", cfg.Platform),
 		slog.Any("lyrics_sources", cfg.LyricsSources), slog.Bool("dictionary", dict != nil),
 		slog.Bool("accounts", signIn != nil), slog.Bool("signup_open", !cfg.Server.SignupCode.IsZero()),
-		slog.Bool("spotify", spotifyOn), slog.Bool("youtube", youtubeOn),
-		slog.Bool("youtube_search", youtubeSearch != nil))
+		slog.Bool("spotify", spotifyOn), slog.Bool("youtube", youtubeOn))
 	if err := a.Run(); err != nil {
 		return fmt.Errorf("run app: %w", err)
 	}
