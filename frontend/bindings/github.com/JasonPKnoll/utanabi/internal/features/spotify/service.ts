@@ -44,7 +44,7 @@ export function Play(songID: number, positionMs: number): $CancellablePromise<$m
 }
 
 /**
- * ResetOffset goes back to lining the song's lyrics up on their own.
+ * ResetOffset goes back to the lyrics' own timing.
  */
 export function ResetOffset(songID: number): $CancellablePromise<void> {
     return $Call.ByID(2158581260, songID);
