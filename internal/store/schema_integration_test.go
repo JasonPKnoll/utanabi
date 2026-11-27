@@ -101,6 +101,10 @@ func TestSchemaAcceptsGoodRows(t *testing.T) {
 			sql: `INSERT INTO invites (code_hash, created_by, created_at, expires_at, used_by, used_at) VALUES (randomblob(32), 5, 1, 9, 5, 3)`},
 		{name: "a card's progress",
 			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (1000, 2, 5, 1, 1)`},
+		{name: "a sung reading in katakana",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (5, 10, 2, 2, '声', 'ボイス')`},
+		{name: "a sung reading in hiragana over several tokens",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 4, 6, '探している', 'さがしてる')`},
 		{name: "a token with its part of speech",
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading, pos) VALUES (11, 0, '夜', 'よる', 'noun')`},
 		{name: "a token without a part of speech",
@@ -277,6 +281,17 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 			sql: `INSERT INTO cards (kind, entry_id, sense_index, label, created_at) VALUES ('word', 3, 0, '探す', 1)`},
 		{name: "a second card for the same grammar point", wantErr: "UNIQUE",
 			sql: `INSERT INTO cards (kind, grammar_point_id, label, created_at) VALUES ('grammar', 'teiru', 'x', 1)`},
+		{name: "a sung reading in kanji", wantErr: "CHECK",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', '歌')`},
+		{name: "a sung reading in Latin letters", wantErr: "CHECK",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'voice')`},
+		{name: "a sung reading that ends before it starts", wantErr: "CHECK",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 4, 3, '声', 'うた')`},
+		{name: "a sung reading for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (99, 10, 2, 2, '声', 'うた')`},
+		{name: "a second sung reading for one word in one owner's readings", wantErr: "UNIQUE",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'うた');
+			      INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'こえ')`},
 		{name: "a second card for the same line", wantErr: "UNIQUE",
 			sql: `INSERT INTO cards (kind, line_id, label, created_at) VALUES ('line', 11, 'x', 1)`},
 	}
@@ -312,6 +327,11 @@ func TestSchemaDeletingASongRemovesEverythingFromIt(t *testing.T) {
 	t.Parallel()
 
 	db := newSchemaDB(t)
+	_, err := db.Querier().ExecContext(t.Context(),
+		`INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'うた')`)
+	if err != nil {
+		t.Fatalf("insert sung reading: %v", err)
+	}
 	if _, err := db.Querier().ExecContext(t.Context(), `DELETE FROM songs WHERE id = 1`); err != nil {
 		t.Fatalf("delete song: %v", err)
 	}
@@ -323,6 +343,7 @@ func TestSchemaDeletingASongRemovesEverythingFromIt(t *testing.T) {
 		"inflections":     `SELECT count(*) FROM word_inflections WHERE word_id = 104`,
 		"translations":    `SELECT count(*) FROM line_translations WHERE line_id IN (10, 11)`,
 		"line card":       `SELECT count(*) FROM cards WHERE id = 1002`,
+		"sung readings":   `SELECT count(*) FROM sung_readings WHERE line_id IN (10, 11)`,
 	}
 	for what, query := range gone {
 		if got := count(t, db, query); got != 0 {
@@ -358,11 +379,13 @@ func TestSchemaLibrariesAndAccounts(t *testing.T) {
 
 	// Removing the user removes their passkeys, sessions, cards, and library, and the songs only they had.
 	exec(`INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 5, 3, 0, '探す', 1)`)
+	exec(`INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (5, 10, 2, 2, '声', 'うた')`)
 	exec(`DELETE FROM users WHERE id = 5`)
 	for name, query := range map[string]string{
 		"their keys":     `SELECT count(*) FROM passkeys WHERE user_id = 5`,
 		"their sign-ins": `SELECT count(*) FROM sessions WHERE user_id = 5`,
 		"their cards":    `SELECT count(*) FROM cards WHERE owner = 5`,
+		"their readings": `SELECT count(*) FROM sung_readings WHERE owner = 5`,
 		"their library":  `SELECT count(*) FROM library_songs WHERE owner = 5`,
 		"song 2":         `SELECT count(*) FROM songs WHERE id = 2`,
 	} {

@@ -23,7 +23,7 @@
   let deleting = $state(false);
   let aids = $state(loadReadingAids());
   let displayOpen = $state(false);
-  let open = $state<{ word: Word; ruby: RubyPart[] } | null>(null);
+  let open = $state<{ word: Word; ruby: RubyPart[]; line: number } | null>(null);
 
   let lines = $derived(song?.lines ?? []);
   // JMdict's licence asks for a credit wherever its meanings show, so the footnote appears only when they do.
@@ -50,6 +50,19 @@
       })
       .catch((err: unknown) => (failure = toAppError(err)));
   });
+
+  // Saves how a word is sung, then shows the song and the open word as they are now. A failure is the sheet's to show.
+  async function setSung(line: number, firstToken: number, reading: string) {
+    const updated = await Songs.SetSungReading({ songId: id, line, firstToken, reading });
+    song = updated;
+    const shown = updated.lines?.find((l) => l.position === line);
+    const index = shown?.words?.findIndex((w) => w.firstToken === firstToken) ?? -1;
+    const piece = shown?.pieces?.find((p) => p.word === index);
+    const word = shown?.words?.[index];
+    if (word && piece) {
+      open = { word, ruby: piece.ruby ?? [], line };
+    }
+  }
 
   async function remove() {
     deleting = true;
@@ -133,7 +146,11 @@
             {#if aids.words && (line.words ?? []).length > 0}
               {#if i === current}
                 <div class="line current card" role="group" aria-label={line.text} aria-current="true">
-                  <Interlinear {line} furigana={aids.furigana} onword={(word, ruby) => (open = { word, ruby })} />
+                  <Interlinear
+                    {line}
+                    furigana={aids.furigana}
+                    onword={(word, ruby) => (open = { word, ruby, line: line.position })}
+                  />
                   {#if aids.romaji && hasRomaji(line)}
                     <span class="romaji" lang="ja-Latn">{line.romaji}</span>
                   {/if}
@@ -155,7 +172,7 @@
             {:else if i === current && (line.words ?? []).length > 0}
               <div class="line current" role="group" aria-label={line.text} aria-current="true">
                 <!-- prettier-ignore -->
-                <span class="sung">{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [] })}>{@render rubyText(piece.ruby ?? [])}</button>{:else}{@render rubyText(piece.ruby ?? [])}{/if}{/each}</span>
+                <span class="sung">{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [], line: line.position })}>{@render rubyText(piece.ruby ?? [])}</button>{:else}{@render rubyText(piece.ruby ?? [])}{/if}{/each}</span>
                 {#if aids.romaji && hasRomaji(line)}
                   <span class="romaji" lang="ja-Latn">{line.romaji}</span>
                 {/if}
@@ -185,7 +202,12 @@
     </main>
 
     {#if open}
-      <WordSheet word={open.word} ruby={open.ruby} onclose={() => (open = null)} />
+      <WordSheet
+        word={open.word}
+        ruby={open.ruby}
+        onclose={() => (open = null)}
+        onsung={(reading) => setSung(open?.line ?? 0, open?.word.firstToken ?? 0, reading)}
+      />
     {/if}
 
     {#if displayOpen}

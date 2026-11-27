@@ -77,6 +77,13 @@ func (s *Service) AddFromSource(ctx context.Context, source, ref string) (Song, 
 	return song, app.Fail(ctx, err)
 }
 
+// SetSungReading sets how a word of a song is sung when that isn't how it's written, such as 羅針盤 sung コンパス, or
+// removes it when the reading is empty. It returns the song as it shows now.
+func (s *Service) SetSungReading(ctx context.Context, change SungReadingChange) (Song, error) {
+	song, err := SetSungReading(ctx, s.repo, s.analyzer, s.dict, change)
+	return song, app.Fail(ctx, err)
+}
+
 // Delete removes one song.
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	return app.Fail(ctx, DeleteSong(ctx, s.repo, id))

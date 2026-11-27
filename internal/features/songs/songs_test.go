@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -75,6 +76,26 @@ func (f *fakeRepo) SaveAnalysis(_ context.Context, songID int64, lines []Line) e
 	song.Lines = saved
 	f.songs[songID] = song
 	return nil
+}
+
+func (f *fakeRepo) SetSungReading(_ context.Context, songID int64, r SungReading) error {
+	song, ok := f.songs[songID]
+	if !ok {
+		return fault.ErrNotFound
+	}
+	for i := range song.Lines {
+		line := &song.Lines[i]
+		if line.Position != r.Line {
+			continue
+		}
+		line.Sung = slices.DeleteFunc(slices.Clone(line.Sung), func(s SungReading) bool { return s.FirstToken == r.FirstToken })
+		if r.Reading != "" {
+			line.Sung = append(line.Sung, r)
+		}
+		f.songs[songID] = song
+		return nil
+	}
+	return fault.ErrNotFound
 }
 
 func (f *fakeRepo) SaveMeanings(_ context.Context, words []WordAnalysis) error {

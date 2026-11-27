@@ -44,6 +44,8 @@ type Line struct {
 	Tokens []Token `json:"-"`
 	// Analysis is the line's stored words. Nil means its words haven't been found yet.
 	Analysis []WordAnalysis `json:"-"`
+	// Sung are the readings you set for words of the line that aren't sung as written.
+	Sung []SungReading `json:"-"`
 }
 
 // LinePiece is a run of a line: one word, or text that belongs to no word, such as punctuation. Word is the index of
@@ -74,6 +76,10 @@ type Word struct {
 	Grammar      *GrammarPoint  `json:"grammar"`
 	Steps        []GrammarPoint `json:"steps"`
 	Form         string         `json:"form"`
+	// Sung is how you said the word is sung, when that isn't how it's written (羅針盤 sung コンパス), in kana, with
+	// SungRomaji its romaji. Empty otherwise. The furigana over the word shows it.
+	Sung       string `json:"sung"`
+	SungRomaji string `json:"sungRomaji"`
 }
 
 // GrammarPoint is one use of a particle, one conjugation, or one pattern, from the app's grammar list.
@@ -108,6 +114,10 @@ type Token struct {
 	BaseForm string
 	ConjType string
 	ConjForm string
+	// sung and sungEnd are set while a song is shown, on the first token of a word with a sung reading: the reading,
+	// and the word's last token.
+	sung    string
+	sungEnd int
 }
 
 // Analyzer splits a line into tokens with their readings, parts of speech, and IPA fields.
@@ -197,6 +207,9 @@ type Repository interface {
 	// AddSavedSong adds a song already saved from source, by someone else, to this library and returns its ID; ok is
 	// false when no one has saved it.
 	AddSavedSong(ctx context.Context, source, ref string) (id int64, ok bool, err error)
+	// SetSungReading saves how a word of a line is sung, replacing the one there, or removes it when Reading is empty.
+	// It returns fault.ErrNotFound when the song isn't in the library or has no such line.
+	SetSungReading(ctx context.Context, songID int64, reading SungReading) error
 	// SaveAnalysis stores the tokens and words of a saved song's lines that have none yet, and leaves lines that
 	// already have them as they are.
 	SaveAnalysis(ctx context.Context, songID int64, lines []Line) error

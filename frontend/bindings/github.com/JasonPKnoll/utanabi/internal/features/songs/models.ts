@@ -140,6 +140,17 @@ export interface Summary {
 }
 
 /**
+ * SungReadingChange sets how the word starting at FirstToken in line Line of a song is sung. An empty Reading
+ * removes it, so the word shows its dictionary reading again.
+ */
+export interface SungReadingChange {
+    "songId": number;
+    "line": number;
+    "firstToken": number;
+    "reading": string;
+}
+
+/**
  * Word is one learnable word of a line, as the song view shows it. It covers the line's tokens FirstToken to
  * LastToken. Lemma is its dictionary form, Gloss the short meaning it has in this line ("to search for"), Short its
  * part of the line's word-by-word gloss, shown under the word ("search for", "'s", "(subject)"), and Form a plain
@@ -162,6 +173,13 @@ export interface Word {
     "grammar": GrammarPoint | null;
     "steps": GrammarPoint[] | null;
     "form": string;
+
+    /**
+     * Sung is how you said the word is sung, when that isn't how it's written (羅針盤 sung コンパス), in kana, with
+     * SungRomaji its romaji. Empty otherwise. The furigana over the word shows it.
+     */
+    "sung": string;
+    "sungRomaji": string;
 }
 
 /**

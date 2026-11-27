@@ -330,6 +330,7 @@ func TestSQLiteNeedsASignedInUserWithAccounts(t *testing.T) {
 	_, _, calls["AddSavedSong"] = repo.AddSavedSong(ctx, "lrclib", "1")
 	_, calls["SongIDsBySource"] = repo.SongIDsBySource(ctx, "lrclib", []string{"1"})
 	calls["SaveAnalysis"] = repo.SaveAnalysis(ctx, 1, nil)
+	calls["SetSungReading"] = repo.SetSungReading(ctx, 1, SungReading{Reading: "うた"})
 	calls["DeleteSong"] = repo.DeleteSong(ctx, 1)
 	for name, err := range calls {
 		if !errors.Is(err, fault.ErrUnauthorized) {

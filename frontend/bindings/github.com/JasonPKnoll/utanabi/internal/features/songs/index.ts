@@ -22,5 +22,6 @@ export type {
     SearchResult,
     Song,
     Summary,
+    SungReadingChange,
     Word
 } from "./models.js";

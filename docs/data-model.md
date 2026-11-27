@@ -118,6 +118,20 @@ The learnable units of a line. Each covers a run of tokens.
 
 How the songs slice fills it is under "Finding words" below.
 
+### `sung_readings`
+
+How a word is sung when that isn't how it's written: gikun, where a singer writes 羅針盤 ("compass") and sings コンパス, or writes 地球 and sings ほし. Nothing in the text says so, so you set it, in the word sheet. Each owner's own, since a song from a lyrics source is shared: your reading never changes the song for anyone else.
+
+| Column | Type | Rules |
+| --- | --- | --- |
+| `owner` | INTEGER | Whose reading it is (see "Accounts and owners"). |
+| `line_id` | INTEGER, references `lyric_lines`, cascade | |
+| `first_token`, `last_token` | INTEGER | The word's tokens. `first_token <= last_token`. Primary key `(owner, line_id, first_token)`. |
+| `surface` | TEXT | The word as written. The reading is used only while the line's tokens there still spell it, so a line analysed again never puts it over another word. |
+| `reading` | TEXT | Hiragana or katakana, as it should show over the word, with ー and the iteration marks. 1 to 100 characters. |
+
+It changes what's sung, not what the word is: the word's furigana, its romaji, and the word sheet's "Sung as" follow it, while its dictionary form and reading, its meaning, and its card stay the written word's. A katakana reading goes over the whole word; a hiragana one is lined up with the word's kana, like any furigana.
+
 ### `word_inflections`
 
 How a word got from its dictionary form to the form in the line. The steps are ordered, because Japanese stacks conjugations.
@@ -224,9 +238,10 @@ Server mode has accounts, signed in with passkeys (see [security](security.md#id
 | `passkeys` | One per passkey: `id` (the credential ID), `user_id` (cascade), `public_key`, `attestation_type`, `transports` (JSON list), `aaguid`, `sign_count`, `backup_eligible`, `backup_state`, `created_at`, `last_used_at`. Never a private key. |
 | `sessions` | `token_hash` (SHA-256 of the cookie's token, never the token), `user_id` (cascade), `created_at`, `expires_at`. |
 | `library_songs` | Each owner's library: `(owner, song_id)` with `added_at`. A song from a lyrics source is saved once however many people add it, so its analysis is shared; a song with your own lyrics is only in its owner's library. A trigger deletes a song when the last library holding it lets it go. |
+| `sung_readings.owner` | Whose sung reading it is. |
 | `cards.owner` | Whose card it is. There is one card per meaning, grammar point, and line **for each owner**, and `card_progress` belongs to its card. |
 
-Migration `006_accounts.sql` gave every song saved before it to the device's library, and every card to the device. `007_admins_and_invites.sql` added `users.admin` and `invites`.
+Migration `006_accounts.sql` gave every song saved before it to the device's library, and every card to the device. `007_admins_and_invites.sql` added `users.admin` and `invites`, and `008_sung_readings.sql` added `sung_readings`.
 
 ## Reference data: `dictionary.db`
 
@@ -330,6 +345,7 @@ The songs slice fills `line_words` and `word_inflections` from kagome's tokens a
 | 002 | `lyric_sources` (with its four rows), `songs`, `lyric_lines` | Built. The songs slice uses it. |
 | 003 | `line_translations`, `line_tokens`, `line_words`, `word_inflections`, `cards` | Built. The tables are ready, with their rules tested. The songs slice fills `line_tokens` (#8), `line_words`, and `word_inflections` (#9); the code for the rest comes with #11 and #12. |
 | 004 | `line_tokens.pos` | Built, with #8. The songs slice saves each token's part of speech for romaji. |
+| 008 | `sung_readings` | Built. The songs slice reads each owner's with the song and sets them from the word sheet. |
 | `dictionary.db` | `meta`, `tags`, `entries`, `entry_forms`, `senses`, `grammar_points` | Built (#9): `task dictionary` and the `internal/dictionary` lookup package, which the songs slice uses for word meanings and the word sheet. Packaging with the apps is a follow-up. |
 
 New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number (`dictionary.SchemaVersion`, stored in `meta`), checked at startup.

@@ -5,15 +5,19 @@
   import { aboutHref } from "../lib/route";
   import { hasMeanings, lemmaLine, splitMeanings } from "../lib/words";
   import Sheet from "./Sheet.svelte";
+  import SungReading from "./SungReading.svelte";
 
+  // onsung sets how the word is sung, when that isn't how it's written; without it, the sheet only shows the word.
   let {
     word,
     ruby,
     onclose,
+    onsung,
   }: {
     word: Word;
     ruby: RubyPart[];
     onclose: () => void;
+    onsung?: (reading: string) => Promise<void>;
   } = $props();
 
   let meanings = $state<Meanings | null>(null);
@@ -121,6 +125,10 @@
           {/each}
         </ol>
       </section>
+    {/if}
+
+    {#if onsung && (word.kind === "content" || word.kind === "expression")}
+      <SungReading {word} onsave={onsung} />
     {/if}
 
     {#if meanings?.installed}

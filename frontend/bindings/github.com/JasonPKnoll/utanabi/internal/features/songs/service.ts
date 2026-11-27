@@ -79,3 +79,11 @@ export function Search(query: string): $CancellablePromise<$models.SearchResult>
 export function SearchSources(): $CancellablePromise<string[] | null> {
     return $Call.ByID(4198490630);
 }
+
+/**
+ * SetSungReading sets how a word of a song is sung when that isn't how it's written, such as 羅針盤 sung コンパス, or
+ * removes it when the reading is empty. It returns the song as it shows now.
+ */
+export function SetSungReading(change: $models.SungReadingChange): $CancellablePromise<$models.Song> {
+    return $Call.ByID(3095227105, change);
+}

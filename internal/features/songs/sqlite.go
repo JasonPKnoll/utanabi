@@ -162,7 +162,71 @@ func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 	if err := s.addWords(ctx, &song); err != nil {
 		return Song{}, err
 	}
+	if err := s.addSungReadings(ctx, &song, owner); err != nil {
+		return Song{}, err
+	}
 	return song, nil
+}
+
+// addSungReadings reads the owner's sung readings for the song's lines.
+func (s *SQLite) addSungReadings(ctx context.Context, song *Song, owner int64) error {
+	rows, err := s.db.Querier().QueryContext(ctx,
+		`SELECT l.position, r.first_token, r.last_token, r.surface, r.reading
+		 FROM sung_readings r JOIN lyric_lines l ON l.id = r.line_id
+		 WHERE l.song_id = ? AND r.owner = ?
+		 ORDER BY l.position, r.first_token`, song.ID, owner)
+	if err != nil {
+		return store.Translate(err)
+	}
+	defer rows.Close()
+
+	byPosition := make(map[int]int, len(song.Lines))
+	for i, line := range song.Lines {
+		byPosition[line.Position] = i
+	}
+	for rows.Next() {
+		var r SungReading
+		if err := rows.Scan(&r.Line, &r.FirstToken, &r.LastToken, &r.Surface, &r.Reading); err != nil {
+			return store.Translate(err)
+		}
+		if i, ok := byPosition[r.Line]; ok {
+			song.Lines[i].Sung = append(song.Lines[i].Sung, r)
+		}
+	}
+	return store.Translate(rows.Err())
+}
+
+// SetSungReading saves the owner's reading for a word of a line, replacing theirs for the same word, or removes it
+// when the reading is empty. A song outside the owner's library, or a line it doesn't have, is fault.ErrNotFound.
+func (s *SQLite) SetSungReading(ctx context.Context, songID int64, r SungReading) error {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return err
+	}
+	return s.db.WithTx(ctx, func(q store.Querier) error {
+		var lineID int64
+		err := q.QueryRowContext(ctx,
+			`SELECT l.id FROM lyric_lines l
+			 WHERE l.song_id = ? AND l.position = ?
+			   AND EXISTS (SELECT 1 FROM library_songs b WHERE b.owner = ? AND b.song_id = l.song_id)`,
+			songID, r.Line, owner,
+		).Scan(&lineID)
+		if err != nil {
+			return store.Translate(err)
+		}
+		if r.Reading == "" {
+			_, err := q.ExecContext(ctx, `DELETE FROM sung_readings WHERE owner = ? AND line_id = ? AND first_token = ?`,
+				owner, lineID, r.FirstToken)
+			return store.Translate(err)
+		}
+		_, err = q.ExecContext(ctx,
+			`INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading)
+			 VALUES (?, ?, ?, ?, ?, ?)
+			 ON CONFLICT (owner, line_id, first_token)
+			 DO UPDATE SET last_token = excluded.last_token, surface = excluded.surface, reading = excluded.reading`,
+			owner, lineID, r.FirstToken, r.LastToken, r.Surface, r.Reading)
+		return store.Translate(err)
+	})
 }
 
 // addWords reads the words of a song's lines, with their conjugation steps in order. A line with no words keeps a

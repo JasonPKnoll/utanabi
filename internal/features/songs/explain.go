@@ -24,6 +24,9 @@ func present(ctx context.Context, dict Dictionary, song Song) (Song, error) {
 	}
 	lines := make([]Line, len(song.Lines))
 	for i, line := range song.Lines {
+		// The sung readings are marked on a copy, so the stored tokens stay as stored.
+		line.Tokens = slices.Clone(line.Tokens)
+		markSung(&line)
 		line.Ruby, line.Romaji = ruby(line), romaji(line.Tokens)
 		line.Words, line.Pieces, line.Gloss = explainLine(dict, entries, line)
 		lines[i] = line
@@ -135,6 +138,9 @@ func explainWord(dict Dictionary, entries map[int64]Entry, tokens []Token, a Wor
 	}
 	if a.LemmaReading != "" {
 		w.LemmaRomaji = jtext.Romaji(a.LemmaReading)
+	}
+	if head := tokens[a.FirstToken]; head.sung != "" && head.sungEnd == a.LastToken {
+		w.Sung, w.SungRomaji = head.sung, jtext.Romaji(head.sung)
 	}
 	if a.EntryID != 0 {
 		w.EntryID = a.EntryID
