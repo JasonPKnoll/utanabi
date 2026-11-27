@@ -26,6 +26,9 @@ func analyzeLine(ctx context.Context, analyzer Analyzer, m *meanings, line *Line
 	if err != nil {
 		return err
 	}
+	if tokens, err = m.recut(ctx, tokens); err != nil {
+		return err
+	}
 	line.Tokens, line.Analysis = nil, nil
 	if !fits(tokens, line.Text) {
 		return nil
@@ -104,6 +107,9 @@ func hasWords(tokens []Token) bool {
 func reanalyze(ctx context.Context, analyzer Analyzer, m *meanings, line *Line) error {
 	fresh, err := analyzer.Analyze(ctx, line.Text)
 	if err != nil {
+		return err
+	}
+	if fresh, err = m.recut(ctx, fresh); err != nil {
 		return err
 	}
 	if len(fresh) != len(line.Tokens) {

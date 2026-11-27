@@ -77,6 +77,9 @@ func (m *meanings) analyzeWords(ctx context.Context, line *Line) error {
 			return err
 		}
 		formalNoun(w, line.Tokens)
+		if err := m.negativeAdjective(ctx, w, line.Tokens); err != nil {
+			return err
+		}
 		cat := wordCategory(*w, line.Tokens)
 		if cat == catVerb && w.ConjClass == "v1" {
 			if err := m.potential(ctx, w, afterDirection(line.Tokens, w.FirstToken)); err != nil {
@@ -87,6 +90,9 @@ func (m *meanings) analyzeWords(ctx context.Context, line *Line) error {
 			return err
 		}
 		if err := m.comeCommand(ctx, w, line.Tokens); err != nil {
+			return err
+		}
+		if err := m.questionSense(ctx, w, line.Tokens); err != nil {
 			return err
 		}
 		if w.EntryID != 0 && numberBeforeCounter(line.Tokens, w.FirstToken) {
@@ -674,4 +680,30 @@ func formReading(e Entry, text, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+// questionSense gives an interjection asked as a question its question sense: はぁ？ is "what?; huh?", not "yes", the
+// first sense of はあ. The sense is the first whose English is a question.
+func (m *meanings) questionSense(ctx context.Context, w *WordAnalysis, tokens []Token) error {
+	next := w.LastToken + 1
+	if w.EntryID == 0 || tokens[w.head].POS != morph.Interjection || next >= len(tokens) ||
+		(tokens[next].Surface != "？" && tokens[next].Surface != "?") {
+		return nil
+	}
+	entries, err := m.lookup(ctx, w.Lemma, "")
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.ID != w.EntryID {
+			continue
+		}
+		for _, sense := range e.Senses {
+			if slices.ContainsFunc(sense.Glosses, func(g string) bool { return strings.HasSuffix(g, "?") }) {
+				w.SenseIndex = sense.Index
+				return nil
+			}
+		}
+	}
+	return nil
 }

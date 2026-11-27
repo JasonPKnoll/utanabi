@@ -213,3 +213,23 @@ func (m *meanings) comeCommand(ctx context.Context, w *WordAnalysis, tokens []To
 	}
 	return nil
 }
+
+// negativeAdjective reads a verb's spoken negative as the adjective the dictionary has for it, when it has one:
+// つまらねぇ is つまらない, "boring", not つまる "be packed" made negative; くだらねぇ is "worthless". kagome reads the
+// plain つまらない as the adjective already; a plain negative such as 変わらない stays the verb's, which says more.
+func (m *meanings) negativeAdjective(ctx context.Context, w *WordAnalysis, tokens []Token) error {
+	first, last := tokens[w.FirstToken], tokens[w.LastToken]
+	if w.Kind != WordContent || len(w.Steps) != 1 || w.Steps[0] != "negative" || first.POS != morph.Verb ||
+		first.ConjForm != "未然形" || !slices.Contains(spokenNaiEnds, last.Surface) {
+		return nil
+	}
+	form := first.Surface + "ない"
+	entries, err := m.lookup(ctx, form, "")
+	if err != nil || !hasCode(entries, func(c string) bool { return c == "adj-i" }) {
+		return err
+	}
+	w.Lemma, w.LemmaReading = cleanLemma(form, jtext.ToHiragana(first.Reading)+"ない")
+	w.ConjClass, w.Steps = "adj-i", nil
+	tokens[w.FirstToken].POS = morph.Adjective
+	return nil
+}

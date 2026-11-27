@@ -109,6 +109,14 @@ func newFakeDictionary(t *testing.T) *fakeDictionary {
 			entry(1593180, "連れる", "つれる", sense(0, "to take (someone) with one", "v1", "vt")),
 			entry(1315720, "持つ", "もつ", sense(0, "to hold", "v5t", "vt")),
 			entry(1294490, "感じる", "かんじる", sense(0, "to feel", "v1", "vt")),
+			entry(2847957, "うっせぇ", "うっせぇ", sense(0, "shut up!", "int")),
+			entry(2069620, "はぁ", "はぁ", sense(0, "yes", "int"), sense(1, "ha!", "int"), sense(2, "what?", "int")),
+			entry(1275640, "口", "くち", sense(0, "mouth", "n")),
+			entry(1609420, "塞げる", "ふさげる", sense(0, "to close up", "v1", "vt")),
+			entry(1214920, "詰まる", "つまる", sense(0, "to be packed", "v5r", "vi")),
+			entry(1214980, "つまらない", "つまらない", sense(0, "dull", "adj-i")),
+			entry(1595900, "変わる", "かわる", sense(0, "to change", "v5r", "vi")),
+			entry(1595910, "変わらない", "かわらない", sense(0, "constant", "adj-i")),
 		},
 		tags: map[string]string{"v5s": "Godan verb with 'su' ending", "vt": "transitive verb", "uk": "usually kana"},
 	}
@@ -589,6 +597,95 @@ func TestLyricPatternsReadAsTheyAreMeant(t *testing.T) {
 				got[i] += " " + strconv.FormatInt(w.EntryID, 10)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("words of %q\n got  %q\n want %q", tt.text, got, tt.want)
+			}
+		})
+	}
+}
+
+// recutLine analyses text as a song's line is: kagome's tokens, cut again where it couldn't read the kana, then words.
+func recutLine(t *testing.T, dict Dictionary, text string) Line {
+	t.Helper()
+	m := newMeanings(dict)
+	tokens, err := m.recut(t.Context(), analyzeText(t, morph.New(), text))
+	if err != nil {
+		t.Fatalf("recut(%q): %v", text, err)
+	}
+	line := Line{Text: text, Tokens: tokens}
+	if err := m.analyzeWords(t.Context(), &line); err != nil {
+		t.Fatalf("analyzeWords(%q): %v", text, err)
+	}
+	return line
+}
+
+func TestKanaKagomeCantReadIsCutAgain(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text       string
+		want       []string
+		wantRomaji string
+	}{
+		{text: "はぁ？うっせぇうっせぇうっせぇわ", want: []string{
+			"はぁ はぁ/はぁ content 2069620/2", "うっせぇ うっせぇ/うっせぇ content 2847957/0",
+			"うっせぇ うっせぇ/うっせぇ content 2847957/0", "うっせぇ うっせぇ/うっせぇ content 2847957/0",
+			"わ わ/わ particle wa-feeling 0/0",
+		}, wantRomaji: "haa? ussee ussee ussee wa"},
+		{text: "くせぇ口塞げや", want: []string{
+			"くせぇ くさい/くさい content adj-i 1333150/0", "口 口/くち content 1275640/0",
+			"塞げ 塞げる/ふさげる content v1 [continuative] 1609420/0", "や や/や auxiliary 0/0",
+		}, wantRomaji: "kusee kuchi fusageya"},
+		{text: "知ったこっちゃない", want: []string{
+			"知ったこっちゃない 知ったこっちゃない/しったこっちゃない content 2137720/0",
+		}, wantRomaji: "shitta kotchi yanai"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := recutLine(t, dict, tt.text)
+			got := describeWords(line.Tokens, line.Analysis)
+			for i, w := range line.Analysis {
+				got[i] += " " + strconv.FormatInt(w.EntryID, 10) + "/" + strconv.Itoa(w.SenseIndex)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("words of %q\n got  %q\n want %q", tt.text, got, tt.want)
+			}
+			if got := romaji(line.Tokens); got != tt.wantRomaji {
+				t.Errorf("romaji of %q = %q, want %q", tt.text, got, tt.wantRomaji)
+			}
+		})
+	}
+}
+
+func TestKatakanaKagomeCantReadIsLeftAlone(t *testing.T) {
+	t.Parallel()
+
+	m := newMeanings(newFakeDictionary(t))
+	tokens := []Token{{Surface: "エイデイ", Reading: "えいでい", POS: morph.Noun}}
+	got, err := m.recut(t.Context(), tokens)
+	if err != nil || !reflect.DeepEqual(got, tokens) {
+		t.Errorf("recut = %+v, %v; want katakana left as kagome read it", got, err)
+	}
+}
+
+func TestSpokenNegativesReadAsTheirAdjective(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text string
+		want []string
+	}{
+		{text: "つまらねぇ", want: []string{"つまらねぇ つまらない/つまらない content adj-i"}},
+		// A plain negative stays the verb's: 変わらない is "not change", though the dictionary has "constant".
+		{text: "変わらない", want: []string{"変わらない 変わる/かわる content v5r [negative]"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := recutLine(t, dict, tt.text)
+			if got := describeWords(line.Tokens, line.Analysis); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("words of %q\n got  %q\n want %q", tt.text, got, tt.want)
 			}
 		})
