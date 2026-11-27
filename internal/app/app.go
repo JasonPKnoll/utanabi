@@ -15,7 +15,7 @@ import (
 
 // New builds the Wails application and its main window. assets is the built frontend (frontend/dist). middleware,
 // when not nil, wraps every request the app serves, calls to bound services included: server mode signs users in
-// with it.
+// with it. Every response also says how long a browser may keep it (cacheHeaders).
 func New(cfg config.Config, log *slog.Logger, assets fs.FS, middleware application.Middleware,
 	services ...application.Service,
 ) *application.App {
@@ -25,7 +25,7 @@ func New(cfg config.Config, log *slog.Logger, assets fs.FS, middleware applicati
 		Services:    services,
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),
-			Middleware: middleware,
+			Middleware: withCacheHeaders(middleware),
 		},
 		Logger:       log.With(slog.String("component", "wails")),
 		LogLevel:     cfg.LogLevel,
