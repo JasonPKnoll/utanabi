@@ -6,6 +6,7 @@
   import AddSong from "./screens/AddSong.svelte";
   import Home from "./screens/Home.svelte";
   import Invites from "./screens/Invites.svelte";
+  import Quiz from "./screens/Quiz.svelte";
   import Search from "./screens/Search.svelte";
   import SignIn from "./screens/SignIn.svelte";
   import SongView from "./screens/SongView.svelte";
@@ -47,8 +48,13 @@
     <SongView id={route.id} />
   {/key}
 {:else if route.name === "study"}
+  <!-- Keyed by song only, so stepping from card to card keeps the deck. -->
   {#key route.id}
-    <Study songId={route.id} />
+    <Study songId={route.id} cardId={route.card} />
+  {/key}
+{:else if route.name === "quiz"}
+  {#key route.id}
+    <Quiz songId={route.id} />
   {/key}
 {:else}
   <main class="screen missing">

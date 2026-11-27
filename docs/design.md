@@ -108,7 +108,19 @@ The design came from the mockup canvas "Utanabi mobile mockups" on claude.ai (ro
 
 ## Study
 
-A song's flashcards (`frontend/src/screens/Study.svelte`, `#/song/<id>/study`), opened from the cards button in the song's top bar. Each card is one word with the meaning it has in the song. It's asked the way WaniKani asks:
+A song's flashcards, opened from the cards button in the song's top bar. Each card is one word with the meaning it has in the song. You look them over first, then take the quiz.
+
+### The word list
+
+`frontend/src/screens/Study.svelte`, `#/song/<id>/study`. Looking changes no progress; only the quiz does.
+
+- **The list** shows every card in the order it's first sung: the word, its reading under it (when it has kanji), the song's meaning, and its streak as dots. A segmented control picks "To learn" (cards not learned yet, the default) or "All" (the default once every card is learned). The helpers are in `frontend/src/lib/studyList.ts`.
+- **One card at a time** (`#/song/<id>/study/<cardId>`), opened by tapping a row or "Flip through": the reading in amber over the word, large, then the song's meaning, the word's other meanings, the line it's sung in with the word underlined, and its progress ("Not quizzed yet", "1 of 3 in a row", "Learned"). Previous and Next sit in the bottom bar, and a sideways swipe or the arrow keys do the same. Stepping replaces the card in the history, so Back returns to the list, which scrolls to the last card seen. On the last card, Next becomes "Quiz me".
+- **"Quiz me"** sits in the bottom bar of the list.
+
+### The quiz
+
+`frontend/src/screens/Quiz.svelte`, `#/song/<id>/quiz`. It asks the way WaniKani asks:
 
 - **The front** is the word in its dictionary form, large, over the line it's first sung in with the word underlined in dotted amber.
 - **Reading, then meaning.** The reading is typed in kana: WanaKana's kana input turns romaji into hiragana as it's typed (`naoru` becomes なおる), and kana from a Japanese keyboard goes straight in. A word written only in kana has no reading to ask. The meaning is typed in English, and any of the word's meanings counts, ignoring case, punctuation, notes in parentheses, a leading "to", "be", "a", "an", or "the", and a small typo (`frontend/src/lib/answers.ts`).

@@ -5,7 +5,8 @@ export type Route =
   | { name: "add" }
   | { name: "about" }
   | { name: "song"; id: number }
-  | { name: "study"; id: number }
+  | { name: "study"; id: number; card?: number }
+  | { name: "quiz"; id: number }
   | { name: "invites" }
   | { name: "join"; code: string }
   | { name: "missing" };
@@ -25,8 +26,13 @@ export function songHref(id: number): string {
   return `#/song/${id}`;
 }
 
-export function studyHref(songId: number): string {
-  return `#/song/${songId}/study`;
+// A song's words to study, as a list, or one of them as a card when cardId is given.
+export function studyHref(songId: number, cardId?: number): string {
+  return cardId === undefined ? `#/song/${songId}/study` : `#/song/${songId}/study/${cardId}`;
+}
+
+export function quizHref(songId: number): string {
+  return `#/song/${songId}/quiz`;
 }
 
 export function parseRoute(hash: string): Route {
@@ -50,9 +56,16 @@ export function parseRoute(hash: string): Route {
   if (join !== undefined) {
     return { name: "join", code: join };
   }
-  const song = /^\/song\/([1-9]\d{0,14})(\/study)?$/.exec(path);
+  const song = /^\/song\/([1-9]\d{0,14})(?:\/(study|quiz)(?:\/([1-9]\d{0,14}))?)?$/.exec(path);
   if (song?.[1] !== undefined) {
-    return { name: song[2] ? "study" : "song", id: Number(song[1]) };
+    const id = Number(song[1]);
+    if (song[2] === "study") {
+      return song[3] === undefined ? { name: "study", id } : { name: "study", id, card: Number(song[3]) };
+    }
+    if (song[2] === "quiz") {
+      return song[3] === undefined ? { name: "quiz", id } : { name: "missing" };
+    }
+    return { name: "song", id };
   }
   return { name: "missing" };
 }

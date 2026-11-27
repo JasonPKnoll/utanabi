@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseRoute, songHref } from "./route";
+import { parseRoute, quizHref, songHref, studyHref } from "./route";
 
 describe("parseRoute", () => {
   it.each([
@@ -17,6 +17,14 @@ describe("parseRoute", () => {
     ["#/song/abc", { name: "missing" }],
     ["#/song/12/edit", { name: "missing" }],
     ["#/song/12/study", { name: "study", id: 12 }],
+    [studyHref(12), { name: "study", id: 12 }],
+    ["#/song/12/study/34", { name: "study", id: 12, card: 34 }],
+    [studyHref(12, 34), { name: "study", id: 12, card: 34 }],
+    ["#/song/12/study/0", { name: "missing" }],
+    ["#/song/12/study/x", { name: "missing" }],
+    ["#/song/12/quiz", { name: "quiz", id: 12 }],
+    [quizHref(12), { name: "quiz", id: 12 }],
+    ["#/song/12/quiz/3", { name: "missing" }],
     ["#/invites", { name: "invites" }],
     ["#/join/sszt-x59r-5rx2-emm7", { name: "join", code: "sszt-x59r-5rx2-emm7" }],
     ["#/join/", { name: "missing" }],
