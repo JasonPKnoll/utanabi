@@ -136,12 +136,12 @@ type Playback struct {
 	ProgressMS int64  `json:"progressMs"`
 	Device     string `json:"device"`
 	Ready      bool   `json:"ready"`
-	// OffsetMS is how far the lyrics are shifted to line up with the track: a line timed at t is sung at
-	// t + OffsetMS. It's the one you set (OffsetSet), or else one worked out from the two lengths.
+	// OffsetMS is how far you've shifted the lyrics to line up with the track (OffsetSet): a line timed at t is sung
+	// at t + OffsetMS. 0 until you set one.
 	OffsetMS  int64 `json:"offsetMs"`
 	OffsetSet bool  `json:"offsetSet"`
-	// TimedForMS is the length the lyrics are timed for, when it is too far off the track's to shift them on its
-	// own, so they won't line up unless you set the offset; 0 otherwise.
+	// TimedForMS is the length the lyrics are timed for, when it's off the track's and you haven't set an offset, so
+	// they may not line up; 0 otherwise.
 	TimedForMS int64 `json:"timedForMs"`
 }
 
@@ -264,8 +264,8 @@ func (p *Player) NowPlaying(ctx context.Context, songID int64) (Playback, error)
 }
 
 // lineUp says how far the song's lyrics are shifted to line up with its track, trackMS long: by the offset the owner
-// set, or else by the difference in length when it's small enough to be the intro. When it's too big for that, it
-// says how long the lyrics are timed for instead, while the song plays.
+// set, or not at all. Without one, while the song plays, it says how long the lyrics are timed for when that's off
+// the track's length, so the bar can suggest setting the timing.
 func (p *Player) lineUp(ctx context.Context, out *Playback, songID int64, song Song, trackMS int64) error {
 	offset, err := p.repo.Offset(ctx, songID)
 	if err == nil {
@@ -275,7 +275,6 @@ func (p *Player) lineUp(ctx context.Context, out *Playback, songID int64, song S
 	if !errors.Is(err, fault.ErrNotFound) {
 		return err
 	}
-	out.OffsetMS = autoOffset(song.DurationMS, trackMS)
 	if out.Matches {
 		out.TimedForMS = otherLength(song.DurationMS, trackMS)
 	}
@@ -296,7 +295,7 @@ func (p *Player) SetOffset(ctx context.Context, songID, offsetMS int64) error {
 	return p.repo.SaveOffset(ctx, songID, offsetMS)
 }
 
-// ResetOffset goes back to lining the song's lyrics up on their own, by the two lengths.
+// ResetOffset goes back to the lyrics' own timing.
 func (p *Player) ResetOffset(ctx context.Context, songID int64) error {
 	if songID <= 0 {
 		return fault.Invalid("songId", "must be positive")

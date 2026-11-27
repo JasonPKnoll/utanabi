@@ -112,33 +112,19 @@ func closer(a, b Track, songMS int64) bool {
 	return b.DurationMS <= 0 || abs(a.DurationMS-songMS) < abs(b.DurationMS-songMS)
 }
 
-// The lengths lyrics can differ from their track by and still be shifted to fit it on their own: under a second
-// they line up anyway, and past 10 seconds they're for another cut of the song (Matsuri's video is 23 seconds
-// longer), not the same one with a longer intro. maxOffsetMS is the most an owner can shift them by.
+// maxOffsetMS is the most an owner can shift a song's lyrics by. sameLengthSlackMS is how far lyrics and their track
+// can differ in length and still be timed for the same cut of the song.
 const (
-	sameCutMinMS = 1000
-	sameCutMaxMS = 10000
-	maxOffsetMS  = 60000
+	maxOffsetMS       = 60000
+	sameLengthSlackMS = 1000
 )
 
-// autoOffset is how far to shift lyrics lyricsMS long to fit a track trackMS long: the difference, taken to be in
-// the intro, which is where versions of a song most often differ (Shinunoga E-Wa's lyrics are 3:11, its track
-// 3:05). 0 when the lengths agree, differ too much to guess, or aren't known.
-func autoOffset(lyricsMS, trackMS int64) int64 {
-	if lyricsMS <= 0 || trackMS <= 0 {
-		return 0
-	}
-	diff := trackMS - lyricsMS
-	if abs(diff) < sameCutMinMS || abs(diff) > sameCutMaxMS {
-		return 0
-	}
-	return diff
-}
-
-// otherLength is how long the song's lyrics are timed for, when that is too far off the track's length to shift them
-// on their own, and 0 otherwise: lyrics from a video or a live recording don't line up with the studio track.
+// otherLength is how long the song's lyrics are timed for, when that's off the track's length, and 0 otherwise:
+// lyrics from a video or another release don't line up with the track, and only you can tell by how much. A
+// difference in length doesn't say where in the song it is: Shinunoga E-Wa's lyrics are 5.4 seconds longer than its
+// track, yet start only 0.9 seconds late.
 func otherLength(lyricsMS, trackMS int64) int64 {
-	if lyricsMS <= 0 || trackMS <= 0 || abs(lyricsMS-trackMS) <= sameCutMaxMS {
+	if lyricsMS <= 0 || trackMS <= 0 || abs(lyricsMS-trackMS) <= sameLengthSlackMS {
 		return 0
 	}
 	return lyricsMS

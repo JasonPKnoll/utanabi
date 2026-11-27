@@ -323,20 +323,21 @@ func TestNowPlaying(t *testing.T) {
 			state: &State{Playing: true, ProgressMS: 1000, Track: Track{ID: kazeTrack, DurationMS: 160000}},
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Matches: true,
 				ProgressMS: 1000, Ready: true, TimedForMS: 185000}},
-		{name: "this song, a few seconds off", cached: kazeTrack,
+		{name: "this song, half a second off", cached: kazeTrack,
 			state: &State{Playing: true, ProgressMS: 1000, Track: Track{ID: kazeTrack, DurationMS: 185500}},
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Matches: true,
 				ProgressMS: 1000, Ready: true}},
-		{name: "this song, its track a few seconds shorter, so the lyrics shift by that", cached: kazeTrack,
+		{name: "this song, its track a few seconds shorter, says the lyrics may not line up", cached: kazeTrack,
 			state: &State{Playing: true, ProgressMS: 1000, Track: Track{ID: kazeTrack, DurationMS: 179500}},
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Matches: true,
-				ProgressMS: 1000, Ready: true, OffsetMS: -5500}},
+				ProgressMS: 1000, Ready: true, TimedForMS: 185000}},
 		{name: "this song, with an offset you set", cached: kazeTrack, offset: &shorter,
 			state: &State{Playing: true, ProgressMS: 1000, Track: Track{ID: kazeTrack, DurationMS: 160000}},
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Matches: true,
 				ProgressMS: 1000, Ready: true, OffsetMS: -3000, OffsetSet: true}},
-		{name: "nothing playing, lined up by the track's saved length", cached: kazeTrack, cachedMS: 190000,
-			phone: true, want: Playback{TrackURI: "spotify:track:" + kazeTrack, Ready: true, OffsetMS: 5000}},
+		{name: "nothing playing, with an offset you set", cached: kazeTrack, cachedMS: 190000, offset: &shorter,
+			phone: true, want: Playback{TrackURI: "spotify:track:" + kazeTrack, Ready: true, OffsetMS: -3000,
+				OffsetSet: true}},
 		{name: "a podcast", cached: kazeTrack, state: &State{Playing: true, Device: Device{Name: "iPhone"}},
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Device: "iPhone",
 				Ready: true}},
@@ -650,26 +651,23 @@ func TestSetOffsetRejectsBadInput(t *testing.T) {
 	}
 }
 
-func TestAutoOffset(t *testing.T) {
+func TestOtherLength(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name               string
-		lyricsMS, trackMS  int64
-		want, wantTimedFor int64
+		name              string
+		lyricsMS, trackMS int64
+		want              int64
 	}{
 		{name: "the same length", lyricsMS: 191000, trackMS: 190500},
-		{name: "a track with a shorter intro", lyricsMS: 191000, trackMS: 185500, want: -5500},
-		{name: "a track with a longer intro", lyricsMS: 180000, trackMS: 188000, want: 8000},
-		{name: "another cut of the song", lyricsMS: 249000, trackMS: 225920, wantTimedFor: 249000},
+		{name: "a few seconds off", lyricsMS: 191000, trackMS: 185573, want: 191000},
+		{name: "another cut of the song", lyricsMS: 249000, trackMS: 225920, want: 249000},
 		{name: "no length for the lyrics", trackMS: 185500},
+		{name: "no length for the track", lyricsMS: 185500},
 	}
 	for _, tt := range tests {
-		if got := autoOffset(tt.lyricsMS, tt.trackMS); got != tt.want {
-			t.Errorf("%s: autoOffset = %d, want %d", tt.name, got, tt.want)
-		}
-		if got := otherLength(tt.lyricsMS, tt.trackMS); got != tt.wantTimedFor {
-			t.Errorf("%s: otherLength = %d, want %d", tt.name, got, tt.wantTimedFor)
+		if got := otherLength(tt.lyricsMS, tt.trackMS); got != tt.want {
+			t.Errorf("%s: otherLength = %d, want %d", tt.name, got, tt.want)
 		}
 	}
 }

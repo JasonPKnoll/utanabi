@@ -3,9 +3,9 @@
   import { describeOffset, lyricsTime, nextLine } from "../lib/follow";
   import Sheet from "./Sheet.svelte";
 
-  // Lines the lyrics up with Spotify's track, for lyrics timed for another version of the song. Nudge them by half a
-  // second, or tap Now as the next line starts, which sets the offset from where the song is. Every change is yours
-  // and saved for this song; Automatic goes back to the offset worked out from the two lengths.
+  // Lines the lyrics up with Spotify's track, for lyrics timed for another version of the song. Nudge them by a tenth
+  // or half a second, or tap Now as the next line starts, which sets the offset from where the song is. Every change
+  // is yours and saved for this song; Reset goes back to the lyrics' own timing.
   let {
     offsetMs,
     offsetSet,
@@ -25,8 +25,13 @@
     onclose: () => void;
   } = $props();
 
-  const step = 500;
   const limit = 60000;
+  const steps = [
+    { by: -500, text: "−0.5 s", label: "Lines half a second earlier" },
+    { by: -100, text: "−0.1 s", label: "Lines a tenth of a second earlier" },
+    { by: 100, text: "+0.1 s", label: "Lines a tenth of a second later" },
+    { by: 500, text: "+0.5 s", label: "Lines half a second later" },
+  ];
 
   // The line to tap Now for, kept up with the song.
   let next = $state(-1);
@@ -72,17 +77,14 @@
 
     <p class="muted">For lyrics timed for another version of the song, such as its video.</p>
 
+    <p class="value" aria-live="polite">
+      <strong>Lines {describeOffset(offsetMs)}</strong>
+      <span class="muted">{offsetSet ? "Set by you" : "As the lyrics are timed"}</span>
+    </p>
     <div class="nudge">
-      <button type="button" class="button" onclick={() => nudge(-step)} aria-label="Lines half a second earlier"
-        >−0.5 s</button
-      >
-      <p class="value" aria-live="polite">
-        <strong>Lines {describeOffset(offsetMs)}</strong>
-        <span class="muted">{offsetSet ? "Set by you" : "Automatic"}</span>
-      </p>
-      <button type="button" class="button" onclick={() => nudge(step)} aria-label="Lines half a second later"
-        >+0.5 s</button
-      >
+      {#each steps as step (step.by)}
+        <button type="button" class="button" onclick={() => nudge(step.by)} aria-label={step.label}>{step.text}</button>
+      {/each}
     </div>
 
     <h3>Tap as you hear it</h3>
@@ -94,7 +96,7 @@
     {/if}
 
     {#if offsetSet}
-      <button type="button" class="button reset" onclick={onreset}>Back to automatic</button>
+      <button type="button" class="button reset" onclick={onreset}>Reset to the lyrics' timing</button>
     {/if}
   {/snippet}
 </Sheet>
@@ -126,29 +128,29 @@
     margin: 8px 0 0;
   }
 
-  .nudge {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 16px;
-  }
-
-  .nudge .button {
-    flex: none;
-    min-width: 76px;
-  }
-
   .value {
-    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin: 0;
+    margin: 16px 0 0;
     text-align: center;
   }
 
   .value .muted {
     font-size: 0.8125rem;
+  }
+
+  .nudge {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .nudge .button {
+    min-width: 0;
+    padding-inline: 4px;
+    font-variant-numeric: tabular-nums;
   }
 
   .cue {

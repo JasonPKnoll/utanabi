@@ -88,7 +88,7 @@ func (s *Service) SetOffset(ctx context.Context, songID, offsetMs int64) error {
 	return app.Fail(ctx, s.player.SetOffset(ctx, songID, offsetMs))
 }
 
-// ResetOffset goes back to lining the song's lyrics up on their own.
+// ResetOffset goes back to the lyrics' own timing.
 func (s *Service) ResetOffset(ctx context.Context, songID int64) error {
 	if !s.enabled {
 		return app.Fail(ctx, errNotSetUp)
