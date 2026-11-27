@@ -371,3 +371,39 @@ rt {
     opacity: 0;
   }
 }
+
+/* A placeholder in the shape of what's loading: soft bars with a slow shimmer. A screen wraps its skeleton in
+   .skeleton-wait, which shows it only once a load has taken a fifth of a second, so a quick load shows nothing. */
+.skeleton {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-strong) 0%, var(--surface) 50%, var(--surface-strong) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-wait {
+  animation: skeleton-appear 0.2s ease-out 0.2s both;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes skeleton-appear {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--surface-strong);
+  }
+}

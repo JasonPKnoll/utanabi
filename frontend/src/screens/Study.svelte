@@ -160,7 +160,26 @@
   {:else if failure}
     <main class="center"><p class="alert" role="alert">{failure.message}</p></main>
   {:else if deck === null}
-    <main class="center"><p class="muted">Loading…</p></main>
+    <main>
+      <p class="visually-hidden" role="status">Loading the words</p>
+      <div class="skeleton-wait" aria-hidden="true">
+        <span class="skeleton filter-skeleton"></span>
+        <ul class="words">
+          {#each [56, 40, 64, 48, 60, 44] as width (width)}
+            <li>
+              <div class="word-row">
+                <span class="ja">
+                  <span class="skeleton" style:width="{width}%" style:height="20px"></span>
+                  <span class="skeleton" style:width="{width - 14}%" style:height="10px" style:margin-top="6px"></span>
+                </span>
+                <span class="skeleton" style:width="{110 - width}%" style:height="14px"></span>
+                <span class="skeleton" style:width="26px" style:height="7px"></span>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    </main>
   {:else if cards.length === 0}
     <main class="center">
       <div class="empty">
@@ -296,6 +315,12 @@
 
   .center .button {
     flex: none;
+  }
+
+  .filter-skeleton {
+    height: 52px;
+    margin-bottom: 12px;
+    border-radius: 14px;
   }
 
   .filter {

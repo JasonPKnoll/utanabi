@@ -100,6 +100,11 @@
       {#if song}
         <h1>{song.title}</h1>
         <p>{song.artist || "Unknown artist"}</p>
+      {:else if !failure}
+        <span class="skeleton-wait title-skeleton" aria-hidden="true">
+          <span class="skeleton" style:width="140px" style:height="14px"></span>
+          <span class="skeleton" style:width="90px" style:height="10px"></span>
+        </span>
       {/if}
     </div>
     {#if song}
@@ -138,11 +143,20 @@
       <p class="alert" role="alert">{failure.message}</p>
     </main>
   {:else if song === null}
-    <main class="center">
-      <!-- An older song is built the first time it's opened, which can take a moment; a quick open shows nothing. -->
-      <div class="opening">
+    <main class="loading">
+      <p class="visually-hidden" role="status">Opening the song</p>
+      <!-- The song's lines, as placeholders, once the open takes a moment. -->
+      <ol class="lyrics skeleton-wait" aria-hidden="true">
+        {#each [58, 74, 46, 66, 52, 70, 40, 62] as width, i (i)}
+          <li class:current-skeleton={i === 0}>
+            <span class="skeleton" style:width="{width}%"></span>
+          </li>
+        {/each}
+      </ol>
+      <!-- An older song is built the first time it's opened. When the open runs that long, the firework takes over. -->
+      <div class="opening" aria-hidden="true">
         <Firework size={160} />
-        <p class="muted">Opening the song…</p>
+        <p class="muted">Building this song…</p>
       </div>
     </main>
   {:else}
@@ -231,12 +245,40 @@
 </div>
 
 <style>
+  .loading {
+    position: relative;
+  }
+
+  .loading .lyrics li {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  .loading .skeleton {
+    height: 18px;
+  }
+
+  .loading .current-skeleton .skeleton {
+    height: 30px;
+  }
+
   .opening {
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 16px;
-    animation: appear 0.2s ease-out 0.3s both;
+    background: var(--bg);
+    animation: appear 0.3s ease-out 1.25s both;
+  }
+
+  .title-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
   @keyframes appear {

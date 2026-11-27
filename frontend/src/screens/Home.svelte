@@ -56,7 +56,18 @@
     {#if failure}
       <p class="alert" role="alert">{failure.message}</p>
     {:else if songs === null}
-      <p class="muted">Loading…</p>
+      <p class="visually-hidden" role="status">Loading your songs</p>
+      <ul class="songs skeleton-wait" aria-hidden="true">
+        {#each [62, 48, 70, 55, 40] as width (width)}
+          <li class="row">
+            <span class="tile skeleton"></span>
+            <span class="text">
+              <span class="skeleton bar" style:width="{width}%"></span>
+              <span class="skeleton bar small" style:width="{width - 18}%"></span>
+            </span>
+          </li>
+        {/each}
+      </ul>
     {:else if songs.length === 0}
       <div class="empty">
         <p class="empty-title">No songs yet</p>
@@ -183,6 +194,15 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+  }
+
+  .bar {
+    height: 14px;
+    margin: 4px 0;
+  }
+
+  .bar.small {
+    height: 10px;
   }
 
   .title,

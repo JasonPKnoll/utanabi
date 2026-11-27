@@ -104,12 +104,19 @@ All in `frontend/src/app.css`:
 
 Use these instead of styling the same thing again in a component.
 
+## Loading
+
+Two kinds, for two kinds of wait:
+
+- **Skeletons, for content whose shape is known.** While the library, a song, or the study word list loads, the screen shows soft placeholder bars in its own layout (song rows, centred lyric lines with the first one taller, word rows with their dots), shimmering slowly, so the screen feels there already and nothing jumps when the content arrives. They're the shared `.skeleton` and `.skeleton-wait` classes in `frontend/src/app.css`, and appear only after a fifth of a second, so a quick load shows nothing. Each has a visually hidden status ("Loading your songs") for screen readers. With reduced motion on, they don't shimmer.
+- **The firework, for work being done.** Building a song has no shape to preview, so it gets the animated mark (below). Opening a song starts with the lyric skeleton; when the open runs past 1.25 seconds, which happens when an older song is built the first time it's opened, the firework fades in over it with "Building this song…".
+
 ## The mark: the visualizer peony
 
 Utanabi's icon is a firework whose rays are a sound spectrum, around a small spinning record: amber, strong amber, and a pink spark, slightly rough as if drawn by hand. The concepts are on the canvas "Utanabi icon concepts" on claude.ai (Firework C).
 
 - **The loader** (`frontend/src/components/Firework.svelte`, with its rays in `frontend/src/lib/firework.ts`): 44 thin rays, each jumping on its own rhythm, the flower turning slowly and kicking at 120 bpm, glitter twinkling past the tips, and an SVG filter that wobbles every line. It has no background of its own: it's drawn straight on the screen in the mode's colours (`--link`, `--link-strong`, and `--spark` for the rays, `--fg` among the glitter, and the record in `--surface-strong`), so it works on a light or dark screen in every palette. With reduced motion on, it holds still and the wobble is left out.
-- **Building a song** (`frontend/src/components/SongBuilding.svelte`): while Save song or a search result's Add runs, the screen shows the loader and "Building <title>". It shows at once and stays up for at least 1.2 seconds, one full bloom (`frontend/src/lib/hold.ts`), so a fast save shows the firework for a moment instead of a flicker. Opening a song shows a smaller one, "Opening the song…", only when the open takes more than a third of a second, as it does when an older song is built on first open.
+- **Building a song** (`frontend/src/components/SongBuilding.svelte`): while Save song or a search result's Add runs, the screen shows the loader and "Building <title>". It shows at once and stays up for at least 1.2 seconds, one full bloom (`frontend/src/lib/hold.ts`), so a fast save shows the firework for a moment instead of a flicker. Opening a song shows a smaller one over its skeleton when the open runs long (see "Loading").
 - **`--spark`** is the pink of the mark, one per palette. It's a graphics colour, never text: `theme.test.ts` checks it, `--link`, and `--link-strong` at 3:1 on `--bg` and `--surface`, in both modes.
 - **The app icon** is `build/appicon.svg`: 24 rays alternating long and short, so it reads as a spectrum when small. `build/appicon.png` and the Android launcher icons are rendered from it, and `wails3 task common:generate:icons` makes the macOS `.icns` and Windows `.ico` from the PNG. The Icon Composer layer for macOS 26 is `build/appicon.icon/Assets/peony.svg`; building its `Assets.car` needs Xcode's `actool`, so `build/darwin/Assets.car` is left out until it's made on a Mac with Xcode, and macOS uses the `.icns` meanwhile.
 - **The favicon** is `frontend/public/favicon.svg` (12 thick rays) with PNGs at 32 and 16 pixels; the 16 comes from `build/favicon-16.svg`, which has only 8 rays. `apple-touch-icon.png` is the app icon at 180.
