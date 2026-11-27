@@ -8,6 +8,7 @@
   import type { Line } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
   import { hasTimes, lineAt, positionAt } from "../lib/follow";
+  import { formatDuration } from "../lib/sources";
 
   // The song's Spotify controls, at the bottom within thumb reach, once you've connected Spotify in Settings. Play
   // starts the song on your Spotify, from the line you're on, and the lyrics follow it: the app asks Spotify how far
@@ -185,6 +186,10 @@
       const where = playback.device ? ` on ${playback.device}` : "";
       if (!synced) {
         return `${playback.playing ? "Playing" : "Paused"}${where}. These lyrics aren't synced, so they won't follow.`;
+      }
+      if (playback.timedForMs) {
+        // Lyrics from a video or a live recording: following would put the wrong line up.
+        return `${playback.playing ? "Playing" : "Paused"}${where}. These lyrics are timed for a ${formatDuration(playback.timedForMs)} version, so they may not line up.`;
       }
       return playback.playing ? `Playing${where}, the lyrics follow` : `Paused${where}`;
     }

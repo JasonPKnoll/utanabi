@@ -24,6 +24,12 @@ export interface Playback {
     "progressMs": number;
     "device": string;
     "ready": boolean;
+
+    /**
+     * TimedForMS is the length the lyrics are timed for, when it is a few seconds or more off the track playing, so
+     * the lyrics won't line up; 0 otherwise.
+     */
+    "timedForMs": number;
 }
 
 /**

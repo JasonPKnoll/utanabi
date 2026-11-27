@@ -129,6 +129,9 @@ type Playback struct {
 	ProgressMS int64  `json:"progressMs"`
 	Device     string `json:"device"`
 	Ready      bool   `json:"ready"`
+	// TimedForMS is the length the lyrics are timed for, when it is a few seconds or more off the track playing, so
+	// the lyrics won't line up; 0 otherwise.
+	TimedForMS int64 `json:"timedForMs"`
 }
 
 // PlayResult says whether the song started. When it didn't, no device was there to play on: opening TrackURI opens
@@ -221,10 +224,10 @@ func (p *Player) NowPlaying(ctx context.Context, songID int64) (Playback, error)
 		switch {
 		case state.Track.ID == "":
 		case state.Track.ID == trackID:
-			out.Matches = true
+			out.Matches, out.TimedForMS = true, otherLength(song, state.Track)
 		case trackID == "" && sameSong(state.Track, song):
 			// Played from Spotify itself before the app found the song there: it's the song, so remember it.
-			out.Matches, out.TrackURI = true, uri(state.Track.ID)
+			out.Matches, out.TrackURI, out.TimedForMS = true, uri(state.Track.ID), otherLength(song, state.Track)
 			return p.repo.SaveTrack(ctx, songID, state.Track.ID, p.now())
 		}
 		return nil
@@ -365,34 +368,38 @@ func (p *Player) track(ctx context.Context, access redact.Secret, songID int64, 
 
 // bestMatch picks the search result that is the song: one by its artist, with its title, closest in length. A title
 // from a lyrics source often has the artist in it ("Fujii Kaze - Shinunoga E-Wa"), so the title is matched loosely.
-// Without an artist match, nothing is picked, rather than playing the wrong song.
+// Both the artist and the title must match, or nothing is picked, rather than playing the wrong song: another song
+// by the artist can be as long as the lyrics are (Hana for Matsuri's video). Length only chooses among versions,
+// since lyrics timed to a video can be longer than the track.
 func bestMatch(tracks []Track, song Song) (Track, bool) {
 	var best Track
-	bestScore := -1
+	found := false
 	for _, t := range tracks {
-		if !byArtist(t, song) {
+		if !sameSong(t, song) {
 			continue
 		}
-		score := 1
-		if titled(t.Name, song.Title) {
-			score += 2
-		}
-		if song.DurationMS > 0 && t.DurationMS > 0 {
-			switch diff := abs(t.DurationMS - song.DurationMS); {
-			case diff <= 3000:
-				score += 3
-			case diff > 20000:
-				score -= 2
-			}
-		}
-		if score > bestScore {
-			best, bestScore = t, score
+		if !found || closer(t, best, song.DurationMS) {
+			best, found = t, true
 		}
 	}
-	if bestScore < 3 {
-		return Track{}, false
+	return best, found
+}
+
+// closer reports whether a is closer to the song's length than b. Without a length to go by, neither is.
+func closer(a, b Track, songMS int64) bool {
+	if songMS <= 0 || a.DurationMS <= 0 {
+		return false
 	}
-	return best, true
+	return b.DurationMS <= 0 || abs(a.DurationMS-songMS) < abs(b.DurationMS-songMS)
+}
+
+// otherLength is how long the song's lyrics are timed for, when that is more than a few seconds off the track
+// playing, and 0 otherwise: lyrics from a video or a live recording don't line up with the studio track.
+func otherLength(song Song, track Track) int64 {
+	if song.DurationMS <= 0 || track.DurationMS <= 0 || abs(song.DurationMS-track.DurationMS) <= 5000 {
+		return 0
+	}
+	return song.DurationMS
 }
 
 // sameSong: a track played from Spotify is the song when it's by the song's artist and has its title.

@@ -279,6 +279,14 @@ func TestNowPlaying(t *testing.T) {
 				Artists: []string{"Fujii Kaze"}}, Device: Device{Name: "iPhone"}},
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, ProgressMS: 5000, Device: "iPhone",
 				Ready: true}},
+		{name: "this song, timed for a longer version", cached: kazeTrack,
+			state: &State{Playing: true, ProgressMS: 1000, Track: Track{ID: kazeTrack, DurationMS: 160000}},
+			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Matches: true,
+				ProgressMS: 1000, Ready: true, TimedForMS: 185000}},
+		{name: "this song, a few seconds off", cached: kazeTrack,
+			state: &State{Playing: true, ProgressMS: 1000, Track: Track{ID: kazeTrack, DurationMS: 185500}},
+			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Matches: true,
+				ProgressMS: 1000, Ready: true}},
 		{name: "a podcast", cached: kazeTrack, state: &State{Playing: true, Device: Device{Name: "iPhone"}},
 			want: Playback{TrackURI: "spotify:track:" + kazeTrack, Active: true, Playing: true, Device: "iPhone",
 				Ready: true}},
@@ -460,6 +468,11 @@ func TestBestMatch(t *testing.T) {
 		{name: "nothing by the artist", tracks: []Track{{ID: "a", Name: "夜に駆ける", Artists: []string{"Someone"}}}},
 		{name: "by the artist, but another song",
 			tracks: []Track{{ID: "a", Name: "群青", Artists: []string{"YOASOBI"}, DurationMS: 250000}}},
+		{name: "the title over another song of the same length",
+			tracks: []Track{{ID: "a", Name: "群青", Artists: []string{"YOASOBI"}, DurationMS: 261000},
+				{ID: "b", Name: "夜に駆ける", Artists: []string{"YOASOBI"}, DurationMS: 238000}}, want: "b"},
+		{name: "the title with no length", tracks: []Track{{ID: "a", Name: "夜に駆ける", Artists: []string{"YOASOBI"}}},
+			want: "a"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
