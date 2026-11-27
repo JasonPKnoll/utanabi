@@ -3,9 +3,10 @@
   import { toAppError, type AppError } from "../lib/errors";
   import { finishSung, scriptOf, typeSung, type Script } from "../lib/sung";
 
-  // In the word sheet: how the word is sung, when that isn't how it's written (gikun, such as 羅針盤 sung コンパス).
-  // Setting it puts the sung reading over the word as furigana, and in the romaji; the meaning stays the written word's.
-  // It's yours alone, even on a song others have added too.
+  // In the word sheet: the reading the song's lyrics give the word, when it isn't the dictionary's (gikun, such as
+  // 羅針盤 with コンパス over it). Plain-text lyrics lose the lyricist's furigana, so you add it back here. It then
+  // shows over the word and in the romaji, while the meaning stays the written word's. It's yours alone, even on a
+  // song others have added too.
   let { word, onsave }: { word: Word; onsave: (reading: string) => Promise<void> } = $props();
 
   let editing = $state(false);

@@ -1,5 +1,7 @@
--- How a word is sung when that isn't how it's written: gikun, such as 羅針盤 written "compass" but sung コンパス, or
--- 地球 sung ほし. Its furigana and romaji follow the sung reading; its dictionary reading stays for meanings and cards.
+-- The reading a song's lyrics give a word in place of its dictionary one: gikun (義訓), where the lyricist writes kanji
+-- for the meaning and prints their own reading over it, such as 羅針盤 read コンパス, or 地球 read ほし. Plain-text
+-- lyrics drop that furigana. The word's furigana and romaji follow this reading; its dictionary reading stays for
+-- meanings and cards.
 -- Each owner's own: a song from a lyrics source is shared, so one person's reading never changes it for anyone else.
 CREATE TABLE sung_readings (
     owner       INTEGER NOT NULL CHECK (owner >= 0),

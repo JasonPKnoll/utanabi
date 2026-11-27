@@ -11,11 +11,12 @@ import (
 
 const maxSungLen = 100
 
-// SungReading is how a word of a line is sung when that isn't how it's written: gikun, where a singer writes 羅針盤
-// ("compass") and sings コンパス, or writes 地球 and sings ほし. No analyzer can hear that, so you set it. Line is the
-// line's position, FirstToken to LastToken the word's tokens, and Surface its text as written, so a reading set
-// before the line was analysed again is only used while the tokens still spell the word. Reading is kana, hiragana or
-// katakana, as it should show over the word.
+// SungReading is the reading a song's lyrics give a word in place of its dictionary one. This is gikun (義訓), a way
+// of writing lyrics: the lyricist writes a word in kanji for its meaning and prints their own reading over it as
+// furigana, such as 羅針盤 ("compass") read コンパス, or 地球 read ほし. Plain-text lyrics drop that furigana, so you
+// add it back. Line is the line's position, FirstToken to LastToken the word's tokens, and Surface its text as
+// written, so a reading set before the line was analysed again is only used while the tokens still spell the word.
+// Reading is kana, hiragana or katakana, as it should show over the word.
 type SungReading struct {
 	Line       int
 	FirstToken int

@@ -1,6 +1,6 @@
 import { toHiragana, toKatakana } from "wanakana";
 
-// How a word is sung when that isn't how it's written (gikun): 羅針盤 written "compass" and sung コンパス. The reading is
+// The reading a song's lyrics give a word in place of its dictionary one (gikun): 羅針盤 with コンパス over it. It's
 // typed in kana, or in romaji that turns into kana as it's typed, in the script chosen.
 
 export type Script = "katakana" | "hiragana";

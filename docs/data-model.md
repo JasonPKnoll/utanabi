@@ -120,7 +120,7 @@ How the songs slice fills it is under "Finding words" below.
 
 ### `sung_readings`
 
-How a word is sung when that isn't how it's written: gikun, where a singer writes 羅針盤 ("compass") and sings コンパス, or writes 地球 and sings ほし. Nothing in the text says so, so you set it, in the word sheet. Each owner's own, since a song from a lyrics source is shared: your reading never changes the song for anyone else.
+The reading a song's lyrics give a word in place of its dictionary one. This is gikun (義訓), a way of writing lyrics: the lyricist writes a word in kanji chosen for its meaning and gives it a reading of their own, printed as furigana over it in the official lyrics, such as 羅針盤 ("compass") read コンパス, or 地球 read ほし. Plain-text lyrics, such as LRCLIB's, drop that furigana, so you add it back, in the word sheet. Each owner's own, since a song from a lyrics source is shared: your reading never changes the song for anyone else.
 
 | Column | Type | Rules |
 | --- | --- | --- |

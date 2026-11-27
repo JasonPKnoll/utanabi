@@ -68,7 +68,7 @@ The rules themselves are in `internal/features/songs`, and the full description 
 
 | Problem | Example | Why not yet |
 | --- | --- | --- |
-| Gikun: a word sung in a way its writing doesn't show reads as written. | 羅針盤 sung コンパス shows らしんばん | Only the audio says how it's sung. You set it in the word sheet ("Sung differently from how it's written?"); see `sung_readings` in [data model](data-model.md). Lyrics that write the reading in brackets, 羅針盤(コンパス), could be read automatically, but none saved so far do. |
+| Gikun (義訓): a word the lyrics give a reading of their own shows its dictionary reading. | 羅針盤 written with コンパス over it shows らしんばん | The lyricist's furigana is part of the official lyrics, but plain-text lyrics such as LRCLIB's drop it, and nothing else in the text shows it. You add it back in the word sheet ("Sung differently from how it's written?"); see `sung_readings` in [data model](data-model.md). Lyrics that write the reading in brackets, 羅針盤(コンパス), could be read automatically, but none saved so far do. |
 | Spoken contractions kagome doesn't know come apart wrongly. | もうしたない (したくない, "don't want to anymore") reads as 申す "say" | kagome makes もうし one token, so there's nothing to join. It needs a list of contractions to expand before analysis. |
 | ホラ the interjection ("look!") reads as 法螺 "boasting". | ホラ見て | kagome tags an unknown katakana word as a noun, so the interjection ほら never fits. |
 | A word's meaning is the first sense that fits its part of speech, not the one the line means. | 声 in a line about an opinion is still "voice" | Choosing by meaning needs more than the tokens around the word. |
