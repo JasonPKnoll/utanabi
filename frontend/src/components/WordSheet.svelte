@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Meanings, RubyPart, Word } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
+  import { structure } from "../lib/explanation";
   import { meaningsCache } from "../lib/meaningsCache";
   import { aboutHref } from "../lib/route";
   import { hasMeanings, lemmaLine, splitMeanings } from "../lib/words";
@@ -73,7 +74,20 @@
       <section>
         <h3>{word.grammar.title} <span class="pattern" lang="ja">{word.grammar.pattern}</span></h3>
         <p>{word.grammar.meaning}</p>
-        <p class="muted">{word.grammar.explanation}</p>
+        <!-- The explanation in steps: each rule on its own line, with its examples set apart under it. -->
+        {#each structure(word.grammar.explanation) as part, i (i)}
+          {#if part.text}<p class="muted rule">{part.text}</p>{/if}
+          {#if part.examples.length > 0}
+            <ul class="examples">
+              {#each part.examples as example, j (j)}
+                <li>
+                  <span class="ex-ja" lang="ja">{example.ja}</span>
+                  <span class="ex-en">{example.en}</span>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        {/each}
       </section>
     {/if}
 
@@ -201,6 +215,37 @@
 
   .note {
     font-weight: 700;
+  }
+
+  .rule {
+    margin-top: 12px !important;
+  }
+
+  .examples {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .examples li {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: var(--bg);
+  }
+
+  .ex-ja {
+    font-size: 1.0625rem;
+    font-weight: 600;
+  }
+
+  .ex-en {
+    font-size: 0.9375rem;
+    color: var(--muted);
   }
 
   .meanings,

@@ -291,7 +291,7 @@ JMdict is the property of the Electronic Dictionary Research and Development Gro
 | `pattern` | How it's written: が, に, 〜ている, 〜た. |
 | `title` | Short: "Subject marker", "Place", "Ongoing action". |
 | `meaning` | One plain sentence for a card. |
-| `explanation` | A longer explanation for the grammar screen. |
+| `explanation` | A longer explanation for the grammar screen. Write examples inline, Japanese then English, after a colon and split by semicolons (`After a question word it means "any": いつでも, any time; 何度でも, as many times as it takes.`) or in brackets (`(聞いて, listen)`), so the word sheet can set each rule and its examples apart (`frontend/src/lib/explanation.ts`; its test checks every point). |
 | `formation` | For conjugations: how it's formed from each conjugation class, in words. The code that does it lives in Go. |
 | `standard_id` | For spoken, short, or old forms: the standard form it stands for. `teru` points to `teiru`, `chau` to `te-shimau`. |
 
