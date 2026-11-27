@@ -5,6 +5,7 @@ import {
   type Word,
 } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
 import type { Card } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/study";
+import type { About } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
 
 // Stand-in content for skeletons. A screen renders it through its own markup while the real content loads, with its
 // text drawn as shimmering bars (the .ph class), so the skeleton takes the real layout's shape: the same fonts, line
@@ -153,3 +154,27 @@ export function placeholderCards(): Card[] {
     progress: { streak: 0, right: 0, wrong: 0, learned: false },
   }));
 }
+
+// The About screen's version and credits while they load: the credits run a few lines each, like the real ones.
+export const placeholderAbout: About = {
+  name: "Utanabi",
+  version: "0.0.0",
+  platform: "platform",
+  // The real credits name their licences and links in full, about ten lines each on a phone.
+  credits: [
+    {
+      name: "A source",
+      text:
+        "Where a part of the app's data comes from, who made it, and the licence it's used under, with the address of " +
+        "the licence and of the source itself, and how it was converted for the app, which together run to about ten " +
+        "lines on a phone screen.",
+    },
+    {
+      name: "Another source",
+      text:
+        "Another part of the data, with its copyright, the institute that made it, and the notice its licence asks to " +
+        "be shown with every copy, that it comes with no warranty of any kind, and the address where its licence can " +
+        "be read in full, about as long again.",
+    },
+  ],
+};

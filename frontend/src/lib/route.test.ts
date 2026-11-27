@@ -10,6 +10,7 @@ describe("parseRoute", () => {
     ["#/add", { name: "add" }],
     ["#/search", { name: "search" }],
     ["#/about", { name: "about" }],
+    ["#/settings", { name: "settings" }],
     ["#/song/12", { name: "song", id: 12 }],
     [songHref(7), { name: "song", id: 7 }],
     ["#/song/0", { name: "missing" }],

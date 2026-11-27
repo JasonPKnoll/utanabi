@@ -8,6 +8,7 @@
   import Invites from "./screens/Invites.svelte";
   import Quiz from "./screens/Quiz.svelte";
   import Search from "./screens/Search.svelte";
+  import Settings from "./screens/Settings.svelte";
   import SignIn from "./screens/SignIn.svelte";
   import SongView from "./screens/SongView.svelte";
   import Study from "./screens/Study.svelte";
@@ -39,6 +40,8 @@
   <Invites />
 {:else if route.name === "search"}
   <Search />
+{:else if route.name === "settings"}
+  <Settings />
 {:else if route.name === "about"}
   <About />
 {:else if route.name === "add"}

@@ -5,7 +5,7 @@
     type NewInvite,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/accounts";
   import { toAppError, type AppError } from "../lib/errors";
-  import { aboutHref, joinHref } from "../lib/route";
+  import { joinHref, settingsHref } from "../lib/route";
 
   // For admins: make an invite link to share, and see and revoke the ones made. A link makes one account, within a
   // week. Its code is shown once, here, right after it's made; the server keeps only its hash.
@@ -93,7 +93,7 @@
 
 <div class="screen">
   <header class="topbar">
-    <a class="icon-button" href={aboutHref} aria-label="Back to About">
+    <a class="icon-button" href={settingsHref} aria-label="Back to settings">
       <svg
         width="22"
         height="22"

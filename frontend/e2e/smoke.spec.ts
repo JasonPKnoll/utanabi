@@ -64,7 +64,9 @@ test("the UI loads and the bound method answers", async ({ page }) => {
 
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Library");
-  await page.getByRole("link", { name: "About Utanabi" }).click();
+  await page.getByRole("link", { name: "Settings" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
+  await page.getByRole("link", { name: /About Utanabi/ }).click();
   await expect(page.getByTestId("about")).toContainText("server");
   expect(errors).toEqual([]);
 });
@@ -72,7 +74,7 @@ test("the UI loads and the bound method answers", async ({ page }) => {
 test("a chosen mode and palette override the defaults and are remembered", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await signUp(page);
-  await page.goto("/#/about");
+  await page.goto("/#/settings");
   const root = page.locator("html");
   const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   await expect(page.getByRole("radio", { name: "Auto" })).toBeChecked();
@@ -100,6 +102,14 @@ test("a chosen mode and palette override the defaults and are remembered", async
   await page.getByRole("radio", { name: "Utanabi" }).check();
   await expect(root).not.toHaveAttribute("data-palette");
   expect(await background()).toBe(dark);
+
+  // The reading aids are settings too, the same choice as a song's Aa menu, and remembered.
+  const romaji = page.getByRole("switch", { name: "Romaji" });
+  await expect(romaji).toHaveAttribute("aria-checked", "false");
+  await romaji.click();
+  await expect(romaji).toHaveAttribute("aria-checked", "true");
+  await page.reload();
+  await expect(page.getByRole("switch", { name: "Romaji" })).toHaveAttribute("aria-checked", "true");
 });
 
 test("a song with your own lyrics can be added, read, and deleted", async ({ page }) => {
@@ -217,8 +227,10 @@ test("words show each word's English under it and open a sheet when tapped", asy
   await closeDisplay(page);
 
   await page.getByRole("link", { name: "Back to your songs" }).click();
-  await page.getByRole("link", { name: "About Utanabi" }).click();
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("link", { name: /About Utanabi/ }).click();
   await expect(page.getByText(/Electronic Dictionary Research and Development Group/)).toBeVisible();
+  await page.getByRole("link", { name: "Back to settings" }).click();
   await page.getByRole("link", { name: "Back to your songs" }).click();
   await page.getByRole("link", { name: new RegExp(title) }).click();
   await deleteSong(page);
@@ -289,7 +301,7 @@ test("signing out, then back in with the same passkey", async ({ page, request }
   const session = (await page.context().cookies()).find((c) => c.name === "utanabi_session")?.value;
   expect(session).toBeTruthy();
 
-  await page.getByRole("link", { name: "About Utanabi" }).click();
+  await page.getByRole("link", { name: "Settings" }).click();
   await expect(page.getByText(`Signed in as ${name}`)).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
 
@@ -377,7 +389,7 @@ test("an admin's invite link signs one new person up", async ({ browser }) => {
 
   makeAdmin(name);
   // The page learns who's an admin when it loads.
-  await admin.goto("/#/about");
+  await admin.goto("/#/settings");
   await admin.reload();
   await expect(admin.getByText("Admin", { exact: true })).toBeVisible();
   await admin.getByRole("link", { name: "Manage invites" }).click();

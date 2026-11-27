@@ -280,7 +280,7 @@ JMdict is the property of the Electronic Dictionary Research and Development Gro
 - link to the JMdict project page (https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) and the licence (https://www.edrdg.org/edrdg/licence.html);
 - never claim copyright over JMdict material, and share any changed copy of the data under the same licence.
 
-`dictionary.Attribution()` returns the credit text. The app shows it in full on the About screen, reached from the home screen's info button (from `AboutService.Info`, in every build, server mode included). The song view, while it shows meanings, and the word sheet each carry a one-line footnote, "Definitions from JMdict · Sources", that links there. `internal/dictionary/testdata/jmdict-eng-common-fixture.json` holds 15 JMdict entries, under the same licence, for tests.
+`dictionary.Attribution()` returns the credit text. The app shows it in full on the About screen, reached from Settings, the home screen's gear button (from `AboutService.Info`, in every build, server mode included). The song view, while it shows meanings, and the word sheet each carry a one-line footnote, "Definitions from JMdict · Sources", that links there. `internal/dictionary/testdata/jmdict-eng-common-fixture.json` holds 15 JMdict entries, under the same licence, for tests.
 
 ### `grammar_points`
 

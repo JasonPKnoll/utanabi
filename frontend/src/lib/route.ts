@@ -3,6 +3,7 @@ export type Route =
   | { name: "home" }
   | { name: "search" }
   | { name: "add" }
+  | { name: "settings" }
   | { name: "about" }
   | { name: "song"; id: number }
   | { name: "study"; id: number; card?: number }
@@ -14,6 +15,7 @@ export type Route =
 export const homeHref = "#/";
 export const searchHref = "#/search";
 export const addHref = "#/add";
+export const settingsHref = "#/settings";
 export const aboutHref = "#/about";
 export const invitesHref = "#/invites";
 
@@ -45,6 +47,9 @@ export function parseRoute(hash: string): Route {
   }
   if (path === "/add") {
     return { name: "add" };
+  }
+  if (path === "/settings") {
+    return { name: "settings" };
   }
   if (path === "/about") {
     return { name: "about" };

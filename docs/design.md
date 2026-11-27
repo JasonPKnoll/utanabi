@@ -6,7 +6,7 @@ Every screen is built for a phone first. The rules are in "Mobile first" in [AGE
 
 ## Theme: palette and mode
 
-The look is two choices, both in the Theme control (`frontend/src/components/ThemePicker.svelte`), which sits in the song's Display sheet and on About:
+The look is two choices, both in the Theme control (`frontend/src/components/ThemePicker.svelte`), which sits in the song's Display sheet and in Settings:
 
 - **Palette:** Utanabi (the default, Night stage), Tokyo Night (Night, with Day for light), Nord (Polar Night, with Snow Storm for light), Catppuccin (Mocha, with Latte for light), Solarized, and Vivid (hot pink and cyan). Each is a swatch showing its own dark and light colours. Every palette has both a dark and a light set, keeping the same idea: the sung line is the strongest text, and the rest of the song is softer.
 - **Mode:** Auto, Light, or Dark, as a segmented control. Auto follows the device's setting (`prefers-color-scheme`); dark is the default when a device has no preference.
@@ -73,14 +73,15 @@ The sheet opens with its meanings already there. When a song opens, the app fetc
 Each screen keeps its chrome slim so the lyrics and the library get the room.
 
 - **Top bar:** every screen starts with a sticky, blurred `.topbar`, 56px tall: Back on the left, the title (and, on a song, its artist) in small type, and at most one action on the right.
-- **Home** (`#/`): the うたなび mark and an About button in the top bar, a large "Library" title with the song count, and the songs as rows with a letter tile. Search and add sit together in a dock at the bottom, within thumb reach: a search bar that opens the search screen, and a round amber "+" for your own lyrics. With search switched off, the dock is one "Add your own lyrics" button.
+- **Home** (`#/`): the うたなび mark and a Settings button (a gear) in the top bar, a large "Library" title with the song count, and the songs as rows with a letter tile. Search and add sit together in a dock at the bottom, within thumb reach: a search bar that opens the search screen, and a round amber "+" for your own lyrics. With search switched off, the dock is one "Add your own lyrics" button.
 - **Search** (`#/search`): the search field is the top bar, focused on arrival. Results are rows with a "Synced" chip and a round "+" to add, or a check when the song is already in the library. "Can't find it? Add your own lyrics" shows only after a search.
 - **Song** (`#/song/<id>`): the lyrics, the "Aa" Display sheet, and nothing else.
-- **About** (`#/about`): the app's name, version, and platform, then the sources in full.
+- **Settings** (`#/settings`): what you change, first, so it's never below the fold: the reading aids as switches (`frontend/src/components/ReadingAidSwitches.svelte`, the same choice and component as a song's Display sheet), the theme, and, when signed in, the account. Last, an "About Utanabi" row.
+- **About** (`#/about`, from Settings): the app's name, version, and platform, then the sources in full. Back goes to Settings.
 
 ## Credits
 
-The full credits live on the About screen, reached from the info button on Home. It lists every source the app's data asks to credit, from `AboutService.Info`: LRCLIB, JMdict (EDRDG, CC BY-SA 4.0), and the IPA dictionary with its no-warranty notice.
+The full credits live on the About screen, reached from Settings. It lists every source the app's data asks to credit, from `AboutService.Info`: LRCLIB, JMdict (EDRDG, CC BY-SA 4.0), and the IPA dictionary with its no-warranty notice.
 
 Every other place credits JMdict in one quiet `.footnote` line, "Definitions from JMdict · Sources", linking to About. It shows under the lyrics while "Words" is on and the song has dictionary meanings, and at the foot of the word sheet when it shows meanings, since the licence asks for a credit on every page that shows dictionary words in server mode. Search ends with a matching footnote for LRCLIB. Never put a credit paragraph on a working screen; link to About instead.
 
@@ -108,7 +109,7 @@ Use these instead of styling the same thing again in a component.
 
 Two kinds, for two kinds of wait:
 
-- **Skeletons, for content whose shape is known.** While the library, a song, or the study word list loads, the screen draws stand-in content (`frontend/src/lib/placeholders.ts`) through its own markup, the same row snippet, line template, and `Interlinear` component the real content uses, with the text drawn as shimmering bars (`.ph` in `frontend/src/app.css`, one bar per line of text, furigana included). So a skeleton always has the real layout's shape: its fonts, line heights, and the reading aids that are on (furigana, romaji, the word cards). A change to a screen's layout changes its skeleton with it; never hand-size a skeleton. Only the amounts of text are made up, and they're fixed. A skeleton appears only once a load has taken a fifth of a second (`.skeleton-wait`), so a quick load shows nothing; it's inert and hidden from screen readers, which get a visually hidden status ("Loading your songs") instead. With reduced motion on, it doesn't shimmer.
+- **Skeletons, for content whose shape is known.** While the library, a song, the study word list, or About loads, the screen draws stand-in content (`frontend/src/lib/placeholders.ts`) through its own markup, the same row snippet, line template, and `Interlinear` component the real content uses, with the text drawn as shimmering bars (`.ph` in `frontend/src/app.css`, one bar per line of text, furigana included). So a skeleton always has the real layout's shape: its fonts, line heights, and the reading aids that are on (furigana, romaji, the word cards). A change to a screen's layout changes its skeleton with it; never hand-size a skeleton. Only the amounts of text are made up, and they're fixed. A skeleton appears only once a load has taken a fifth of a second (`.skeleton-wait`), so a quick load shows nothing; it's inert and hidden from screen readers, which get a visually hidden status ("Loading your songs") instead. With reduced motion on, it doesn't shimmer.
 - **The firework, for work being done.** Building a song has no shape to preview, so it gets the animated mark (below). Opening a song starts with the lyric skeleton; when the open runs past 1.25 seconds, which happens when an older song is built the first time it's opened, the firework fades in over it with "Building this song…".
 
 ## The mark: the visualizer peony
@@ -161,8 +162,8 @@ A browser that has never signed in leads with making an account ("Welcome to Uta
 
 An **invite link** (`#/join/<code>`) opens this screen leading with making an account, with the invite code filled in: the newcomer picks a username, taps Continue, then Save passkey.
 
-The About screen gains an **Account** section when signed in: "Signed in as hana", a note to add a passkey on each device used, "Add a passkey on this device", and "Sign out", which goes back to the sign-in screen at the library's address. A call that finds the session has ended (`unauthorized`) goes back to the sign-in screen too. The desktop and phone apps have no accounts and never show any of this.
+Settings gains an **Account** section when signed in: "Signed in as hana", a note to add a passkey on each device used, "Add a passkey on this device", and "Sign out", which goes back to the sign-in screen at the library's address. A call that finds the session has ended (`unauthorized`) goes back to the sign-in screen too. The desktop and phone apps have no accounts and never show any of this.
 
 ## Invites
 
-For admins (`frontend/src/screens/Invites.svelte`, `#/invites`, from "Manage invites" in About's Account section, beside an Admin chip). "Make an invite link" makes an invite and shows its link, once, with **Share** (the phone's share sheet, where there is one) and **Copy link**, and a note that it works once. Under it, "All invites" lists each one: when it was made and by whom, and whether it's unused (until when), ran out, or was used by whom. An unused one has **Revoke**. Anyone else who opens the screen is told only an admin can manage invites.
+For admins (`frontend/src/screens/Invites.svelte`, `#/invites`, from "Manage invites" in the Account section of Settings, beside an Admin chip; Back goes to Settings). "Make an invite link" makes an invite and shows its link, once, with **Share** (the phone's share sheet, where there is one) and **Copy link**, and a note that it works once. Under it, "All invites" lists each one: when it was made and by whom, and whether it's unused (until when), ran out, or was used by whom. An unused one has **Revoke**. Anyone else who opens the screen is told only an admin can manage invites.

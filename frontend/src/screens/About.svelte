@@ -1,13 +1,11 @@
 <script lang="ts">
   import { AboutService, type About } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
-  import ThemePicker from "../components/ThemePicker.svelte";
-  import { account, signedOut } from "../lib/account.svelte";
-  import { addPasskey, rememberAccountHere, signOut } from "../lib/auth";
   import { toAppError, type AppError } from "../lib/errors";
-  import { homeHref, invitesHref } from "../lib/route";
+  import { placeholderAbout } from "../lib/placeholders";
+  import { settingsHref } from "../lib/route";
 
-  // The app's version and the full credits its data asks for. Other screens credit JMdict in one quiet line and link
-  // here, which is where the licences ask an app to say the rest.
+  // The app's version and the full credits its data asks for, reached from Settings. Other screens credit JMdict in
+  // one quiet line and link here, which is where the licences ask an app to say the rest.
   let about = $state<About | null>(null);
   let failure = $state<AppError | null>(null);
 
@@ -15,40 +13,14 @@
     .then((info) => (about = info))
     .catch((err: unknown) => (failure = toAppError(err)));
 
-  let busy = $state(false);
-  let accountNote = $state<{ ok: boolean; text: string } | null>(null);
-
-  async function add() {
-    busy = true;
-    accountNote = null;
-    try {
-      await addPasskey();
-      rememberAccountHere();
-      accountNote = { ok: true, text: "Passkey added. You can sign in with it on that device now." };
-    } catch (err) {
-      accountNote = { ok: false, text: toAppError(err).message };
-    } finally {
-      busy = false;
-    }
-  }
-
-  async function out() {
-    busy = true;
-    try {
-      await signOut();
-      // Whoever signs in next starts at their own library, not on this screen.
-      window.location.hash = homeHref;
-      signedOut();
-    } catch (err) {
-      accountNote = { ok: false, text: toAppError(err).message };
-      busy = false;
-    }
-  }
+  // While it loads, stand-in credits go through the same markup, as a skeleton in the screen's shape.
+  let loading = $derived(about === null);
+  let shown = $derived(about ?? placeholderAbout);
 </script>
 
 <div class="screen">
   <header class="topbar">
-    <a class="icon-button" href={homeHref} aria-label="Back to your songs">
+    <a class="icon-button" href={settingsHref} aria-label="Back to settings">
       <svg
         width="22"
         height="22"
@@ -67,67 +39,46 @@
   <main>
     {#if failure}
       <p class="alert" role="alert">{failure.message}</p>
-    {:else if about}
-      <section class="app">
-        <p class="mark" lang="ja">うたなび</p>
-        <p class="muted">Learn Japanese through song lyrics.</p>
-        <p class="version" data-testid="about">{about.name} {about.version} · {about.platform}</p>
-      </section>
-
-      {#if account.me?.mode === "server" && account.me.user}
-        <section>
-          <h2>Account</h2>
-          <div class="card account">
-            <p>
-              Signed in as <strong>{account.me.user}</strong>{#if account.me.admin}<span class="chip accent badge"
-                  >Admin</span
-                >{/if}
-            </p>
-            {#if account.me.admin}
-              <a class="button primary" href={invitesHref}>Manage invites</a>
-            {/if}
-            <p class="muted small">Add a passkey on each device you use, so losing one doesn't lock you out.</p>
-            <button type="button" class="button" disabled={busy} onclick={add}>Add a passkey on this device</button>
-            <button type="button" class="button danger" disabled={busy} onclick={out}>Sign out</button>
-            {#if accountNote}
-              <p class:alert={!accountNote.ok} class="note" role="status">{accountNote.text}</p>
-            {/if}
-          </div>
-        </section>
-      {/if}
-
-      <section>
-        <h2>Theme</h2>
-        <div class="card"><ThemePicker /></div>
-      </section>
-
-      <section>
-        <h2>Sources</h2>
-        <ul class="sources">
-          <li>
-            <p class="name">LRCLIB</p>
-            <p class="muted">Song search and lyrics. A free, community-run lyrics database at lrclib.net.</p>
-          </li>
-          {#each about.credits ?? [] as credit (credit.name)}
-            <li>
-              <p class="name">{credit.name}</p>
-              <p class="muted">{credit.text}</p>
-            </li>
-          {/each}
-        </ul>
-      </section>
     {:else}
-      <p class="muted">Loading…</p>
+      {#if loading}<p class="visually-hidden" role="status">Loading</p>{/if}
+      <div class="content" class:skeleton-wait={loading} inert={loading} aria-hidden={loading ? "true" : undefined}>
+        <section class="app">
+          <p class="mark" lang="ja">うたなび</p>
+          <p class="muted">Learn Japanese through song lyrics.</p>
+          <p class="version" data-testid={loading ? undefined : "about"}>
+            <span class:ph={loading}>{shown.name} {shown.version} · {shown.platform}</span>
+          </p>
+        </section>
+
+        <section>
+          <h2>Sources</h2>
+          <ul class="sources">
+            <li>
+              <p class="name">LRCLIB</p>
+              <p class="muted">Song search and lyrics. A free, community-run lyrics database at lrclib.net.</p>
+            </li>
+            {#each shown.credits ?? [] as credit (credit.name)}
+              <li>
+                <p class="name"><span class:ph={loading}>{credit.name}</span></p>
+                <p class="muted"><span class:ph={loading}>{credit.text}</span></p>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      </div>
     {/if}
   </main>
 </div>
 
 <style>
   main {
+    padding: 12px 0 max(32px, env(safe-area-inset-bottom));
+  }
+
+  .content {
     display: flex;
     flex-direction: column;
     gap: 28px;
-    padding: 12px 0 max(32px, env(safe-area-inset-bottom));
   }
 
   p {
@@ -163,36 +114,6 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--muted);
-  }
-
-  .account {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 16px !important;
-  }
-
-  .account p {
-    margin: 0;
-  }
-
-  .account .button {
-    flex: none;
-  }
-
-  .small {
-    font-size: 0.875rem;
-  }
-
-  .badge {
-    margin-left: 8px;
-    vertical-align: middle;
-  }
-
-  .card {
-    padding: 8px;
-    border-radius: 16px;
-    background: var(--surface);
   }
 
   .sources {
