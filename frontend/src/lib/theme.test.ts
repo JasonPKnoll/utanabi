@@ -152,22 +152,18 @@ describe("themes.css", () => {
     expect(failures).toEqual([]);
   });
 
-  // The firework's colours are drawn on the palette's dark set in both modes, as graphics, so they need 3:1.
-  it("keeps the firework's colours at 3:1 or more on the night sky", () => {
+  // The firework is drawn straight on the screen, in the mode's own colours, as graphics, so they need 3:1.
+  it("keeps the firework's colours at 3:1 or more on the screen in both modes", () => {
     const failures: string[] = [];
     for (const [palette, colours] of found) {
-      for (const colour of ["accent", "accent-strong", "spark"]) {
-        for (const on of ["bg", "surface"]) {
-          const ratio = contrast(colours.get(`d-${colour}`) ?? "", colours.get(`d-${on}`) ?? "");
-          if (!(ratio >= 3)) {
-            failures.push(`${palette}: ${colour} on ${on} is ${ratio.toFixed(2)}`);
+      for (const mode of ["d", "l"]) {
+        for (const colour of ["link", "link-strong", "spark"]) {
+          for (const on of ["bg", "surface"]) {
+            const ratio = contrast(colours.get(`${mode}-${colour}`) ?? "", colours.get(`${mode}-${on}`) ?? "");
+            if (!(ratio >= 3)) {
+              failures.push(`${palette} ${mode}: ${colour} on ${on} is ${ratio.toFixed(2)}`);
+            }
           }
-        }
-      }
-      for (const on of ["bg", "surface"]) {
-        const ratio = contrast(colours.get("l-spark") ?? "", colours.get(`l-${on}`) ?? "");
-        if (!(ratio >= 3)) {
-          failures.push(`${palette}: light spark on ${on} is ${ratio.toFixed(2)}`);
         }
       }
     }

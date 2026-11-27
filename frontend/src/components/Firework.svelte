@@ -1,8 +1,8 @@
 <script lang="ts">
   import { rays, tips } from "../lib/firework";
 
-  // The visualizer peony, animated: the loader for long waits, such as building a song. It's always drawn on the
-  // palette's night colours, in light mode too, since a firework needs a dark sky. With reduced motion on it holds
+  // The visualizer peony, animated: the loader for long waits, such as building a song. It has no background of its
+  // own and takes its colours from the theme, so it sits on any screen, light or dark. With reduced motion on it holds
   // still.
   let { size = 200 }: { size?: number } = $props();
 
@@ -76,9 +76,6 @@
 <style>
   .stage {
     flex: none;
-    border-radius: 28%;
-    background: radial-gradient(circle at 50% 50%, var(--d-surface), var(--d-bg) 70%);
-    overflow: hidden;
   }
 
   svg {
@@ -94,27 +91,27 @@
   }
 
   .c0 {
-    stroke: var(--d-accent);
+    stroke: var(--link);
   }
 
   .c1 {
-    stroke: var(--d-accent-strong);
+    stroke: var(--link-strong);
   }
 
   .c2 {
-    stroke: var(--d-spark);
+    stroke: var(--spark);
   }
 
   .t0 {
-    fill: var(--d-fg);
+    fill: var(--fg);
   }
 
   .t1 {
-    fill: var(--d-accent-strong);
+    fill: var(--link-strong);
   }
 
   .t2 {
-    fill: var(--d-spark);
+    fill: var(--spark);
   }
 
   .tips circle {
@@ -141,27 +138,28 @@
   }
 
   .vinyl {
-    fill: var(--d-bg);
-    stroke: var(--d-surface-strong);
+    fill: var(--surface-strong);
+    stroke: var(--border);
     stroke-width: 0.6;
   }
 
   .groove {
     fill: none;
-    stroke: var(--d-surface-strong);
+    stroke: var(--muted);
+    stroke-opacity: 0.35;
     stroke-width: 0.5;
   }
 
   .label {
-    fill: var(--d-spark);
+    fill: var(--spark);
   }
 
   .shine {
-    fill: var(--d-fg);
+    fill: var(--bg);
   }
 
   .hole {
-    fill: var(--d-bg);
+    fill: var(--bg);
   }
 
   /* The ray's dash grows out from the record: a smaller offset shows more of it. */
