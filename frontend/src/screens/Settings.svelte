@@ -1,4 +1,8 @@
 <script lang="ts">
+  import {
+    Service as Spotify,
+    type Status as SpotifyStatus,
+  } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/spotify";
   import ReadingAidSwitches from "../components/ReadingAidSwitches.svelte";
   import ThemePicker from "../components/ThemePicker.svelte";
   import { account, signedOut } from "../lib/account.svelte";
@@ -15,6 +19,24 @@
     aids[aid] = !aids[aid];
     // When storage refuses, the choice still holds until the app closes.
     saveReadingAids(aids);
+  }
+
+  // Spotify, when this server has it set up: connecting goes through Spotify's own sign-in page and back.
+  let spotify = $state<SpotifyStatus | null>(null);
+  let spotifyNote = $state("");
+
+  Spotify.Status()
+    .then((s) => (spotify = s))
+    .catch(() => (spotify = null));
+
+  async function disconnect() {
+    spotifyNote = "";
+    try {
+      await Spotify.Disconnect();
+      spotify = await Spotify.Status();
+    } catch (err) {
+      spotifyNote = toAppError(err).message;
+    }
   }
 
   let busy = $state(false);
@@ -77,6 +99,28 @@
       <h2>Theme</h2>
       <div class="card"><ThemePicker /></div>
     </section>
+
+    {#if spotify?.enabled}
+      <section>
+        <h2>Spotify</h2>
+        <div class="card account">
+          {#if spotify.connected}
+            <p>Connected as <strong>{spotify.name}</strong></p>
+            <p class="muted small">
+              Songs have a Play button that plays them on your Spotify, and their lyrics follow along.
+            </p>
+            <button type="button" class="button" onclick={disconnect}>Disconnect Spotify</button>
+          {:else}
+            <p class="muted small">
+              Play songs on your Spotify, on this phone or any of your devices, and their lyrics follow along. Needs
+              Spotify Premium.
+            </p>
+            <a class="button primary" href="/auth/spotify/connect">Connect Spotify</a>
+          {/if}
+          {#if spotifyNote}<p class="alert" role="alert">{spotifyNote}</p>{/if}
+        </div>
+      </section>
+    {/if}
 
     {#if account.me?.mode === "server" && account.me.user}
       <section>

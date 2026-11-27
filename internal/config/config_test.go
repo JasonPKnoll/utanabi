@@ -132,6 +132,8 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 			wantName: "study_streak"},
 		{name: "short sign-up code", platform: "server", env: map[string]string{"UTANABI_SIGNUP_CODE": "abc"},
 			wantName: "UTANABI_SIGNUP_CODE"},
+		{name: "Spotify client ID that isn't one", platform: "server",
+			env: map[string]string{"UTANABI_SPOTIFY_CLIENT_ID": "not-a-client-id"}, wantName: "UTANABI_SPOTIFY_CLIENT_ID"},
 		{name: "bad env study streak", platform: "server", env: map[string]string{"UTANABI_STUDY_STREAK": "lots"},
 			wantName: "study_streak"},
 		{
@@ -356,5 +358,26 @@ func TestLoadServerAccounts(t *testing.T) {
 	}
 	if closed.Server.Port != 8080 || !closed.Server.SignupCode.IsZero() {
 		t.Errorf("Server = %+v, want port 8080 and sign-up closed", closed.Server)
+	}
+}
+
+func TestLoadServerSpotify(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(platform(t, "server", map[string]string{
+		"UTANABI_SPOTIFY_CLIENT_ID": "9c5b5e6198d34e34825de3ff7b7ae015",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Server.SpotifyClientID != "9c5b5e6198d34e34825de3ff7b7ae015" {
+		t.Errorf("SpotifyClientID = %q, want the one set", cfg.Server.SpotifyClientID)
+	}
+	off, err := config.Load(platform(t, "server", nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if off.Server.SpotifyClientID != "" {
+		t.Errorf("SpotifyClientID = %q, want Spotify off", off.Server.SpotifyClientID)
 	}
 }

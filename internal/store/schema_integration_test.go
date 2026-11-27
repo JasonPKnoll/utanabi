@@ -101,6 +101,10 @@ func TestSchemaAcceptsGoodRows(t *testing.T) {
 			sql: `INSERT INTO invites (code_hash, created_by, created_at, expires_at, used_by, used_at) VALUES (randomblob(32), 5, 1, 9, 5, 3)`},
 		{name: "a card's progress",
 			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (1000, 2, 5, 1, 1)`},
+		{name: "a Spotify link for a user",
+			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (5, 'a', 'r', 2, 1)`},
+		{name: "a song's Spotify track",
+			sql: `INSERT INTO spotify_tracks (song_id, track_id, matched_at) VALUES (2, '3sY7Sdc9a5xP0M2YbS0Xx7', 1)`},
 		{name: "a sung reading in katakana",
 			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (5, 10, 2, 2, '声', 'ボイス')`},
 		{name: "a sung reading in hiragana over several tokens",
@@ -281,6 +285,14 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 			sql: `INSERT INTO cards (kind, entry_id, sense_index, label, created_at) VALUES ('word', 3, 0, '探す', 1)`},
 		{name: "a second card for the same grammar point", wantErr: "UNIQUE",
 			sql: `INSERT INTO cards (kind, grammar_point_id, label, created_at) VALUES ('grammar', 'teiru', 'x', 1)`},
+		{name: "a Spotify link for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (99, 'a', 'r', 2, 1)`},
+		{name: "a Spotify link with no token", wantErr: "CHECK",
+			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (5, '', 'r', 2, 1)`},
+		{name: "a Spotify track ID that isn't one", wantErr: "CHECK",
+			sql: `INSERT INTO spotify_tracks (song_id, track_id, matched_at) VALUES (2, 'spotify:track:3sY7Sdc9a', 1)`},
+		{name: "a Spotify track for no song", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO spotify_tracks (song_id, track_id, matched_at) VALUES (99, '3sY7Sdc9a5xP0M2YbS0Xx7', 1)`},
 		{name: "a sung reading in kanji", wantErr: "CHECK",
 			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', '歌')`},
 		{name: "a sung reading in Latin letters", wantErr: "CHECK",
@@ -380,12 +392,14 @@ func TestSchemaLibrariesAndAccounts(t *testing.T) {
 	// Removing the user removes their passkeys, sessions, cards, and library, and the songs only they had.
 	exec(`INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 5, 3, 0, '探す', 1)`)
 	exec(`INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (5, 10, 2, 2, '声', 'うた')`)
+	exec(`INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (5, 'a', 'r', 2, 1)`)
 	exec(`DELETE FROM users WHERE id = 5`)
 	for name, query := range map[string]string{
 		"their keys":     `SELECT count(*) FROM passkeys WHERE user_id = 5`,
 		"their sign-ins": `SELECT count(*) FROM sessions WHERE user_id = 5`,
 		"their cards":    `SELECT count(*) FROM cards WHERE owner = 5`,
 		"their readings": `SELECT count(*) FROM sung_readings WHERE owner = 5`,
+		"their Spotify":  `SELECT count(*) FROM spotify_links WHERE owner = 5`,
 		"their library":  `SELECT count(*) FROM library_songs WHERE owner = 5`,
 		"song 2":         `SELECT count(*) FROM songs WHERE id = 2`,
 	} {

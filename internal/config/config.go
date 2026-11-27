@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -83,6 +84,9 @@ type Server struct {
 	Port int
 	// SignupCode is the code that creating an account asks for. Empty means sign-up is closed: no new accounts.
 	SignupCode redact.Secret
+	// SpotifyClientID is the app's client ID on Spotify's developer dashboard, for following along with Spotify.
+	// Empty means Spotify is off. It isn't a secret: the app signs in with PKCE and has no client secret.
+	SpotifyClientID string
 }
 
 // settings mirrors the user settings file. Every field is optional.
@@ -286,6 +290,9 @@ func splitList(s string) []string {
 	return list
 }
 
+// spotifyClientID is the shape of a client ID on Spotify's developer dashboard.
+var spotifyClientID = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
+
 func loadServer(getenv func(string) string) (Server, error) {
 	srv := Server{Port: 8080}
 	// Wails reads WAILS_SERVER_PORT itself but silently ignores a bad value, so check it here.
@@ -302,6 +309,14 @@ func loadServer(getenv func(string) string) (Server, error) {
 				minSignupCode)
 		}
 		srv.SignupCode = redact.New(code)
+	}
+
+	if id := getenv("UTANABI_SPOTIFY_CLIENT_ID"); id != "" {
+		if !spotifyClientID.MatchString(id) {
+			return Server{}, errors.New("config: invalid UTANABI_SPOTIFY_CLIENT_ID (it must be the 32-character " +
+				"client ID from Spotify's developer dashboard)")
+		}
+		srv.SpotifyClientID = id
 	}
 
 	for _, origin := range splitList(getenv("UTANABI_ALLOWED_ORIGINS")) {

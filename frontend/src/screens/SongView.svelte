@@ -7,6 +7,7 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import DisplaySheet from "../components/DisplaySheet.svelte";
   import Interlinear from "../components/Interlinear.svelte";
+  import SpotifyBar from "../components/SpotifyBar.svelte";
   import Firework from "../components/Firework.svelte";
   import WordSheet from "../components/WordSheet.svelte";
   import { toAppError, type AppError } from "../lib/errors";
@@ -26,6 +27,9 @@
   let aids = $state(loadReadingAids());
   let displayOpen = $state(false);
   let open = $state<{ word: Word; ruby: RubyPart[]; line: number } | null>(null);
+  // While the lyrics follow Spotify, the sung line moves with the song, and a tapped line jumps the song there.
+  let following = $state(false);
+  let bar: SpotifyBar | undefined = $state();
 
   let lines = $derived(song?.lines ?? []);
   // While the song loads, stand-in lines go through the same markup, as a skeleton in the song's shape.
@@ -55,6 +59,24 @@
       })
       .catch((err: unknown) => (failure = toAppError(err)));
   });
+
+  // Picks a line: a tap, or the song moving on while the lyrics follow Spotify.
+  function select(i: number) {
+    current = i;
+    const startMs = lines[i]?.startMs;
+    if (following && startMs !== null && startMs !== undefined) {
+      bar?.seek(startMs);
+    }
+  }
+
+  function follow(i: number) {
+    if (i === current) {
+      return;
+    }
+    current = i;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    document.getElementById(`line-${i}`)?.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+  }
 
   // Saves how a word is sung, then shows the song and the open word as they are now. A failure is the sheet's to show.
   async function setSung(line: number, firstToken: number, reading: string) {
@@ -169,7 +191,7 @@
         lang="ja"
       >
         {#each shown as line, i (line.position)}
-          <li class:stanza-start={startsStanza(shown, i)}>
+          <li id={loading ? undefined : `line-${i}`} class:stanza-start={startsStanza(shown, i)}>
             {#if aids.words && (line.words ?? []).length > 0}
               {#if i === current}
                 <div class="line current card" role="group" aria-label={line.text} aria-current="true">
@@ -189,7 +211,7 @@
                   class="line card"
                   aria-current={false}
                   aria-label={line.text}
-                  onclick={() => (current = i)}
+                  onclick={() => select(i)}
                 >
                   <Interlinear {line} furigana={aids.furigana} placeholder={loading} />
                   {#if aids.romaji && hasRomaji(line)}
@@ -212,7 +234,7 @@
                 class:current={i === current}
                 aria-current={i === current}
                 aria-label={line.text}
-                onclick={() => (current = i)}
+                onclick={() => select(i)}
               >
                 <!-- prettier-ignore -->
                 <span class="sung"><span class:ph={loading}>{@render rubyText(line.ruby ?? [{ text: line.text, reading: "" }])}</span></span>
@@ -228,6 +250,17 @@
         <p class="footnote">Definitions from JMdict · <a href={aboutHref}>Sources</a></p>
       {/if}
     </main>
+
+    {#if song}
+      <SpotifyBar
+        bind:this={bar}
+        bind:following
+        songId={id}
+        {lines}
+        startMs={lines[current]?.startMs ?? 0}
+        oncurrent={follow}
+      />
+    {/if}
 
     {#if open}
       <WordSheet

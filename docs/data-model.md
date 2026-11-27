@@ -227,6 +227,15 @@ How far you've got with each card, one row per card once it's been answered. Rev
 
 **Studying a song** makes a `word` card for each word meaning in it that doesn't have one (from `line_words` with an entry and sense, `context_line_id` the first line it's sung in), so a word in five songs is still one card, and its progress carries from song to song.
 
+### Spotify
+
+Only in server mode, with `UTANABI_SPOTIFY_CLIENT_ID` set (`internal/features/spotify`). Added in 009.
+
+| Table | What it holds |
+| --- | --- |
+| `spotify_links` | One per owner who connected Spotify: `owner` (primary key), `access_token`, `refresh_token`, `expires_at`, `display_name`, and `connected_at`. The tokens are Spotify's, to call its API for the owner, and never leave the server. Removing a user removes theirs. |
+| `spotify_tracks` | The Spotify track each song is: `song_id` (primary key, cascade) and `track_id` (22 letters and digits), found once by the song's title, artist, and length, and shared, like the song. |
+
 ### Accounts and owners
 
 Server mode has accounts, signed in with passkeys (see [security](security.md#identity)). Everything that is one person's has an **owner**: a user's ID, or `0` for the device. The desktop and phone apps have no accounts, so everything they save is the device's, and so is whatever a server saved before it had accounts. SQLite can't add a foreign key with `ALTER TABLE`, and `0` is no user, so triggers check that any other owner is a user, and removing a user removes everything that was theirs.
@@ -346,6 +355,7 @@ The songs slice fills `line_words` and `word_inflections` from kagome's tokens a
 | 003 | `line_translations`, `line_tokens`, `line_words`, `word_inflections`, `cards` | Built. The tables are ready, with their rules tested. The songs slice fills `line_tokens` (#8), `line_words`, and `word_inflections` (#9); the code for the rest comes with #11 and #12. |
 | 004 | `line_tokens.pos` | Built, with #8. The songs slice saves each token's part of speech for romaji. |
 | 008 | `sung_readings` | Built. The songs slice reads each owner's with the song and sets them from the word sheet. |
+| 009 | `spotify_links`, `spotify_tracks` | Built. The spotify slice keeps each owner's connection and each song's track. |
 | `dictionary.db` | `meta`, `tags`, `entries`, `entry_forms`, `senses`, `grammar_points` | Built (#9): `task dictionary` and the `internal/dictionary` lookup package, which the songs slice uses for word meanings and the word sheet. Packaging with the apps is a follow-up. |
 
 New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number (`dictionary.SchemaVersion`, stored in `meta`), checked at startup.

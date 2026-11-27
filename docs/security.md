@@ -53,6 +53,7 @@
 - Never ship secrets in the app: no API keys, database credentials, signing keys, or tokens in code, config files, `ldflags`, or `frontend/`. Anyone can unpack the binary and read them.
 - A value that must stay secret belongs on a server you control, not in the app.
 - In server mode a user's session token lives only in an `HttpOnly` cookie, and the database keeps its hash. When the desktop and phone apps sign in to sync, their token goes in the OS keychain (Keychain on macOS and iOS, Credential Manager on Windows, Secret Service on Linux, Keystore on Android). Never in `settings.json`, the database, or a log.
+- **Spotify tokens** (server mode, only when `UTANABI_SPOTIFY_CLIENT_ID` is set) stay on the server, in `spotify_links`, one row per owner, and never reach the frontend, a log, or an event. The app signs in to Spotify as a public client with PKCE (authorization code with a code verifier), so it has no client secret to keep; the client ID isn't a secret. Each sign-in's `state` is random, works once, is bound to the signed-in user who started it, and runs out after 10 minutes. Spotify only sends people back to the app's own addresses (`UTANABI_ALLOWED_ORIGINS`, and `http://127.0.0.1:<port>`), registered on Spotify's dashboard. A refresh token Spotify turns down is deleted, and Disconnect deletes the row.
 - Carry secrets in memory as `redact.Secret`, so they never reach a log or an error message.
 - Files the app writes get mode `0600`, and folders `0700`.
 
@@ -73,6 +74,7 @@
 - Every request has a timeout, and responses are capped in size before they are read.
 - Everything from a source is untrusted: it is normalized, checked against the same limits as your own input, and shown as text.
 - A new source gets its own `<source>_api.go` and a line here.
+- **Spotify** (`https://accounts.spotify.com`, `https://api.spotify.com`), from `internal/features/spotify/spotify_api.go`, only for an owner who connected it, and only when `UTANABI_SPOTIFY_CLIENT_ID` is set. It sends a song's title and artist once to find its track, and asks what's playing every 2 to 5 seconds while a song is open on screen. Playing, pausing, and seeking happen only on a tap. Leave the setting unset and the app makes no request to Spotify.
 - **The app makes no request for the dictionary.** `dictionary.db` is a local file, opened read-only. Only the build step, `task dictionary`, goes online: it downloads one pinned jmdict-simplified release from GitHub (`https://github.com/scriptin/jmdict-simplified/releases`) and refuses it unless its SHA-256 matches the one pinned in `internal/dictionary/dictbuild/source.go`. A verified copy is kept in `.cache/dictionary`, so a rebuild works offline. The download has a time limit and a size cap.
 
 ## Server mode

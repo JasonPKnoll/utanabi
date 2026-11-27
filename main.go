@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/dictionary"
 	"github.com/JasonPKnoll/utanabi/internal/features/accounts"
 	"github.com/JasonPKnoll/utanabi/internal/features/songs"
+	"github.com/JasonPKnoll/utanabi/internal/features/spotify"
 	"github.com/JasonPKnoll/utanabi/internal/features/study"
 	"github.com/JasonPKnoll/utanabi/internal/identity"
 	"github.com/JasonPKnoll/utanabi/internal/logger"
@@ -100,6 +102,23 @@ func run() (err error) {
 		serverOnly = append(serverOnly, application.NewService(accounts.NewService(users)))
 	}
 
+	// Spotify, for following along, needs a client ID and server mode: its sign-in sends people back to the
+	// server's own address, and its tokens stay on the server. Its pages run inside sign-in, so they know who's
+	// signed in.
+	spotifyOn := cfg.Platform == "server" && cfg.Server.SpotifyClientID != ""
+	spotifyRepo := spotify.NewSQLite(db, owners)
+	spotifyAPI := spotify.NewWebAPI(spotify.AccountsURL, spotify.APIURL, cfg.Server.SpotifyClientID)
+	if spotifyOn {
+		bases := []string{fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port)}
+		for _, origin := range cfg.Server.AllowedOrigins {
+			if !strings.Contains(origin, "*") {
+				bases = append(bases, "https://"+origin)
+			}
+		}
+		connect := spotify.NewHTTP(spotifyRepo, spotifyAPI, cfg.Server.SpotifyClientID, bases).Middleware
+		signIn = application.ChainMiddleware(signIn, connect)
+	}
+
 	credits := []app.Credit{
 		{Name: "JMdict", Text: dictionary.Attribution()},
 		{Name: "IPA dictionary", Text: morph.Attribution()},
@@ -109,12 +128,14 @@ func run() (err error) {
 		application.NewService(songs.NewService(songs.NewSQLite(db, owners), songs.NewMorph(morph.New()), meanings,
 			sources...)),
 		application.NewService(study.NewService(study.NewSQLite(db, owners), study.NewJMdict(dict), cfg.StudyStreak)),
+		application.NewService(spotify.NewService(spotifyRepo, spotifyAPI, spotifyOn)),
 	}, serverOnly...)
 	a := app.New(cfg, log, dist, signIn, append(services, app.CloseOnShutdown(closers...))...)
 
 	log.InfoContext(ctx, "starting", slog.String("version", cfg.Version), slog.String("platform", cfg.Platform),
 		slog.Any("lyrics_sources", cfg.LyricsSources), slog.Bool("dictionary", dict != nil),
-		slog.Bool("accounts", signIn != nil), slog.Bool("signup_open", !cfg.Server.SignupCode.IsZero()))
+		slog.Bool("accounts", signIn != nil), slog.Bool("signup_open", !cfg.Server.SignupCode.IsZero()),
+		slog.Bool("spotify", spotifyOn))
 	if err := a.Run(); err != nil {
 		return fmt.Errorf("run app: %w", err)
 	}

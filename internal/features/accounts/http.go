@@ -92,7 +92,7 @@ func (h *HTTP) Middleware(next http.Handler) http.Handler {
 		header.Set("X-Frame-Options", "DENY")
 		header.Set("X-Content-Type-Options", "nosniff")
 		header.Set("Referrer-Policy", "no-referrer")
-		if strings.HasPrefix(r.URL.Path, "/auth/") {
+		if ownAuthPath(r.URL.Path) {
 			h.serveAuth(w, r)
 			return
 		}
@@ -108,6 +108,17 @@ func (h *HTTP) Middleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// ownAuthPath: the sign-in endpoints accounts answers. Other pages under /auth/, such as Spotify's sign-in, belong to
+// other slices and pass on, with the signed-in user in their context.
+func ownAuthPath(path string) bool {
+	switch path {
+	case "/auth/me", "/auth/signup/begin", "/auth/signup/finish", "/auth/signin/begin", "/auth/signin/finish",
+		"/auth/passkeys/begin", "/auth/passkeys/finish", "/auth/signout":
+		return true
+	}
+	return false
 }
 
 // needsSignIn: everything Wails serves under /wails/ (calls to bound services, event payloads, streams), except the
