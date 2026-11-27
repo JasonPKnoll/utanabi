@@ -3,6 +3,10 @@
     Service as Spotify,
     type Status as SpotifyStatus,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/spotify";
+  import {
+    Service as YouTube,
+    type Status as YouTubeStatus,
+  } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/youtube";
   import ReadingAidSwitches from "../components/ReadingAidSwitches.svelte";
   import ThemePicker from "../components/ThemePicker.svelte";
   import { account, signedOut } from "../lib/account.svelte";
@@ -28,6 +32,13 @@
   Spotify.Status()
     .then((s) => (spotify = s))
     .catch(() => (spotify = null));
+
+  // YouTube, on a server: a song can play along with its video instead of Spotify.
+  let youtube = $state<YouTubeStatus | null>(null);
+
+  YouTube.Status()
+    .then((s) => (youtube = s))
+    .catch(() => (youtube = null));
 
   async function disconnect() {
     spotifyNote = "";
@@ -125,6 +136,23 @@
             <a class="button primary" href="/auth/spotify/connect">Connect Spotify</a>
           {/if}
           {#if spotifyNote}<p class="alert" role="alert">{spotifyNote}</p>{/if}
+        </div>
+      </section>
+    {/if}
+
+    {#if youtube?.enabled}
+      <section>
+        <h2>YouTube</h2>
+        <div class="card account">
+          <p class="small">
+            Songs can also play along with their YouTube video, right here in the page. On a song, tap
+            <strong>YouTube</strong> in the player bar, or choose it in the song's Aa menu under Play along with.
+          </p>
+          <p class="muted small">
+            {youtube.searchable
+              ? "Each song finds its video on YouTube by itself; you can paste a different link."
+              : "Paste each song's YouTube or YouTube Music link. This server has no YouTube key to search with."}
+          </p>
         </div>
       </section>
     {/if}

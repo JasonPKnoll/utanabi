@@ -31,6 +31,8 @@
     searchable,
     oncurrent,
     following = $bindable(false),
+    switchTo = "",
+    onswitch,
   }: {
     songId: number;
     lines: Line[];
@@ -39,6 +41,9 @@
     searchable: boolean;
     oncurrent: (index: number) => void;
     following?: boolean;
+    // The other player the song can play along with, such as "YouTube", and switching to it; none when there's none.
+    switchTo?: string;
+    onswitch?: () => void;
   } = $props();
 
   let video = $state<Video | null>(null);
@@ -283,6 +288,11 @@
         /></svg
       >
     </button>
+    {#if switchTo && onswitch}
+      <button type="button" class="switch" aria-label={`Play along with ${switchTo} instead`} onclick={onswitch}
+        >{switchTo}</button
+      >
+    {/if}
   </div>
 </div>
 
@@ -359,5 +369,20 @@
   .note.alert {
     padding: 0;
     background: transparent;
+  }
+
+  /* Switches the song to the other player, when there is one. */
+  .switch {
+    flex: none;
+    min-height: var(--tap);
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
   }
 </style>

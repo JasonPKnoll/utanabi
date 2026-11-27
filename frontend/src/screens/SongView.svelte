@@ -309,6 +309,8 @@
         {lines}
         startMs={lines[current]?.startMs ?? 0}
         oncurrent={follow}
+        switchTo={available.includes("youtube") ? "YouTube" : ""}
+        onswitch={() => choosePlayer("youtube")}
       />
     {:else if song && player === "youtube"}
       <YouTubePanel
@@ -319,6 +321,8 @@
         startMs={lines[current]?.startMs ?? 0}
         searchable={youtubeSearch}
         oncurrent={follow}
+        switchTo={available.includes("spotify") ? "Spotify" : ""}
+        onswitch={() => choosePlayer("spotify")}
       />
     {/if}
 
