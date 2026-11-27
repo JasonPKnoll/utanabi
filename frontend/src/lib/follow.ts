@@ -57,3 +57,33 @@ export function describeOffset(offset: number): string {
   }
   return `${seconds.toFixed(1)} s ${offset < 0 ? "earlier" : "later"}`;
 }
+
+// A move you made on Spotify (a jump to a line, Play, Pause), held until Spotify's answers show it: for a second or
+// two after a move, Spotify can still say where the song was, which would pull the lyrics back and forth.
+export interface Move {
+  trackMs: number;
+  playing: boolean;
+  // When it was made, on performance.now()'s clock.
+  at: number;
+}
+
+// How far an answer can be from where a move put the song and still show it, and how long a move is held at most:
+// after that, Spotify is trusted again, in case the move didn't take.
+const caughtUpMs = 1500;
+const holdMs = 5000;
+
+// Whether an answer, got at now, shows the move: this song, playing or paused as asked, and about where the move put
+// it by now.
+export function caughtUp(
+  move: Move,
+  answer: { progressMs: number; playing: boolean; matches: boolean },
+  now: number,
+): boolean {
+  if (now - move.at > holdMs) {
+    return true;
+  }
+  if (!answer.matches || answer.playing !== move.playing) {
+    return false;
+  }
+  return Math.abs(answer.progressMs - positionAt(move.trackMs, move.playing, move.at, now)) <= caughtUpMs;
+}

@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { describeOffset, hasTimes, lineAt, lyricsTime, nextLine, positionAt, trackLink, trackTime } from "./follow";
+import {
+  caughtUp,
+  describeOffset,
+  hasTimes,
+  lineAt,
+  lyricsTime,
+  nextLine,
+  positionAt,
+  trackLink,
+  trackTime,
+} from "./follow";
 
 const lines = [{ startMs: 1000 }, { startMs: 4500 }, { startMs: null }, { startMs: 9000 }];
 
@@ -88,5 +98,25 @@ describe("nextLine", () => {
     [9000, -1],
   ])("after %d ms is line %d", (ms, want) => {
     expect(nextLine(lines, ms)).toBe(want);
+  });
+});
+
+describe("caughtUp", () => {
+  const jump = { trackMs: 30000, playing: true, at: 1000 };
+
+  it.each([
+    ["Spotify still at the old place", { progressMs: 92000, playing: true, matches: true }, 1800, false],
+    ["about where the jump put it by now", { progressMs: 31200, playing: true, matches: true }, 2000, true],
+    ["paused when it should play", { progressMs: 30500, playing: false, matches: true }, 1500, false],
+    ["still on the song before", { progressMs: 30500, playing: true, matches: false }, 1500, false],
+    ["anything, once the move is old", { progressMs: 92000, playing: true, matches: true }, 6500, true],
+  ])("%s", (_, answer, now, want) => {
+    expect(caughtUp(jump, answer, now)).toBe(want);
+  });
+
+  it("holds a pause where it was made", () => {
+    const pause = { trackMs: 45000, playing: false, at: 1000 };
+    expect(caughtUp(pause, { progressMs: 45200, playing: false, matches: true }, 4000)).toBe(true);
+    expect(caughtUp(pause, { progressMs: 47000, playing: true, matches: true }, 3000)).toBe(false);
   });
 });

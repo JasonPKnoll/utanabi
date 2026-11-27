@@ -7,7 +7,7 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/spotify";
   import type { Line } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
-  import { hasTimes, lineAt, lyricsTime, positionAt, trackLink, trackTime } from "../lib/follow";
+  import { caughtUp, hasTimes, lineAt, lyricsTime, positionAt, trackLink, trackTime, type Move } from "../lib/follow";
   import { formatDuration } from "../lib/sources";
   import SpotifyOpenSheet from "./SpotifyOpenSheet.svelte";
   import TimingSheet from "./TimingSheet.svelte";
@@ -57,15 +57,37 @@
     .then((s) => (connected = s.enabled && s.connected))
     .catch(() => (connected = false));
 
+  // The last move you made, until Spotify's answers show it.
+  let move: Move | null = null;
+
   async function ask() {
     try {
       const p = await Spotify.NowPlaying(songId);
-      playback = p;
-      askedAt = performance.now();
-      following = p.active && p.matches;
+      const now = performance.now();
       failure = null;
+      if (move && playback && !caughtUp(move, p, now)) {
+        // Spotify hasn't caught up with the move yet: keep counting from where it put the song, and take the rest.
+        playback = { ...p, progressMs: playback.progressMs, playing: playback.playing, matches: true, active: true };
+        return;
+      }
+      move = null;
+      playback = p;
+      askedAt = now;
+      following = p.active && p.matches;
     } catch (err) {
       failure = toAppError(err);
+    }
+  }
+
+  // Shows a move at once, before Spotify does: the lines follow from where it puts the song, not from where Spotify
+  // last said it was.
+  function moved(trackMs: number, playingNow: boolean) {
+    const now = performance.now();
+    move = { trackMs, playing: playingNow, at: now };
+    if (playback) {
+      playback = { ...playback, progressMs: trackMs, playing: playingNow, active: true, matches: true };
+      askedAt = now;
+      following = true;
     }
   }
 
@@ -134,8 +156,10 @@
     busy = true;
     failure = null;
     try {
-      const result = await Spotify.Play(songId, trackTime(Math.max(0, startMs), offset));
+      const from = trackTime(Math.max(0, startMs), offset);
+      const result = await Spotify.Play(songId, from);
       if (result.started) {
+        moved(from, true);
         await ask();
       } else {
         // No Spotify open to play on: ask you to open it.
@@ -150,8 +174,10 @@
 
   function tap() {
     if (playing) {
+      moved(trackNow(), false);
       void control(() => Spotify.Pause());
     } else if (following) {
+      moved(trackNow(), true);
       void control(() => Spotify.Resume());
     } else if (playback && !playback.ready && trackLink(playback.trackUri)) {
       // No Spotify open anywhere, so the API can't reach one: ask you to open it.
@@ -184,7 +210,9 @@
 
   // Jumps the song to ms, such as the start of a line tapped while the lyrics follow.
   export function seek(ms: number) {
-    void control(() => Spotify.Seek(trackTime(Math.max(0, ms), offset)));
+    const to = trackTime(Math.max(0, ms), offset);
+    moved(to, playback?.playing ?? true);
+    void control(() => Spotify.Seek(to));
   }
 
   async function control(fn: () => Promise<void>) {
@@ -194,6 +222,8 @@
       await fn();
       await ask();
     } catch (err) {
+      // The move didn't happen: Spotify's next answer is where the song is.
+      move = null;
       failure = toAppError(err);
     } finally {
       busy = false;
