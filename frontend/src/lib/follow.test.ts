@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  answeredAt,
   caughtUp,
+  clockAt,
   describeOffset,
   hasTimes,
   lineAt,
   lyricsTime,
   nextLine,
   positionAt,
+  steer,
   trackLink,
   trackTime,
 } from "./follow";
@@ -118,5 +121,49 @@ describe("caughtUp", () => {
     const pause = { trackMs: 45000, playing: false, at: 1000 };
     expect(caughtUp(pause, { progressMs: 45200, playing: false, matches: true }, 4000)).toBe(true);
     expect(caughtUp(pause, { progressMs: 47000, playing: true, matches: true }, 3000)).toBe(false);
+  });
+});
+
+describe("the clock", () => {
+  const running = { at: 1000, ms: 60000, rate: 1, playing: true };
+
+  it("counts on while playing, and stays put while paused", () => {
+    expect(clockAt(running, 3000)).toBe(62000);
+    expect(clockAt({ ...running, playing: false }, 3000)).toBe(60000);
+  });
+
+  it("never steps back for an answer a little behind it", () => {
+    // At 3000 the clock says 62000; Spotify says 61700.
+    const steered = steer(running, 61700, true, 3000);
+    expect(clockAt(steered, 3000)).toBe(62000);
+    expect(steered.rate).toBeLessThan(1);
+    expect(steered.rate).toBeGreaterThan(0);
+    // Two seconds on, it has met Spotify, which played on at 1.
+    expect(clockAt(steered, 5000)).toBeCloseTo(63700, -1);
+  });
+
+  it("speeds up for an answer a little ahead", () => {
+    const steered = steer(running, 62400, true, 3000);
+    expect(clockAt(steered, 3000)).toBe(62000);
+    expect(steered.rate).toBeGreaterThan(1);
+  });
+
+  it("jumps for an answer far off, as after a seek", () => {
+    expect(steer(running, 90000, true, 3000)).toEqual({ at: 3000, ms: 90000, rate: 1, playing: true });
+  });
+
+  it("is set exactly when paused, or with nothing to steer from", () => {
+    expect(steer(running, 61700, false, 3000)).toEqual({ at: 3000, ms: 61700, rate: 1, playing: false });
+    expect(steer(null, 5000, true, 3000)).toEqual({ at: 3000, ms: 5000, rate: 1, playing: true });
+  });
+});
+
+describe("answeredAt", () => {
+  it("takes the position as of halfway through the round trip", () => {
+    expect(answeredAt(60000, true, 1000, 1400)).toBe(60200);
+  });
+
+  it("is the position as it is while paused", () => {
+    expect(answeredAt(60000, false, 1000, 1400)).toBe(60000);
   });
 });

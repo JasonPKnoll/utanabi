@@ -87,3 +87,42 @@ export function caughtUp(
   }
   return Math.abs(answer.progressMs - positionAt(move.trackMs, move.playing, move.at, now)) <= caughtUpMs;
 }
+
+// The song's clock, between Spotify's answers: where it was at `at` (performance.now()'s clock) and how fast it runs
+// from there. It runs at 1 while it agrees with Spotify; when an answer says it's a little off, it runs a little
+// faster or slower until it meets Spotify, so the lyrics never step back to sing part of a word again.
+export interface Clock {
+  at: number;
+  ms: number;
+  rate: number;
+  playing: boolean;
+}
+
+// Further off than this, the clock jumps: the song was moved, not just counted a little wrong. steerMs is how long a
+// small difference takes to make up.
+const jumpMs = 1500;
+const steerMs = 2000;
+
+// Where the song is at now by clock.
+export function clockAt(clock: Clock, now: number): number {
+  return clock.playing ? clock.ms + Math.max(0, now - clock.at) * clock.rate : clock.ms;
+}
+
+// The clock set to the song at ms, now: exactly, or by steering towards it when it's only a little off.
+export function steer(clock: Clock | null, ms: number, playing: boolean, now: number): Clock {
+  if (!clock || !playing || !clock.playing) {
+    return { at: now, ms, rate: 1, playing };
+  }
+  const shown = clockAt(clock, now);
+  const off = ms - shown;
+  if (Math.abs(off) > jumpMs) {
+    return { at: now, ms, rate: 1, playing };
+  }
+  return { at: now, ms: shown, rate: Math.min(1.5, Math.max(0.5, 1 + off / steerMs)), playing };
+}
+
+// Where Spotify's answer puts the song now: its position was read somewhere between asking and hearing back, so it's
+// taken to be as of halfway, and the song has played on since.
+export function answeredAt(progressMs: number, playing: boolean, askedAt: number, heardAt: number): number {
+  return playing ? progressMs + Math.max(0, heardAt - (askedAt + heardAt) / 2) : progressMs;
+}

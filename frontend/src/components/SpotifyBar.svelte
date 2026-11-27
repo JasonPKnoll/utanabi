@@ -7,7 +7,19 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/spotify";
   import type { Line } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
-  import { caughtUp, hasTimes, lineAt, lyricsTime, positionAt, trackLink, trackTime, type Move } from "../lib/follow";
+  import {
+    answeredAt,
+    caughtUp,
+    clockAt,
+    hasTimes,
+    lineAt,
+    lyricsTime,
+    steer,
+    trackLink,
+    trackTime,
+    type Clock,
+    type Move,
+  } from "../lib/follow";
   import { formatDuration } from "../lib/sources";
   import { activateWebPlayer, startWebPlayer, webPlayer, webPlayerName } from "../lib/webPlayer.svelte";
   import SpotifyOpenSheet from "./SpotifyOpenSheet.svelte";
@@ -35,7 +47,8 @@
 
   let connected = $state(false);
   let playback = $state<Playback | null>(null);
-  let askedAt = 0;
+  // The song's clock, set from Spotify's answers and steered smoothly between them.
+  let clock: Clock | null = null;
   let busy = $state(false);
   let failure = $state<AppError | null>(null);
   // Play was asked for while no Spotify was open: start it once this page is back on screen.
@@ -49,9 +62,9 @@
   // How far the lyrics are shifted onto the track; lines, Play, and jumps all go through it.
   let offset = $derived(playback?.offsetMs ?? 0);
 
-  // Where the song is on the track now, counting on from Spotify's last answer.
+  // Where the song is on the track now, by the clock.
   function trackNow(): number {
-    return playback ? positionAt(playback.progressMs, playback.playing, askedAt, performance.now()) : 0;
+    return clock ? clockAt(clock, performance.now()) : 0;
   }
 
   // Whether the connection lets this page play: one made before the app asked for streaming has to be made again.
@@ -69,20 +82,24 @@
 
   async function ask() {
     try {
+      const askedAt = performance.now();
       let p = await Spotify.NowPlaying(songId);
       if (unsaved !== null) {
         p = { ...p, offsetMs: unsaved, offsetSet: true, timedForMs: 0 };
       }
       const now = performance.now();
+      const at = answeredAt(p.progressMs, p.playing, askedAt, now);
       failure = null;
-      if (move && playback && !caughtUp(move, p, now)) {
+      if (move && playback && !caughtUp(move, { ...p, progressMs: at }, now)) {
         // Spotify hasn't caught up with the move yet: keep counting from where it put the song, and take the rest.
         playback = { ...p, progressMs: playback.progressMs, playing: playback.playing, matches: true, active: true };
         return;
       }
+      // Still this song, a little off: steer towards Spotify. Anything else sets the clock outright.
+      const same = following && p.active && p.matches && playback?.matches;
+      clock = steer(same ? clock : null, at, p.playing, now);
       move = null;
       playback = p;
-      askedAt = now;
       following = p.active && p.matches;
     } catch (err) {
       failure = toAppError(err);
@@ -96,7 +113,7 @@
     move = { trackMs, playing: playingNow, at: now };
     if (playback) {
       playback = { ...playback, progressMs: trackMs, playing: playingNow, active: true, matches: true };
-      askedAt = now;
+      clock = { at: now, ms: trackMs, rate: 1, playing: playingNow };
       following = true;
     }
   }
