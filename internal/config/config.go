@@ -87,6 +87,9 @@ type Server struct {
 	// SpotifyClientID is the app's client ID on Spotify's developer dashboard, for following along with Spotify.
 	// Empty means Spotify is off. It isn't a secret: the app signs in with PKCE and has no client secret.
 	SpotifyClientID string
+	// YouTubeAPIKey is a YouTube Data API key, for finding a song's video by searching. Empty means search is off:
+	// videos are pasted as links. It's a secret: it spends the key's quota, so it stays on the server.
+	YouTubeAPIKey redact.Secret
 }
 
 // settings mirrors the user settings file. Every field is optional.
@@ -290,6 +293,9 @@ func splitList(s string) []string {
 	return list
 }
 
+// youtubeAPIKey is the shape of a Google API key.
+var youtubeAPIKey = regexp.MustCompile(`^[0-9A-Za-z_-]{30,100}$`)
+
 // spotifyClientID is the shape of a client ID on Spotify's developer dashboard.
 var spotifyClientID = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
 
@@ -317,6 +323,14 @@ func loadServer(getenv func(string) string) (Server, error) {
 				"client ID from Spotify's developer dashboard)")
 		}
 		srv.SpotifyClientID = id
+	}
+
+	if key := getenv("UTANABI_YOUTUBE_API_KEY"); key != "" {
+		if !youtubeAPIKey.MatchString(key) {
+			return Server{}, errors.New("config: invalid UTANABI_YOUTUBE_API_KEY (it must be an API key from " +
+				"Google Cloud's credentials page)")
+		}
+		srv.YouTubeAPIKey = redact.New(key)
 	}
 
 	for _, origin := range splitList(getenv("UTANABI_ALLOWED_ORIGINS")) {

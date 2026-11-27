@@ -8,6 +8,10 @@
   import DisplaySheet from "../components/DisplaySheet.svelte";
   import Interlinear from "../components/Interlinear.svelte";
   import SpotifyBar from "../components/SpotifyBar.svelte";
+  import YouTubePanel from "../components/YouTubePanel.svelte";
+  import { Service as Spotify } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/spotify";
+  import { Service as YouTube } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/youtube";
+  import { loadPlayer, playerFor, savePlayer, type Player } from "../lib/players";
   import Firework from "../components/Firework.svelte";
   import WordSheet from "../components/WordSheet.svelte";
   import { toAppError, type AppError } from "../lib/errors";
@@ -28,9 +32,36 @@
   let aids = $state(loadReadingAids());
   let displayOpen = $state(false);
   let open = $state<{ word: Word; ruby: RubyPart[]; line: number } | null>(null);
-  // While the lyrics follow Spotify, the sung line moves with the song, and a tapped line jumps the song there.
+  // While the lyrics follow the player, Spotify or YouTube, the sung line moves with the song, and a tapped line jumps
+  // the song there.
   let following = $state(false);
-  let bar: SpotifyBar | undefined = $state();
+  let bar: SpotifyBar | YouTubePanel | undefined = $state();
+
+  // The players there are to follow: Spotify once you've connected it, and YouTube on a server. Your choice between
+  // them is remembered on this device.
+  let available = $state<Player[]>([]);
+  let youtubeSearch = $state(false);
+  let chosen = $state<Player>(loadPlayer());
+  let player = $derived(playerFor(chosen, available));
+
+  Promise.all([Spotify.Status().catch(() => null), YouTube.Status().catch(() => null)]).then(([spotify, youtube]) => {
+    const there: Player[] = [];
+    if (spotify?.enabled && spotify.connected) {
+      there.push("spotify");
+    }
+    if (youtube?.enabled) {
+      there.push("youtube");
+      youtubeSearch = youtube.searchable;
+    }
+    available = there;
+  });
+
+  function choosePlayer(p: Player) {
+    chosen = p;
+    following = false;
+    // When storage refuses, the choice still holds until the screen closes.
+    savePlayer(p);
+  }
 
   let lines = $derived(song?.lines ?? []);
   // While the song loads, stand-in lines go through the same markup, as a skeleton in the song's shape.
@@ -270,13 +301,23 @@
       {/if}
     </main>
 
-    {#if song}
+    {#if song && player === "spotify"}
       <SpotifyBar
         bind:this={bar}
         bind:following
         songId={id}
         {lines}
         startMs={lines[current]?.startMs ?? 0}
+        oncurrent={follow}
+      />
+    {:else if song && player === "youtube"}
+      <YouTubePanel
+        bind:this={bar}
+        bind:following
+        songId={id}
+        {lines}
+        startMs={lines[current]?.startMs ?? 0}
+        searchable={youtubeSearch}
         oncurrent={follow}
       />
     {/if}
@@ -295,6 +336,9 @@
         {aids}
         {source}
         {deleting}
+        players={available}
+        {player}
+        onplayer={choosePlayer}
         ontoggle={toggle}
         ondelete={remove}
         onclose={() => (displayOpen = false)}

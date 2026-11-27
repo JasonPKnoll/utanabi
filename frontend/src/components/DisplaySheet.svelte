@@ -1,15 +1,20 @@
 <script lang="ts">
+  import type { Player } from "../lib/players";
   import type { ReadingAids } from "../lib/readingAids";
   import ReadingAidSwitches from "./ReadingAidSwitches.svelte";
   import Sheet from "./Sheet.svelte";
   import ThemePicker from "./ThemePicker.svelte";
 
-  // The song's display options in one place: the reading aids as switches, the app's theme, where the lyrics came
-  // from, and deleting the song, so none of them take room from the lyrics.
+  // The song's display options in one place: the reading aids as switches, what the lyrics play along with (Spotify
+  // or the song's YouTube video, when both are there), the app's theme, where the lyrics came from, and deleting the
+  // song, so none of them take room from the lyrics.
   let {
     aids,
     source,
     deleting,
+    players = [],
+    player = null,
+    onplayer,
     ontoggle,
     ondelete,
     onclose,
@@ -17,10 +22,15 @@
     aids: ReadingAids;
     source: string;
     deleting: boolean;
+    players?: Player[];
+    player?: Player | null;
+    onplayer?: (player: Player) => void;
     ontoggle: (aid: keyof ReadingAids) => void;
     ondelete: () => void;
     onclose: () => void;
   } = $props();
+
+  const playerNames: Record<Player, string> = { spotify: "Spotify", youtube: "YouTube" };
 
   let confirmDelete = $state(false);
 </script>
@@ -44,6 +54,19 @@
     </header>
 
     <div class="aids"><ReadingAidSwitches {aids} {ontoggle} /></div>
+
+    {#if players.length > 1}
+      <h3 class="section">Play along with</h3>
+      <fieldset class="players">
+        <legend class="visually-hidden">Play along with</legend>
+        {#each players as p (p)}
+          <label class="player" class:chosen={player === p}>
+            <input type="radio" name="player" value={p} checked={player === p} onchange={() => onplayer?.(p)} />
+            {playerNames[p]}
+          </label>
+        {/each}
+      </fieldset>
+    {/if}
 
     <h3 class="section">Theme</h3>
     <ThemePicker />
@@ -100,6 +123,45 @@
 
   .aids {
     margin-top: 8px;
+  }
+
+  .players {
+    display: flex;
+    gap: 4px;
+    margin: 0;
+    padding: 4px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--bg);
+  }
+
+  .player {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap);
+    border-radius: 10px;
+    color: var(--muted);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .player.chosen {
+    background: var(--surface-strong);
+    color: var(--fg);
+  }
+
+  .player input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .player:has(input:focus-visible) {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
   }
 
   .section {

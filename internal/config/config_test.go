@@ -134,6 +134,8 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 			wantName: "UTANABI_SIGNUP_CODE"},
 		{name: "Spotify client ID that isn't one", platform: "server",
 			env: map[string]string{"UTANABI_SPOTIFY_CLIENT_ID": "not-a-client-id"}, wantName: "UTANABI_SPOTIFY_CLIENT_ID"},
+		{name: "YouTube API key that isn't one", platform: "server",
+			env: map[string]string{"UTANABI_YOUTUBE_API_KEY": "short key"}, wantName: "UTANABI_YOUTUBE_API_KEY"},
 		{name: "bad env study streak", platform: "server", env: map[string]string{"UTANABI_STUDY_STREAK": "lots"},
 			wantName: "study_streak"},
 		{
@@ -379,5 +381,26 @@ func TestLoadServerSpotify(t *testing.T) {
 	}
 	if off.Server.SpotifyClientID != "" {
 		t.Errorf("SpotifyClientID = %q, want Spotify off", off.Server.SpotifyClientID)
+	}
+}
+
+func TestLoadServerYouTube(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(platform(t, "server", map[string]string{
+		"UTANABI_YOUTUBE_API_KEY": "AIzaTestKeyTestKeyTestKeyTestKey123",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Server.YouTubeAPIKey.Reveal() != "AIzaTestKeyTestKeyTestKeyTestKey123" {
+		t.Error("YouTubeAPIKey isn't the one set")
+	}
+	off, err := config.Load(platform(t, "server", nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !off.Server.YouTubeAPIKey.IsZero() {
+		t.Error("YouTubeAPIKey is set, want search off")
 	}
 }

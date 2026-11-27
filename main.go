@@ -21,6 +21,7 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/features/songs"
 	"github.com/JasonPKnoll/utanabi/internal/features/spotify"
 	"github.com/JasonPKnoll/utanabi/internal/features/study"
+	"github.com/JasonPKnoll/utanabi/internal/features/youtube"
 	"github.com/JasonPKnoll/utanabi/internal/identity"
 	"github.com/JasonPKnoll/utanabi/internal/logger"
 	"github.com/JasonPKnoll/utanabi/internal/store"
@@ -119,6 +120,14 @@ func run() (err error) {
 		signIn = application.ChainMiddleware(signIn, connect)
 	}
 
+	// YouTube plays in the page in server mode, where the page is served over the web. With an API key it can also
+	// search for a song's video; without one, videos are pasted as links. A nil Search means no key.
+	youtubeOn := cfg.Platform == "server"
+	var youtubeSearch youtube.Search
+	if !cfg.Server.YouTubeAPIKey.IsZero() {
+		youtubeSearch = youtube.NewDataAPI(youtube.APIURL, cfg.Server.YouTubeAPIKey)
+	}
+
 	// One analyzer for every slice that reads Japanese, so its dictionary loads once.
 	analyzer := morph.New()
 	credits := []app.Credit{
@@ -131,13 +140,15 @@ func run() (err error) {
 			sources...)),
 		application.NewService(study.NewService(study.NewSQLite(db, owners), study.NewJMdict(dict), cfg.StudyStreak)),
 		application.NewService(spotify.NewService(spotifyRepo, spotifyAPI, spotify.NewMorph(analyzer), spotifyOn)),
+		application.NewService(youtube.NewService(youtube.NewSQLite(db, owners), youtubeSearch, youtubeOn)),
 	}, serverOnly...)
 	a := app.New(cfg, log, dist, signIn, append(services, app.CloseOnShutdown(closers...))...)
 
 	log.InfoContext(ctx, "starting", slog.String("version", cfg.Version), slog.String("platform", cfg.Platform),
 		slog.Any("lyrics_sources", cfg.LyricsSources), slog.Bool("dictionary", dict != nil),
 		slog.Bool("accounts", signIn != nil), slog.Bool("signup_open", !cfg.Server.SignupCode.IsZero()),
-		slog.Bool("spotify", spotifyOn))
+		slog.Bool("spotify", spotifyOn), slog.Bool("youtube", youtubeOn),
+		slog.Bool("youtube_search", youtubeSearch != nil))
 	if err := a.Run(); err != nil {
 		return fmt.Errorf("run app: %w", err)
 	}
