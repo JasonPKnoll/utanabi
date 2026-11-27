@@ -4,6 +4,7 @@
     type Summary,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
+  import { holdKeyboard } from "../lib/keyboard";
   import { initial } from "../lib/lyrics";
   import { placeholderSongs } from "../lib/placeholders";
   import { addHref, searchHref, settingsHref, songHref } from "../lib/route";
@@ -94,7 +95,8 @@
 
   <div class="dock">
     {#if searchOn}
-      <a class="search" href={searchHref}>
+      <!-- The search screen's field focuses itself; holding the keyboard during the tap lets iOS raise it. -->
+      <a class="search" href={searchHref} onclick={() => holdKeyboard()}>
         <svg
           width="18"
           height="18"

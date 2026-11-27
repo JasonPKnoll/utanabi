@@ -249,6 +249,8 @@ test("the search screen opens and asks for a query before searching", async ({ p
   await page.getByRole("link", { name: "Search songs or artists" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Find a song");
   await expect(page.getByRole("searchbox")).toBeFocused();
+  // The stand-in field that holds the phone's keyboard up during the tap is gone once the search field has focus.
+  await expect(page.locator("[data-keyboard-hold]")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("query is required")).toBeVisible();
