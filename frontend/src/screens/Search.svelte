@@ -2,6 +2,7 @@
   import { Service as Songs, type Match } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import SongBuilding from "../components/SongBuilding.svelte";
   import { toAppError, type AppError } from "../lib/errors";
+  import { buildingAtLeastMs, holdFor } from "../lib/hold";
   import { aboutHref, addHref, homeHref, songHref } from "../lib/route";
   import { formatDuration } from "../lib/sources";
 
@@ -53,8 +54,10 @@
     }
     adding = match.sourceRef;
     failure = null;
+    const started = Date.now();
     try {
       const song = await Songs.AddFromSource(match.source, match.sourceRef);
+      await holdFor(started, buildingAtLeastMs);
       window.location.replace(songHref(song.id));
     } catch (err) {
       failure = toAppError(err);

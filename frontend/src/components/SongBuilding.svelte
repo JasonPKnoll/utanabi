@@ -1,8 +1,8 @@
 <script lang="ts">
   import Firework from "./Firework.svelte";
 
-  // Covers the screen while a song is being built, which takes a few seconds for a long one. It fades in only after a
-  // moment, so a short song doesn't flash it.
+  // Covers the screen while a song is being built. It shows at once, and the screens that use it keep it up for at
+  // least buildingAtLeastMs, so even a fast save shows one full bloom.
   let { title = "" }: { title?: string } = $props();
 </script>
 
@@ -26,7 +26,7 @@
       max(24px, env(safe-area-inset-bottom)) max(28px, env(safe-area-inset-left));
     background: var(--bg);
     text-align: center;
-    animation: appear 0.2s ease-out 0.35s both;
+    animation: appear 0.15s ease-out both;
   }
 
   .building :global(.stage) {

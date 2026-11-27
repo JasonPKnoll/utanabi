@@ -7,6 +7,7 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import DisplaySheet from "../components/DisplaySheet.svelte";
   import Interlinear from "../components/Interlinear.svelte";
+  import Firework from "../components/Firework.svelte";
   import WordSheet from "../components/WordSheet.svelte";
   import { toAppError, type AppError } from "../lib/errors";
   import { startsStanza } from "../lib/lyrics";
@@ -137,7 +138,13 @@
       <p class="alert" role="alert">{failure.message}</p>
     </main>
   {:else if song === null}
-    <main class="center"><p class="muted">Loading…</p></main>
+    <main class="center">
+      <!-- An older song is built the first time it's opened, which can take a moment; a quick open shows nothing. -->
+      <div class="opening">
+        <Firework size={160} />
+        <p class="muted">Opening the song…</p>
+      </div>
+    </main>
   {:else}
     <main>
       <ol class="lyrics" class:furigana={aids.furigana} class:words={aids.words} lang="ja">
@@ -224,6 +231,20 @@
 </div>
 
 <style>
+  .opening {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    animation: appear 0.2s ease-out 0.3s both;
+  }
+
+  @keyframes appear {
+    from {
+      opacity: 0;
+    }
+  }
+
   .display {
     font-size: 1.0625rem;
     font-weight: 700;
