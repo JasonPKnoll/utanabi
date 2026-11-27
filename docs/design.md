@@ -73,7 +73,7 @@ The sheet opens with its meanings already there. When a song opens, the app fetc
 Each screen keeps its chrome slim so the lyrics and the library get the room.
 
 - **Top bar:** every screen starts with a sticky, blurred `.topbar`, 56px tall: Back on the left, the title (and, on a song, its artist) in small type, and at most one action on the right.
-- **Home** (`#/`): the うたなび mark and a Settings button (a gear) in the top bar, a large "Library" title with the song count, and the songs as rows with a letter tile. Search and add sit together in a dock at the bottom, within thumb reach: a search bar that opens the search screen, and a round amber "+" for your own lyrics. With search switched off, the dock is one "Add your own lyrics" button.
+- **Home** (`#/`): the 歌那火 wordmark and a Settings button (a gear) in the top bar, a large "Library" title with the song count, and the songs as rows with a letter tile. Search and add sit together in a dock at the bottom, within thumb reach: a search bar that opens the search screen, and a round amber "+" for your own lyrics. With search switched off, the dock is one "Add your own lyrics" button.
 - **Search** (`#/search`): the search field is the top bar, focused on arrival. iOS raises the keyboard only for a focus during a tap, so Home's search bar focuses a hidden stand-in field as it's tapped (`frontend/src/lib/keyboard.ts`), and the keyboard moves on to the search field when it takes focus. Results are rows with a "Synced" chip and a round "+" to add, or a check when the song is already in the library. "Can't find it? Add your own lyrics" shows only after a search.
 - **Song** (`#/song/<id>`): the lyrics, the "Aa" Display sheet, and nothing else.
 - **Settings** (`#/settings`): what you change, first, so it's never below the fold: the reading aids as switches (`frontend/src/components/ReadingAidSwitches.svelte`, the same choice and component as a song's Display sheet), the theme, and, when signed in, the account. Last, an "About Utanabi" row.
@@ -111,6 +111,10 @@ Two kinds, for two kinds of wait:
 
 - **Skeletons, for content whose shape is known.** While the library, a song, the study word list, or About loads, the screen draws stand-in content (`frontend/src/lib/placeholders.ts`) through its own markup, the same row snippet, line template, and `Interlinear` component the real content uses, with the text drawn as shimmering bars (`.ph` in `frontend/src/app.css`, one bar per line of text, furigana included). So a skeleton always has the real layout's shape: its fonts, line heights, and the reading aids that are on (furigana, romaji, the word cards). A change to a screen's layout changes its skeleton with it; never hand-size a skeleton. Only the amounts of text are made up, and they're fixed. A skeleton appears only once a load has taken a fifth of a second (`.skeleton-wait`), so a quick load shows nothing; it's inert and hidden from screen readers, which get a visually hidden status ("Loading your songs") instead. With reduced motion on, it doesn't shimmer.
 - **The firework, for work being done.** Building a song has no shape to preview, so it gets the animated mark (below). Opening a song starts with the lyric skeleton; when the open runs past 1.25 seconds, which happens when an older song is built the first time it's opened, the firework fades in over it with "Building this song…".
+
+## The name: 歌那火
+
+The app's name is written 歌那火 with furigana, うた・な・び (`frontend/src/components/Wordmark.svelte`, on Home, the sign-in screen, and About): 歌, song; 那, there for its sound; and 火, fire, read bi as in 花火, hanabi, fireworks. Song fireworks, like the mark. 歌 is in `--link`, 那 in `--fg`, and 火 in `--spark` with a soft glow. Screen readers hear "Utanabi".
 
 ## The mark: the visualizer peony
 
@@ -153,7 +157,7 @@ The top bar counts learned cards ("12/39"), with a bar in `--success` under it. 
 
 ## Sign-in
 
-On a server with accounts (`frontend/src/screens/SignIn.svelte`), nothing shows until someone signs in. The screen is one column, centred: the うたなび mark, a heading, and a line saying it's a passkey (Face ID, a fingerprint, or the device's PIN) with no password. Then two cards:
+On a server with accounts (`frontend/src/screens/SignIn.svelte`), nothing shows until someone signs in. The screen is one column, centred: the 歌那火 wordmark, a heading, and a line saying it's a passkey (Face ID, a fingerprint, or the device's PIN) with no password. Then two cards:
 
 - **Make your account:** a line on what happens (pick a username, enter the sign-up code, and the device saves a passkey: no password and no QR code), "Choose a username", "Sign-up code", and "Continue", which checks both. Then "One more step" and **Save passkey**, a tap of its own, which opens the device's passkey sheet straight away: Safari refuses a passkey that isn't asked for straight from a tap. The passkey is made on this device first (the `client-device` hint), so on an iPhone it's one Face ID. "Change username" goes back.
 - **Sign in:** a "Username" field whose autofill offers the site's saved passkeys (`autocomplete="username webauthn"`), and "Sign in with a passkey". On a browser that has signed in before, a sign-in waits in the background for a passkey picked from that autofill (WebAuthn's conditional mediation). A first visit never starts one, because Safari won't save a new passkey while one is waiting. The button also offers a passkey from another device, by QR code.

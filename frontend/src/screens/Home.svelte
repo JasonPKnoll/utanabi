@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Wordmark from "../components/Wordmark.svelte";
   import {
     Service as Songs,
     type Summary,
@@ -38,7 +39,7 @@
 
 <div class="screen">
   <header class="topbar">
-    <p class="mark"><span lang="ja">うたなび</span></p>
+    <p class="mark"><Wordmark size="1.5rem" /></p>
     <a class="icon-button" href={settingsHref} aria-label="Settings">
       <svg
         width="22"
@@ -132,9 +133,7 @@
     flex: 1;
     margin: 0;
     padding: 0 8px;
-    font-size: 1.25rem;
-    font-weight: 800;
-    letter-spacing: 0.02em;
+    line-height: 1;
   }
 
   main {

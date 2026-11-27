@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Wordmark from "../components/Wordmark.svelte";
   import { AboutService, type About } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
   import { toAppError, type AppError } from "../lib/errors";
   import { placeholderAbout } from "../lib/placeholders";
@@ -43,7 +44,7 @@
       {#if loading}<p class="visually-hidden" role="status">Loading</p>{/if}
       <div class="content" class:skeleton-wait={loading} inert={loading} aria-hidden={loading ? "true" : undefined}>
         <section class="app">
-          <p class="mark" lang="ja">うたなび</p>
+          <p class="mark"><Wordmark size="2.25rem" /></p>
           <p class="muted">Learn Japanese through song lyrics.</p>
           <p class="version" data-testid={loading ? undefined : "about"}>
             <span class:ph={loading}>{shown.name} {shown.version} · {shown.platform}</span>
@@ -97,8 +98,7 @@
   }
 
   .mark {
-    font-size: 1.75rem;
-    font-weight: 800;
+    line-height: 1;
   }
 
   .version {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Wordmark from "../components/Wordmark.svelte";
   import { signedIn } from "../lib/account.svelte";
   import {
     beginSignUp,
@@ -194,7 +195,7 @@
 <div class="screen">
   <main>
     <header>
-      <p class="mark" lang="ja">うたなび</p>
+      <p class="mark"><Wordmark size="2.25rem" /></p>
       <h1>{signUpFirst ? "Welcome to Utanabi" : "Sign in to Utanabi"}</h1>
       <p class="muted">With a passkey: Face ID, your fingerprint, or your device's PIN. There's no password.</p>
     </header>
@@ -242,8 +243,7 @@
   }
 
   .mark {
-    font-size: 1.75rem;
-    font-weight: 800;
+    line-height: 1;
   }
 
   h1 {
