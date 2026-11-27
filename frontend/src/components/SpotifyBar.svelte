@@ -62,7 +62,10 @@
 
   async function ask() {
     try {
-      const p = await Spotify.NowPlaying(songId);
+      let p = await Spotify.NowPlaying(songId);
+      if (unsaved !== null) {
+        p = { ...p, offsetMs: unsaved, offsetSet: true, timedForMs: 0 };
+      }
       const now = performance.now();
       failure = null;
       if (move && playback && !caughtUp(move, p, now)) {
@@ -187,15 +190,28 @@
     }
   }
 
-  // Your timing for this song: shown at once, and saved for next time.
-  async function setOffset(ms: number) {
+  // Your timing for this song while you slide it, until it's saved: the lyrics move with it, and Spotify's answers
+  // in the meantime, which still carry the timing saved before, don't move it back.
+  let unsaved: number | null = null;
+
+  function previewOffset(ms: number) {
+    unsaved = ms;
     if (playback) {
       playback = { ...playback, offsetMs: ms, offsetSet: true, timedForMs: 0 };
     }
+  }
+
+  // Your timing for this song: shown at once, and saved for next time.
+  async function setOffset(ms: number) {
+    previewOffset(ms);
     try {
       await Spotify.SetOffset(songId, ms);
     } catch (err) {
       failure = toAppError(err);
+    } finally {
+      if (unsaved === ms) {
+        unsaved = null;
+      }
     }
   }
 
@@ -310,6 +326,7 @@
     offsetSet={playback.offsetSet}
     {lines}
     now={trackNow}
+    onpreview={previewOffset}
     onchange={setOffset}
     onreset={resetOffset}
     onclose={() => (timing = false)}

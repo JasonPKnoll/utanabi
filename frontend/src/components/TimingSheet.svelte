@@ -3,14 +3,16 @@
   import { describeOffset, lyricsTime, nextLine } from "../lib/follow";
   import Sheet from "./Sheet.svelte";
 
-  // Lines the lyrics up with Spotify's track, for lyrics timed for another version of the song. Nudge them by a tenth
-  // or half a second, or tap Now as the next line starts, which sets the offset from where the song is. Every change
-  // is yours and saved for this song; Reset goes back to the lyrics' own timing.
+  // Lines the lyrics up with Spotify's track, for lyrics timed for another version of the song. Slide them earlier or
+  // later, nudge them a tenth of a second at a time, or tap Now as the next line starts, which sets the offset from
+  // where the song is. While you slide, the lyrics move with it (onpreview); letting go saves it (onchange). Every
+  // change is yours and saved for this song; Reset goes back to the lyrics' own timing.
   let {
     offsetMs,
     offsetSet,
     lines,
     now,
+    onpreview,
     onchange,
     onreset,
     onclose,
@@ -20,18 +22,27 @@
     lines: Line[];
     // Where the song is on the track now, in ms.
     now: () => number;
+    onpreview: (offsetMs: number) => void;
     onchange: (offsetMs: number) => void;
     onreset: () => void;
     onclose: () => void;
   } = $props();
 
   const limit = 60000;
-  const steps = [
-    { by: -500, text: "−0.5 s", label: "Lines half a second earlier" },
-    { by: -100, text: "−0.1 s", label: "Lines a tenth of a second earlier" },
-    { by: 100, text: "+0.1 s", label: "Lines a tenth of a second later" },
-    { by: 500, text: "+0.5 s", label: "Lines half a second later" },
-  ];
+  const step = 100;
+  // The slider spans 5 seconds either way, the most a version's intro usually differs by, and widens to take in an
+  // offset set further out, such as by tapping Now.
+  const reach = 5000;
+  let low = $derived(Math.min(-reach, Math.floor(offsetMs / 1000) * 1000));
+  let high = $derived(Math.max(reach, Math.ceil(offsetMs / 1000) * 1000));
+
+  function slid(event: Event & { currentTarget: HTMLInputElement }) {
+    onpreview(Number(event.currentTarget.value));
+  }
+
+  function release(event: Event & { currentTarget: HTMLInputElement }) {
+    onchange(Number(event.currentTarget.value));
+  }
 
   // The line to tap Now for, kept up with the song.
   let next = $state(-1);
@@ -81,11 +92,29 @@
       <strong>Lines {describeOffset(offsetMs)}</strong>
       <span class="muted">{offsetSet ? "Set by you" : "As the lyrics are timed"}</span>
     </p>
-    <div class="nudge">
-      {#each steps as step (step.by)}
-        <button type="button" class="button" onclick={() => nudge(step.by)} aria-label={step.label}>{step.text}</button>
-      {/each}
+    <div class="slider">
+      <button
+        type="button"
+        class="icon-button"
+        onclick={() => nudge(-step)}
+        aria-label="Lines a tenth of a second earlier">−</button
+      >
+      <input
+        type="range"
+        min={low}
+        max={high}
+        {step}
+        value={offsetMs}
+        aria-label="Lyrics timing"
+        aria-valuetext={`Lines ${describeOffset(offsetMs)}`}
+        oninput={slid}
+        onchange={release}
+      />
+      <button type="button" class="icon-button" onclick={() => nudge(step)} aria-label="Lines a tenth of a second later"
+        >+</button
+      >
     </div>
+    <p class="ends muted" aria-hidden="true"><span>Earlier</span><span>Later</span></p>
 
     <h3>Tap as you hear it</h3>
     {#if cue}
@@ -140,17 +169,35 @@
     font-size: 0.8125rem;
   }
 
-  .nudge {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
+  .slider {
+    display: flex;
+    align-items: center;
     gap: 8px;
     margin-top: 12px;
   }
 
-  .nudge .button {
+  .slider .icon-button {
+    flex: none;
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  input[type="range"] {
+    flex: 1;
     min-width: 0;
-    padding-inline: 4px;
-    font-variant-numeric: tabular-nums;
+    height: var(--tap);
+    margin: 0;
+    accent-color: var(--link);
+    cursor: pointer;
+  }
+
+  .ends {
+    display: flex;
+    justify-content: space-between;
+    margin: 0;
+    padding-inline: 52px;
+    font-size: 0.8125rem;
   }
 
   .cue {
