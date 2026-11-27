@@ -12,6 +12,7 @@
   import { toAppError, type AppError } from "../lib/errors";
   import { startsStanza } from "../lib/lyrics";
   import { meaningsCache } from "../lib/meaningsCache";
+  import { placeholderLines } from "../lib/placeholders";
   import { hasRomaji, loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
   import { aboutHref, homeHref, studyHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
@@ -27,6 +28,9 @@
   let open = $state<{ word: Word; ruby: RubyPart[]; line: number } | null>(null);
 
   let lines = $derived(song?.lines ?? []);
+  // While the song loads, stand-in lines go through the same markup, as a skeleton in the song's shape.
+  let loading = $derived(song === null && failure === null);
+  let shown = $derived(loading ? placeholderLines() : lines);
   // JMdict's licence asks for a credit wherever its meanings show, so the footnote appears only when they do.
   let hasDefinitions = $derived(lines.some((l) => (l.words ?? []).some((w) => w.entryId > 0)));
   let source = $derived.by(() => {
@@ -100,11 +104,12 @@
       {#if song}
         <h1>{song.title}</h1>
         <p>{song.artist || "Unknown artist"}</p>
-      {:else if !failure}
-        <span class="skeleton-wait title-skeleton" aria-hidden="true">
-          <span class="skeleton" style:width="140px" style:height="14px"></span>
-          <span class="skeleton" style:width="90px" style:height="10px"></span>
-        </span>
+      {:else if loading}
+        <h1>
+          <span class="skeleton-wait" aria-hidden="true"><span class="ph">A song title</span></span>
+          <span class="visually-hidden">Loading the song</span>
+        </h1>
+        <p class="skeleton-wait" aria-hidden="true"><span class="ph">Artist name</span></p>
       {/if}
     </div>
     {#if song}
@@ -142,38 +147,40 @@
     <main class="center">
       <p class="alert" role="alert">{failure.message}</p>
     </main>
-  {:else if song === null}
-    <main class="loading">
-      <p class="visually-hidden" role="status">Opening the song</p>
-      <!-- The song's lines, as placeholders, once the open takes a moment. -->
-      <ol class="lyrics skeleton-wait" aria-hidden="true">
-        {#each [58, 74, 46, 66, 52, 70, 40, 62] as width, i (i)}
-          <li class:current-skeleton={i === 0}>
-            <span class="skeleton" style:width="{width}%"></span>
-          </li>
-        {/each}
-      </ol>
-      <!-- An older song is built the first time it's opened. When the open runs that long, the firework takes over. -->
-      <div class="opening" aria-hidden="true">
-        <Firework size={160} />
-        <p class="muted">Building this song…</p>
-      </div>
-    </main>
   {:else}
-    <main>
-      <ol class="lyrics" class:furigana={aids.furigana} class:words={aids.words} lang="ja">
-        {#each lines as line, i (line.position)}
-          <li class:stanza-start={startsStanza(lines, i)}>
+    <main class:loading>
+      {#if loading}
+        <p class="visually-hidden" role="status">Opening the song</p>
+        <!-- An older song is built the first time it's opened. When the open runs that long, the firework takes over
+             from the skeleton. -->
+        <div class="opening" aria-hidden="true">
+          <Firework size={160} />
+          <p class="muted">Building this song…</p>
+        </div>
+      {/if}
+      <ol
+        class="lyrics"
+        class:furigana={aids.furigana}
+        class:words={aids.words}
+        class:skeleton-wait={loading}
+        class:placeholder={loading}
+        inert={loading}
+        aria-hidden={loading ? "true" : undefined}
+        lang="ja"
+      >
+        {#each shown as line, i (line.position)}
+          <li class:stanza-start={startsStanza(shown, i)}>
             {#if aids.words && (line.words ?? []).length > 0}
               {#if i === current}
                 <div class="line current card" role="group" aria-label={line.text} aria-current="true">
                   <Interlinear
                     {line}
                     furigana={aids.furigana}
+                    placeholder={loading}
                     onword={(word, ruby) => (open = { word, ruby, line: line.position })}
                   />
                   {#if aids.romaji && hasRomaji(line)}
-                    <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                    <span class="romaji" lang="ja-Latn"><span class:ph={loading}>{line.romaji}</span></span>
                   {/if}
                 </div>
               {:else}
@@ -184,18 +191,18 @@
                   aria-label={line.text}
                   onclick={() => (current = i)}
                 >
-                  <Interlinear {line} furigana={aids.furigana} />
+                  <Interlinear {line} furigana={aids.furigana} placeholder={loading} />
                   {#if aids.romaji && hasRomaji(line)}
-                    <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                    <span class="romaji" lang="ja-Latn"><span class:ph={loading}>{line.romaji}</span></span>
                   {/if}
                 </button>
               {/if}
             {:else if i === current && (line.words ?? []).length > 0}
               <div class="line current" role="group" aria-label={line.text} aria-current="true">
                 <!-- prettier-ignore -->
-                <span class="sung">{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [], line: line.position })}>{@render rubyText(piece.ruby ?? [])}</button>{:else}{@render rubyText(piece.ruby ?? [])}{/if}{/each}</span>
+                <span class="sung"><span class:ph={loading}>{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [], line: line.position })}>{@render rubyText(piece.ruby ?? [])}</button>{:else}{@render rubyText(piece.ruby ?? [])}{/if}{/each}</span></span>
                 {#if aids.romaji && hasRomaji(line)}
-                  <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                  <span class="romaji" lang="ja-Latn"><span class:ph={loading}>{line.romaji}</span></span>
                 {/if}
               </div>
             {:else}
@@ -208,9 +215,9 @@
                 onclick={() => (current = i)}
               >
                 <!-- prettier-ignore -->
-                <span class="sung">{@render rubyText(line.ruby ?? [{ text: line.text, reading: "" }])}</span>
+                <span class="sung"><span class:ph={loading}>{@render rubyText(line.ruby ?? [{ text: line.text, reading: "" }])}</span></span>
                 {#if aids.romaji && hasRomaji(line)}
-                  <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                  <span class="romaji" lang="ja-Latn"><span class:ph={loading}>{line.romaji}</span></span>
                 {/if}
               </button>
             {/if}
@@ -249,20 +256,6 @@
     position: relative;
   }
 
-  .loading .lyrics li {
-    display: flex;
-    justify-content: center;
-    padding: 10px 0;
-  }
-
-  .loading .skeleton {
-    height: 18px;
-  }
-
-  .loading .current-skeleton .skeleton {
-    height: 30px;
-  }
-
   .opening {
     position: absolute;
     inset: 0;
@@ -273,12 +266,6 @@
     gap: 16px;
     background: var(--bg);
     animation: appear 0.3s ease-out 1.25s both;
-  }
-
-  .title-skeleton {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
   }
 
   @keyframes appear {
@@ -425,6 +412,18 @@
 
   .word:hover {
     background: var(--surface);
+  }
+
+  /* A skeleton has the current line's shape, but nothing in it to tap. */
+  .placeholder .word,
+  .placeholder :global(.word .ja) {
+    text-decoration: none;
+  }
+
+  .placeholder :global(.current.card) {
+    box-shadow: none;
+    outline: none;
+    border-color: transparent;
   }
 
   @media (prefers-reduced-motion: reduce) {

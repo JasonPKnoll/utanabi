@@ -7,15 +7,18 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
 
   // A line as word units: each word's Japanese, with its furigana, sits directly over its English, so it's always
-  // clear which English belongs to which word. With onword set, each word is a button that opens the word sheet.
+  // clear which English belongs to which word. With onword set, each word is a button that opens the word sheet. With
+  // placeholder set, the text is drawn as skeleton bars, for a line that stands in while a song loads.
   let {
     line,
     furigana,
     onword,
+    placeholder = false,
   }: {
     line: Line;
     furigana: boolean;
     onword?: (word: Word, ruby: RubyPart[]) => void;
+    placeholder?: boolean;
   } = $props();
 
   function label(word: Word): string {
@@ -24,7 +27,7 @@
 </script>
 
 <!-- prettier-ignore -->
-{#snippet japanese(parts: RubyPart[])}<span class="ja">{#each parts as part, k (k)}{#if furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</span>{/snippet}
+{#snippet japanese(parts: RubyPart[])}<span class="ja"><span class:ph={placeholder}>{#each parts as part, k (k)}{#if furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</span></span>{/snippet}
 
 <span class="il" class:furigana>
   {#each line.pieces ?? [] as piece, j (j)}
@@ -39,12 +42,12 @@
         onclick={() => onword(word, piece.ruby ?? [])}
       >
         {@render japanese(piece.ruby ?? [])}
-        <span class="en" lang="en" aria-hidden="true">{word.short}</span>
+        <span class="en" lang="en" aria-hidden="true"><span class:ph={placeholder}>{word.short}</span></span>
       </button>
     {:else}
       <span class="unit" class:grammar class:bare={word === undefined}>
         {@render japanese(piece.ruby ?? [])}
-        <span class="en" lang="en">{word?.short ?? ""}</span>
+        <span class="en" lang="en"><span class:ph={placeholder && word?.short}>{word?.short ?? ""}</span></span>
       </span>
     {/if}
   {/each}

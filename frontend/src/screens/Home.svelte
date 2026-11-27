@@ -5,6 +5,7 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
   import { initial } from "../lib/lyrics";
+  import { placeholderSongs } from "../lib/placeholders";
   import { aboutHref, addHref, searchHref, songHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
 
@@ -22,6 +23,17 @@
     .then((names) => (searchOn = (names ?? []).length > 0))
     .catch(() => (searchOn = true));
 </script>
+
+<!-- A song's row. Without an id it's a stand-in for the skeleton, its text drawn as bars. -->
+{#snippet row(title: string, sub: string, id?: number)}
+  <svelte:element this={id === undefined ? "div" : "a"} class="row" href={id === undefined ? undefined : songHref(id)}>
+    <span class="tile" aria-hidden="true">{id === undefined ? "" : initial(title)}</span>
+    <span class="text">
+      <span class="title"><span class:ph={id === undefined}>{title}</span></span>
+      <span class="sub"><span class:ph={id === undefined}>{sub}</span></span>
+    </span>
+  </svelte:element>
+{/snippet}
 
 <div class="screen">
   <header class="topbar">
@@ -57,15 +69,10 @@
       <p class="alert" role="alert">{failure.message}</p>
     {:else if songs === null}
       <p class="visually-hidden" role="status">Loading your songs</p>
-      <ul class="songs skeleton-wait" aria-hidden="true">
-        {#each [62, 48, 70, 55, 40] as width (width)}
-          <li class="row">
-            <span class="tile skeleton"></span>
-            <span class="text">
-              <span class="skeleton bar" style:width="{width}%"></span>
-              <span class="skeleton bar small" style:width="{width - 18}%"></span>
-            </span>
-          </li>
+      <!-- Stand-in songs, drawn as rows like the real ones, as a skeleton in the library's shape. -->
+      <ul class="songs skeleton-wait" aria-hidden="true" inert>
+        {#each placeholderSongs as stand, i (i)}
+          <li>{@render row(stand.title, `${stand.artist} · LRCLIB`)}</li>
         {/each}
       </ul>
     {:else if songs.length === 0}
@@ -81,13 +88,7 @@
       <ul class="songs">
         {#each songs as song (song.id)}
           <li>
-            <a class="row" href={songHref(song.id)}>
-              <span class="tile" aria-hidden="true">{initial(song.title)}</span>
-              <span class="text">
-                <span class="title">{song.title}</span>
-                <span class="sub">{song.artist || "Unknown artist"} · {sourceLabel(song.source)}</span>
-              </span>
-            </a>
+            {@render row(song.title, `${song.artist || "Unknown artist"} · ${sourceLabel(song.source)}`, song.id)}
           </li>
         {/each}
       </ul>
@@ -194,15 +195,6 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-  }
-
-  .bar {
-    height: 14px;
-    margin: 4px 0;
-  }
-
-  .bar.small {
-    height: 10px;
   }
 
   .title,

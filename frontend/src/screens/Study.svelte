@@ -7,6 +7,7 @@
     type Deck,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/study";
   import { toAppError, type AppError } from "../lib/errors";
+  import { placeholderCards } from "../lib/placeholders";
   import { quizHref, songHref, studyHref } from "../lib/route";
   import { lineParts, otherMeanings, placeOf, shownCards, startFilter, type Filter } from "../lib/studyList";
 
@@ -130,6 +131,39 @@
   </span>
 {/snippet}
 
+<!-- The To learn / All choice. The skeleton draws it too, without its counts. -->
+{#snippet filterBar(live: boolean, toLearn: number, all: number)}
+  <fieldset class="filter">
+    <legend class="visually-hidden">Show</legend>
+    <label class:chosen={filter === "learn"}>
+      <input type="radio" name="filter" value="learn" bind:group={filter} disabled={!live} />
+      To learn <span class="n" class:ph={!live}>{live ? toLearn : "00"}</span>
+    </label>
+    <label class:chosen={filter === "all"}>
+      <input type="radio" name="filter" value="all" bind:group={filter} disabled={!live} />
+      All <span class="n" class:ph={!live}>{live ? all : "00"}</span>
+    </label>
+  </fieldset>
+{/snippet}
+
+<!-- A word's row in the list. A stand-in is a skeleton row, its text drawn as bars. -->
+{#snippet wordRow(c: Card, stand: boolean)}
+  <svelte:element
+    this={stand ? "div" : "a"}
+    id={stand ? undefined : `card-${c.id}`}
+    class="word-row"
+    href={stand ? undefined : studyHref(songId, c.id)}
+  >
+    <span class="ja">
+      <span class="label" lang="ja"><span class:ph={stand}>{c.label}</span></span>
+      {#if c.askReading}<span class="kana" lang="ja"><span class:ph={stand}>{c.reading}</span></span>{/if}
+    </span>
+    <span class="gloss"><span class:ph={stand}>{c.meaning}</span></span>
+    {@render dots(c, "7px")}
+    {#if !stand}<span class="visually-hidden">, {streakText(c)}</span>{/if}
+  </svelte:element>
+{/snippet}
+
 <div class="screen">
   {#if cardId !== undefined}
     <header class="topbar">
@@ -144,14 +178,20 @@
       {@render back(songHref(songId), "Back to the song")}
       <div class="topbar-title">
         <h1>Study</h1>
-        {#if deck}<p>{deck.title}</p>{/if}
+        {#if deck}<p>{deck.title}</p>{:else if !failure}<p aria-hidden="true">
+            <span class="ph">Song title</span>
+          </p>{/if}
       </div>
       {#if cards.length > 0}
         <p class="count" aria-label="{learned} of {cards.length} words learned">{learned}/{cards.length}</p>
+      {:else if deck === null && !failure}
+        <p class="count" aria-hidden="true"><span class="ph">0/00</span></p>
       {/if}
     </header>
-    {#if cards.length > 0}
-      <div class="bar" aria-hidden="true"><span style:width="{(learned / cards.length) * 100}%"></span></div>
+    {#if cards.length > 0 || (deck === null && !failure)}
+      <div class="bar" aria-hidden="true">
+        <span style:width="{cards.length > 0 ? (learned / cards.length) * 100 : 0}%"></span>
+      </div>
     {/if}
   {/if}
 
@@ -162,24 +202,20 @@
   {:else if deck === null}
     <main>
       <p class="visually-hidden" role="status">Loading the words</p>
-      <div class="skeleton-wait" aria-hidden="true">
-        <span class="skeleton filter-skeleton"></span>
+      <!-- Stand-in words, drawn as rows like the real ones, as a skeleton in the list's shape. -->
+      <div class="skeleton-wait" aria-hidden="true" inert>
+        {@render filterBar(false, 0, 0)}
         <ul class="words">
-          {#each [56, 40, 64, 48, 60, 44] as width (width)}
-            <li>
-              <div class="word-row">
-                <span class="ja">
-                  <span class="skeleton" style:width="{width}%" style:height="20px"></span>
-                  <span class="skeleton" style:width="{width - 14}%" style:height="10px" style:margin-top="6px"></span>
-                </span>
-                <span class="skeleton" style:width="{110 - width}%" style:height="14px"></span>
-                <span class="skeleton" style:width="26px" style:height="7px"></span>
-              </div>
-            </li>
+          {#each placeholderCards() as c (c.id)}
+            <li>{@render wordRow(c, true)}</li>
           {/each}
         </ul>
       </div>
     </main>
+    <div class="actions skeleton-wait" aria-hidden="true" inert>
+      <button type="button" class="button" disabled>Flip through</button>
+      <button type="button" class="button primary" disabled>Quiz me</button>
+    </div>
   {:else if cards.length === 0}
     <main class="center">
       <div class="empty">
@@ -231,17 +267,7 @@
     </div>
   {:else}
     <main>
-      <fieldset class="filter">
-        <legend class="visually-hidden">Show</legend>
-        <label class:chosen={filter === "learn"}>
-          <input type="radio" name="filter" value="learn" bind:group={filter} />
-          To learn <span class="n">{cards.length - learned}</span>
-        </label>
-        <label class:chosen={filter === "all"}>
-          <input type="radio" name="filter" value="all" bind:group={filter} />
-          All <span class="n">{cards.length}</span>
-        </label>
-      </fieldset>
+      {@render filterBar(true, cards.length - learned, cards.length)}
 
       {#if list.length === 0}
         <div class="empty">
@@ -251,17 +277,7 @@
       {:else}
         <ul class="words">
           {#each list as c (c.id)}
-            <li>
-              <a id="card-{c.id}" class="word-row" href={studyHref(songId, c.id)}>
-                <span class="ja">
-                  <span class="label" lang="ja">{c.label}</span>
-                  {#if c.askReading}<span class="kana" lang="ja">{c.reading}</span>{/if}
-                </span>
-                <span class="gloss">{c.meaning}</span>
-                {@render dots(c, "7px")}
-                <span class="visually-hidden">, {streakText(c)}</span>
-              </a>
-            </li>
+            <li>{@render wordRow(c, false)}</li>
           {/each}
         </ul>
       {/if}
@@ -315,12 +331,6 @@
 
   .center .button {
     flex: none;
-  }
-
-  .filter-skeleton {
-    height: 52px;
-    margin-bottom: 12px;
-    border-radius: 14px;
   }
 
   .filter {
