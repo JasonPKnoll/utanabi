@@ -204,6 +204,10 @@ test("words show each word's English under it and open a sheet when tapped", asy
   await expect(sheet).toBeVisible();
   await expect(sheet.getByRole("heading", { level: 2 })).toContainText("星");
   await expect(sheet.getByText("Meanings aren't installed")).toBeVisible();
+  // The sheet takes focus itself, so Close isn't ringed on a tap; the first Tab reaches it.
+  await expect(sheet).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(sheet.getByRole("button", { name: "Close" })).toBeFocused();
   await sheet.getByRole("button", { name: "Close" }).click();
   await expect(sheet).toHaveCount(0);
 

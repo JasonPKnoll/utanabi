@@ -4,6 +4,10 @@
   // A sheet that slides up from the bottom. It's a native <dialog> opened with showModal, so focus stays inside it,
   // Escape closes it, and focus goes back to whatever opened it. A tap on the dimmed backdrop closes it too.
   // children gets a close function for its own buttons.
+  //
+  // On opening, the sheet itself takes focus, not its first button: Safari draws a keyboard focus ring around a
+  // button focused this way even after a tap, which put a big circle around Close every time. Screen readers still
+  // start in the sheet, and the first Tab still reaches Close, with its ring.
   let {
     labelledby,
     onclose,
@@ -18,6 +22,7 @@
 
   $effect(() => {
     dialog?.showModal();
+    dialog?.focus();
   });
 
   function close() {
@@ -31,7 +36,7 @@
   }
 </script>
 
-<dialog bind:this={dialog} class="sheet" aria-labelledby={labelledby} {onclose} onclick={backdropClose}>
+<dialog bind:this={dialog} class="sheet" tabindex="-1" aria-labelledby={labelledby} {onclose} onclick={backdropClose}>
   <div class="grabber" aria-hidden="true"></div>
   <div class="body">
     {@render children(close)}
@@ -39,6 +44,10 @@
 </dialog>
 
 <style>
+  dialog:focus {
+    outline: none;
+  }
+
   .grabber {
     width: 36px;
     height: 4px;
