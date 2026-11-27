@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasTimes, lineAt, positionAt } from "./follow";
+import { hasTimes, lineAt, positionAt, trackLink } from "./follow";
 
 const lines = [{ startMs: 1000 }, { startMs: 4500 }, { startMs: null }, { startMs: 9000 }];
 
@@ -42,4 +42,19 @@ describe("positionAt", () => {
   it("never counts back, if the clock does", () => {
     expect(positionAt(60000, true, 2000, 1500)).toBe(60000);
   });
+});
+
+describe("trackLink", () => {
+  it("is the track's web link", () => {
+    expect(trackLink("spotify:track:0kgczpcl7MmXUfXE4b0zVa")).toBe(
+      "https://open.spotify.com/track/0kgczpcl7MmXUfXE4b0zVa",
+    );
+  });
+
+  it.each(["", "spotify:album:0kgczpcl7MmXUfXE4b0zVa", "spotify:track:../x", "javascript:alert(1)"])(
+    "is empty for %j",
+    (uri) => {
+      expect(trackLink(uri)).toBe("");
+    },
+  );
 });

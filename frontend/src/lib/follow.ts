@@ -25,3 +25,11 @@ export function hasTimes(lines: readonly Timed[]): boolean {
 export function positionAt(progressMs: number, playing: boolean, askedAt: number, now: number): number {
   return playing ? progressMs + Math.max(0, now - askedAt) : progressMs;
 }
+
+// The track's web link, from its spotify: URI. A tap on it opens the Spotify app on a phone that has it, with no
+// "Open in Spotify?" prompt from the browser, which a spotify: link always gets; elsewhere it opens Spotify's web
+// player. "" when the URI isn't a track's.
+export function trackLink(uri: string): string {
+  const id = /^spotify:track:([A-Za-z0-9]+)$/.exec(uri)?.[1];
+  return id ? `https://open.spotify.com/track/${id}` : "";
+}

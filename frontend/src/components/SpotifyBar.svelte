@@ -7,14 +7,15 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/spotify";
   import type { Line } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
-  import { hasTimes, lineAt, positionAt } from "../lib/follow";
+  import { hasTimes, lineAt, positionAt, trackLink } from "../lib/follow";
   import { formatDuration } from "../lib/sources";
+  import SpotifyOpenSheet from "./SpotifyOpenSheet.svelte";
 
   // The song's Spotify controls, at the bottom within thumb reach, once you've connected Spotify in Settings. Play
   // starts the song on your Spotify, from the line you're on, and the lyrics follow it: the app asks Spotify how far
   // in it is every couple of seconds and counts on in between. following says whether they're following now, so a
-  // tap on a line can jump the song there. When no Spotify is open to play on, Play opens the song in the Spotify
-  // app; coming back to this page then starts it.
+  // tap on a line can jump the song there. When no Spotify is open to play on, Play asks you to open it, in a sheet
+  // of the app's own; coming back to this page then starts the song.
   let {
     songId,
     lines,
@@ -37,7 +38,8 @@
   let failure = $state<AppError | null>(null);
   // Play was asked for while no Spotify was open: start it once this page is back on screen.
   let waiting = $state(false);
-  let openUri = $state("");
+  // The track's web link while the sheet asking you to open Spotify is up.
+  let opening = $state("");
 
   let synced = $derived(hasTimes(lines));
   let playing = $derived(following && (playback?.playing ?? false));
@@ -122,15 +124,13 @@
   async function play() {
     busy = true;
     failure = null;
-    openUri = "";
     try {
       const result = await Spotify.Play(songId, Math.max(0, startMs));
       if (result.started) {
         await ask();
       } else {
-        // No Spotify open to play on: a tap on the link opens it, and coming back starts the song.
-        openUri = result.trackUri;
-        waiting = true;
+        // No Spotify open to play on: ask you to open it.
+        opening = trackLink(result.trackUri);
       }
     } catch (err) {
       failure = toAppError(err);
@@ -144,11 +144,9 @@
       void control(() => Spotify.Pause());
     } else if (following) {
       void control(() => Spotify.Resume());
-    } else if (playback && !playback.ready && playback.trackUri) {
-      // No Spotify open anywhere, so the API can't reach one: open the song in the app. This must happen inside
-      // the tap for iOS to allow it. Coming back to this page starts it.
-      waiting = true;
-      window.location.href = playback.trackUri;
+    } else if (playback && !playback.ready && trackLink(playback.trackUri)) {
+      // No Spotify open anywhere, so the API can't reach one: ask you to open it.
+      opening = trackLink(playback.trackUri);
     } else {
       void play();
     }
@@ -223,10 +221,11 @@
       {/if}
     </button>
     <p class="note" class:alert={failure !== null} role="status">{note()}</p>
-    {#if openUri}
-      <a class="button open" href={openUri}>Open Spotify</a>
-    {/if}
   </div>
+{/if}
+
+{#if opening}
+  <SpotifyOpenSheet link={opening} onopen={() => (waiting = true)} onclose={() => (opening = "")} />
 {/if}
 
 <style>
@@ -263,11 +262,5 @@
   .note.alert {
     padding: 0;
     background: transparent;
-  }
-
-  .open {
-    flex: none;
-    min-height: 44px;
-    padding: 0 16px;
   }
 </style>
