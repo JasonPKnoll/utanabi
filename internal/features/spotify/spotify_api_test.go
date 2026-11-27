@@ -43,7 +43,8 @@ func TestExchangeSendsTheVerifierAndNoSecret(t *testing.T) {
 			t.Error("the token request carried an Authorization header; a PKCE client has no secret to send")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		writeBody(t, w, `{"access_token":"a1","refresh_token":"r1","expires_in":3600,"token_type":"Bearer"}`)
+		writeBody(t, w, `{"access_token":"a1","refresh_token":"r1","expires_in":3600,"token_type":"Bearer",`+
+			`"scope":"streaming user-read-email"}`)
 	})
 	tokens, err := api.Exchange(t.Context(), "the-code", "the-verifier", "https://x/auth/spotify/callback")
 	if err != nil {
@@ -54,8 +55,9 @@ func TestExchangeSendsTheVerifierAndNoSecret(t *testing.T) {
 	if form.Encode() != want.Encode() {
 		t.Errorf("form = %v, want %v", form, want)
 	}
-	if tokens.Access.Reveal() != "a1" || tokens.Refresh.Reveal() != "r1" || tokens.ExpiresIn.Seconds() != 3600 {
-		t.Errorf("tokens = %s %s %v", tokens.Access.Reveal(), tokens.Refresh.Reveal(), tokens.ExpiresIn)
+	if tokens.Access.Reveal() != "a1" || tokens.Refresh.Reveal() != "r1" || tokens.ExpiresIn.Seconds() != 3600 ||
+		tokens.Scope != "streaming user-read-email" {
+		t.Errorf("tokens = %s %s %v %q", tokens.Access.Reveal(), tokens.Refresh.Reveal(), tokens.ExpiresIn, tokens.Scope)
 	}
 }
 
@@ -172,6 +174,33 @@ func TestRefusals(t *testing.T) {
 			})
 			if err := api.Seek(t.Context(), redact.New("a1"), 1000); !errors.Is(err, tt.want) {
 				t.Errorf("err = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestPlayOnADeviceThatFails(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{name: "a device Spotify no longer lists", status: 404,
+			body: `{"error":{"status":404,"message":"Device not found"}}`},
+		{name: "a device that failed to start", status: 502, body: `{"error":{"status":502,"message":"Bad gateway."}}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			api := fakeSpotify(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+				writeBody(t, w, tt.body)
+			})
+			err := api.Play(t.Context(), redact.New("a1"), "browser01", kazeTrack, 0)
+			if !errors.Is(err, ErrDeviceFailed) {
+				t.Errorf("err = %v, want the device failed", err)
 			}
 		})
 	}

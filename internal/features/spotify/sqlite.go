@@ -30,9 +30,10 @@ func (s *SQLite) Link(ctx context.Context) (Link, error) {
 	var expires, connected int64
 	var link Link
 	err = s.db.Querier().QueryRowContext(ctx,
-		`SELECT access_token, refresh_token, expires_at, display_name, connected_at FROM spotify_links WHERE owner = ?`,
+		`SELECT access_token, refresh_token, expires_at, display_name, connected_at, scopes
+		 FROM spotify_links WHERE owner = ?`,
 		owner,
-	).Scan(&access, &refresh, &expires, &link.DisplayName, &connected)
+	).Scan(&access, &refresh, &expires, &link.DisplayName, &connected, &link.Scopes)
 	if err != nil {
 		return Link{}, store.Translate(err)
 	}
@@ -47,13 +48,13 @@ func (s *SQLite) SaveLink(ctx context.Context, link Link) error {
 		return err
 	}
 	_, err = s.db.Querier().ExecContext(ctx,
-		`INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, display_name, connected_at)
-		 VALUES (?, ?, ?, ?, ?, ?)
+		`INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, display_name, connected_at, scopes)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT (owner) DO UPDATE SET access_token = excluded.access_token,
 		   refresh_token = excluded.refresh_token, expires_at = excluded.expires_at,
-		   display_name = excluded.display_name, connected_at = excluded.connected_at`,
+		   display_name = excluded.display_name, connected_at = excluded.connected_at, scopes = excluded.scopes`,
 		owner, link.AccessToken.Reveal(), link.RefreshToken.Reveal(), link.ExpiresAt.UnixMilli(), link.DisplayName,
-		link.ConnectedAt.UnixMilli())
+		link.ConnectedAt.UnixMilli(), link.Scopes)
 	return store.Translate(err)
 }
 

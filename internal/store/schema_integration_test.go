@@ -293,6 +293,8 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 			sql: `INSERT INTO cards (kind, grammar_point_id, label, created_at) VALUES ('grammar', 'teiru', 'x', 1)`},
 		{name: "a Spotify link for no user", wantErr: "FOREIGN KEY",
 			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (99, 'a', 'r', 2, 1)`},
+		{name: "a Spotify link with too long a list of scopes", wantErr: "CHECK",
+			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at, scopes) VALUES (5, 'a', 'r', 2, 1, printf('%.1001c', 'x'))`},
 		{name: "a Spotify link with no token", wantErr: "CHECK",
 			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (5, '', 'r', 2, 1)`},
 		{name: "a Spotify track ID that isn't one", wantErr: "CHECK",

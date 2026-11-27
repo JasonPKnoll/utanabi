@@ -6,7 +6,6 @@
   import ReadingAidSwitches from "../components/ReadingAidSwitches.svelte";
   import ThemePicker from "../components/ThemePicker.svelte";
   import { account, signedOut } from "../lib/account.svelte";
-  import { webPlayer } from "../lib/webPlayer.svelte";
   import { addPasskey, rememberAccountHere, signOut } from "../lib/auth";
   import { toAppError } from "../lib/errors";
   import { loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
@@ -111,14 +110,12 @@
               Songs have a Play button that plays them on your Spotify, or right here in the browser, and their lyrics
               follow along.
             </p>
-            {#if webPlayer.status === "reconnect"}
+            {#if !spotify.canPlayHere}
               <p class="note" role="status">
                 Reconnect once so songs can play in this browser too, without opening the Spotify app.
               </p>
             {/if}
-            <a class="button" class:primary={webPlayer.status === "reconnect"} href="/auth/spotify/connect"
-              >Reconnect Spotify</a
-            >
+            <a class="button" class:primary={!spotify.canPlayHere} href="/auth/spotify/connect">Reconnect Spotify</a>
             <button type="button" class="button" onclick={disconnect}>Disconnect Spotify</button>
           {:else}
             <p class="muted small">

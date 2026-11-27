@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,6 +30,13 @@ type Link struct {
 	ExpiresAt    time.Time
 	DisplayName  string
 	ConnectedAt  time.Time
+	// Scopes are the permissions Spotify gave, space-separated; empty for a connection made before they were kept.
+	Scopes string
+}
+
+// canStream reports whether the link lets the page itself play, with Spotify's Web Playback SDK.
+func (l Link) canStream() bool {
+	return slices.Contains(strings.Fields(l.Scopes), "streaming")
 }
 
 // Tokens are what Spotify gives for a sign-in or a refresh. Refresh is empty when Spotify keeps the old one.
@@ -36,6 +44,8 @@ type Tokens struct {
 	Access    redact.Secret
 	Refresh   redact.Secret
 	ExpiresIn time.Duration
+	// Scope is the permissions the tokens carry, space-separated, when Spotify says.
+	Scope string
 }
 
 // Song is what finding a song on Spotify needs: its title, artist, and length (0 when unknown).
@@ -74,6 +84,8 @@ var (
 	ErrRejected = errors.New("spotify: token rejected")
 	// ErrNoDevice means none of the owner's devices is there to play on: Spotify isn't open anywhere.
 	ErrNoDevice = errors.New("spotify: no device to play on")
+	// ErrDeviceFailed means the device asked for couldn't play: Spotify no longer lists it, or it failed to start.
+	ErrDeviceFailed = errors.New("spotify: device failed")
 	// ErrPremium means playing needs Spotify Premium.
 	ErrPremium = errors.New("spotify: premium required")
 	// ErrBusy means Spotify asked the app to slow down.
@@ -127,6 +139,9 @@ type Status struct {
 	Enabled   bool   `json:"enabled"`
 	Connected bool   `json:"connected"`
 	Name      string `json:"name"`
+	// CanPlayHere is true when the connection lets the page itself play; one made before it could has to be made
+	// again.
+	CanPlayHere bool `json:"canPlayHere"`
 }
 
 // Playback is what's playing, as a song's view needs it. TrackURI is the song's track on Spotify (spotify:track:…),
@@ -163,6 +178,7 @@ var (
 	errNotOnSpotify = fault.Invalid("song", "isn't on Spotify")
 	errNeedsPremium = fault.Invalid("spotify", "needs Spotify Premium to play songs")
 	errSlowDown     = fault.Invalid("spotify", "is busy; please try again in a moment")
+	errNoStreaming  = fault.Invalid("spotify", "needs connecting again to play here; reconnect it in Settings")
 )
 
 // Connect finishes Spotify's sign-in for the caller: it trades the code for tokens and saves the link.
@@ -179,7 +195,7 @@ func Connect(ctx context.Context, repo Repository, api API, code, verifier, redi
 		return err
 	}
 	return repo.SaveLink(ctx, Link{AccessToken: tokens.Access, RefreshToken: tokens.Refresh,
-		ExpiresAt: now.Add(tokens.ExpiresIn), DisplayName: name, ConnectedAt: now})
+		ExpiresAt: now.Add(tokens.ExpiresIn), DisplayName: name, ConnectedAt: now, Scopes: tokens.Scope})
 }
 
 // Player is the caller's Spotify: what's playing, and playing, pausing, and seeking.
@@ -203,7 +219,7 @@ func (p *Player) Status(ctx context.Context) (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
-	return Status{Enabled: true, Connected: true, Name: link.DisplayName}, nil
+	return Status{Enabled: true, Connected: true, Name: link.DisplayName, CanPlayHere: link.canStream()}, nil
 }
 
 // Disconnect forgets the caller's Spotify tokens.
@@ -347,13 +363,31 @@ func (p *Player) Play(ctx context.Context, songID, positionMS int64, onDevice st
 			}
 		}
 		err = p.api.Play(ctx, access, device.ID, track.ID, positionMS)
-		if errors.Is(err, ErrNoDevice) {
+		if onDevice != "" && errors.Is(err, ErrDeviceFailed) {
+			// The device asked for, such as the page's own player, has gone or can't play: try the others.
+			err = p.playElsewhere(ctx, access, onDevice, track.ID, positionMS)
+		}
+		if errors.Is(err, ErrNoDevice) || errors.Is(err, ErrDeviceFailed) {
 			return nil
 		}
 		out.Started = err == nil
 		return err
 	})
 	return out, err
+}
+
+// playElsewhere plays trackID on whichever of the owner's devices they're most likely listening on, other than
+// failed, or returns ErrNoDevice when there's none.
+func (p *Player) playElsewhere(ctx context.Context, access redact.Secret, failed, trackID string, positionMS int64) error {
+	devices, err := p.api.Devices(ctx, access)
+	if err != nil {
+		return err
+	}
+	device, ok := pick(slices.DeleteFunc(devices, func(d Device) bool { return d.ID == failed }))
+	if !ok {
+		return ErrNoDevice
+	}
+	return p.api.Play(ctx, access, device.ID, trackID, positionMS)
 }
 
 // BrowserToken is an access token for the page's own player, which plays in the browser and needs one there. It's the
@@ -372,6 +406,9 @@ func (p *Player) BrowserToken(ctx context.Context) (BrowserToken, error) {
 	}
 	if err != nil {
 		return BrowserToken{}, err
+	}
+	if !link.canStream() {
+		return BrowserToken{}, errNoStreaming
 	}
 	if !p.now().Before(link.ExpiresAt.Add(-5 * time.Minute)) {
 		if link, err = p.refresh(ctx, link); err != nil {
@@ -435,6 +472,9 @@ func (p *Player) refresh(ctx context.Context, link Link) (Link, error) {
 		return Link{}, friendly(err)
 	}
 	link.AccessToken, link.ExpiresAt = tokens.Access, p.now().Add(tokens.ExpiresIn)
+	if tokens.Scope != "" {
+		link.Scopes = tokens.Scope
+	}
 	if !tokens.Refresh.IsZero() {
 		link.RefreshToken = tokens.Refresh
 	}

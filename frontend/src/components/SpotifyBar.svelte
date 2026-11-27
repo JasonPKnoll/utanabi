@@ -54,8 +54,14 @@
     return playback ? positionAt(playback.progressMs, playback.playing, askedAt, performance.now()) : 0;
   }
 
+  // Whether the connection lets this page play: one made before the app asked for streaming has to be made again.
+  let canPlayHere = $state(false);
+
   Spotify.Status()
-    .then((s) => (connected = s.enabled && s.connected))
+    .then((s) => {
+      connected = s.enabled && s.connected;
+      canPlayHere = s.canPlayHere;
+    })
     .catch(() => (connected = false));
 
   // The last move you made, until Spotify's answers show it.
@@ -102,7 +108,9 @@
       return;
     }
     // This page as a player too, so a song can play here when the Spotify app isn't open.
-    startWebPlayer(() => Spotify.BrowserToken().then((t) => t.accessToken));
+    if (canPlayHere) {
+      startWebPlayer(() => Spotify.BrowserToken().then((t) => t.accessToken));
+    }
     return untrack(() => poll());
   });
 
@@ -169,6 +177,10 @@
         moved(from, true);
         await ask();
       } else {
+        if (device) {
+          // The page's player couldn't play, and nothing else could either: don't try it again on this visit.
+          webPlayer.status = "unavailable";
+        }
         // No Spotify open to play on: ask you to open it.
         opening = trackLink(result.trackUri);
       }
@@ -289,7 +301,7 @@
     if (playback.active && playback.playing) {
       return "Something else is playing on Spotify";
     }
-    if (webPlayer.status === "reconnect") {
+    if (!canPlayHere || webPlayer.status === "reconnect") {
       return "Play on Spotify. Reconnect it in Settings to play here too.";
     }
     return "Play on Spotify";

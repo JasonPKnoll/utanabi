@@ -3,6 +3,7 @@ package spotify
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ type fakeRepo struct {
 func newFakeRepo() *fakeRepo {
 	return &fakeRepo{
 		link: &Link{AccessToken: redact.New("access"), RefreshToken: redact.New("refresh"),
-			ExpiresAt: clock.Add(time.Hour), DisplayName: "Hana", ConnectedAt: clock},
+			ExpiresAt: clock.Add(time.Hour), DisplayName: "Hana", ConnectedAt: clock, Scopes: Scopes},
 		songs:   map[int64]Song{1: {Title: "Fujii Kaze - Shinunoga E-Wa", Artist: "Fujii Kaze", DurationMS: 185000}},
 		tracks:  map[int64]Track{},
 		offsets: map[int64]int64{},
@@ -100,6 +101,7 @@ type fakeAPI struct {
 	found      []Track
 	searches   int
 	playErr    error
+	failDevice string
 	played     []string
 	seeked     []int64
 	rejectOnce bool
@@ -125,7 +127,8 @@ func (f *fakeAPI) check(access redact.Secret) error {
 }
 
 func (f *fakeAPI) Exchange(context.Context, string, string, string) (Tokens, error) {
-	return Tokens{Access: redact.New(f.access), Refresh: redact.New("refresh"), ExpiresIn: time.Hour}, nil
+	return Tokens{Access: redact.New(f.access), Refresh: redact.New("refresh"), ExpiresIn: time.Hour,
+		Scope: Scopes}, nil
 }
 
 func (f *fakeAPI) Refresh(_ context.Context, refresh redact.Secret) (Tokens, error) {
@@ -169,6 +172,9 @@ func (f *fakeAPI) Play(_ context.Context, access redact.Secret, deviceID, trackI
 	}
 	if f.playErr != nil {
 		return f.playErr
+	}
+	if deviceID == f.failDevice {
+		return ErrDeviceFailed
 	}
 	f.played = append(f.played, deviceID+" "+trackID)
 	f.seeked = append(f.seeked, positionMS)
@@ -216,8 +222,13 @@ func TestStatus(t *testing.T) {
 
 	repo := newFakeRepo()
 	got, err := newTestPlayer(repo, newFakeAPI()).Status(t.Context())
-	if err != nil || got != (Status{Enabled: true, Connected: true, Name: "Hana"}) {
+	if err != nil || got != (Status{Enabled: true, Connected: true, Name: "Hana", CanPlayHere: true}) {
 		t.Errorf("connected: got %+v, %v", got, err)
+	}
+	repo.link.Scopes = "user-read-playback-state user-modify-playback-state"
+	got, err = newTestPlayer(repo, newFakeAPI()).Status(t.Context())
+	if err != nil || got.CanPlayHere {
+		t.Errorf("connected before streaming was asked for: got %+v, %v, want it not able to play here", got, err)
 	}
 	repo.link = nil
 	got, err = newTestPlayer(repo, newFakeAPI()).Status(t.Context())
@@ -234,7 +245,8 @@ func TestConnectSavesTheLink(t *testing.T) {
 	if err := Connect(t.Context(), repo, newFakeAPI(), "code", "verifier", "https://x/cb", clock); err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
-	if repo.link == nil || repo.link.DisplayName != "Hana" || !repo.link.ExpiresAt.Equal(clock.Add(time.Hour)) {
+	if repo.link == nil || repo.link.DisplayName != "Hana" || !repo.link.ExpiresAt.Equal(clock.Add(time.Hour)) ||
+		repo.link.Scopes != Scopes {
 		t.Errorf("link = %+v", repo.link)
 	}
 	if err := Connect(t.Context(), repo, newFakeAPI(), "", "verifier", "https://x/cb", clock); invalidField(err) != "code" {
@@ -709,8 +721,47 @@ func TestBrowserToken(t *testing.T) {
 		t.Errorf("got %+v after %d refreshes, want a refreshed token", got, api.refreshes)
 	}
 
+	if repo.link.Scopes != Scopes {
+		t.Errorf("after a refresh that didn't say, scopes = %q, want the ones before", repo.link.Scopes)
+	}
+
+	repo.link.Scopes = "user-read-playback-state"
+	if _, err := p.BrowserToken(t.Context()); !errors.Is(err, errNoStreaming) {
+		t.Errorf("with no streaming permission: %v, want a reconnect", err)
+	}
+
 	repo.link = nil
 	if _, err := p.BrowserToken(t.Context()); invalidField(err) != "spotify" {
 		t.Errorf("with Spotify not connected: %v, want invalid spotify", err)
+	}
+}
+
+func TestPlayFallsBackWhenTheDeviceGivenFails(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		devices    []Device
+		wantPlayed []string
+		wantStart  bool
+	}{
+		{name: "to the phone", devices: []Device{{ID: "browser01"}, {ID: "phone", Type: "Smartphone"}},
+			wantPlayed: []string{"phone " + kazeTrack}, wantStart: true},
+		{name: "to nothing, asking to open Spotify", devices: []Device{{ID: "browser01"}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			repo, api := newFakeRepo(), newFakeAPI()
+			api.devices = tt.devices
+			api.failDevice = "browser01"
+			got, err := newTestPlayer(repo, api).Play(t.Context(), 1, 0, "browser01")
+			if err != nil {
+				t.Fatalf("Play: %v", err)
+			}
+			if got.Started != tt.wantStart || !slices.Equal(api.played, tt.wantPlayed) {
+				t.Errorf("got %+v, played %v; want started %v, played %v", got, api.played, tt.wantStart, tt.wantPlayed)
+			}
+		})
 	}
 }

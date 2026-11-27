@@ -55,4 +55,10 @@ export interface Status {
     "enabled": boolean;
     "connected": boolean;
     "name": string;
+
+    /**
+     * CanPlayHere is true when the connection lets the page itself play; one made before it could has to be made
+     * again.
+     */
+    "canPlayHere": boolean;
 }

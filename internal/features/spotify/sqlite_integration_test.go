@@ -37,7 +37,8 @@ func twoUsers(t *testing.T) (*SQLite, context.Context, context.Context) {
 
 func link(access string) Link {
 	return Link{AccessToken: redact.New(access), RefreshToken: redact.New("refresh-" + access),
-		ExpiresAt: time.UnixMilli(1_800_000_000_000), DisplayName: "Hana", ConnectedAt: time.UnixMilli(1_700_000_000_000)}
+		ExpiresAt: time.UnixMilli(1_800_000_000_000), DisplayName: "Hana", ConnectedAt: time.UnixMilli(1_700_000_000_000),
+		Scopes: "streaming " + access}
 }
 
 func TestSQLiteKeepsEachOwnersLink(t *testing.T) {
@@ -58,7 +59,8 @@ func TestSQLiteKeepsEachOwnersLink(t *testing.T) {
 		t.Fatalf("Link: %v", err)
 	}
 	if got.AccessToken.Reveal() != "a2" || got.RefreshToken.Reveal() != "refresh-a2" || got.DisplayName != "Hana" ||
-		!got.ExpiresAt.Equal(time.UnixMilli(1_800_000_000_000)) || !got.ConnectedAt.Equal(time.UnixMilli(1_700_000_000_000)) {
+		!got.ExpiresAt.Equal(time.UnixMilli(1_800_000_000_000)) || !got.ConnectedAt.Equal(time.UnixMilli(1_700_000_000_000)) ||
+		got.Scopes != "streaming a2" {
 		t.Errorf("got %+v, want the second link", got)
 	}
 	if _, err := repo.Link(kaze); !errors.Is(err, fault.ErrNotFound) {

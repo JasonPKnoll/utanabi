@@ -64,6 +64,7 @@ type tokenJSON struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int64  `json:"expires_in"`
+	Scope        string `json:"scope"`
 	Error        string `json:"error"`
 }
 
@@ -104,7 +105,7 @@ func (w *WebAPI) token(ctx context.Context, form url.Values) (Tokens, error) {
 		return Tokens{}, errors.New("spotify: token response had no access token")
 	}
 	return Tokens{Access: redact.New(body.AccessToken), Refresh: redact.New(body.RefreshToken),
-		ExpiresIn: time.Duration(body.ExpiresIn) * time.Second}, nil
+		ExpiresIn: time.Duration(body.ExpiresIn) * time.Second, Scope: body.Scope}, nil
 }
 
 func (w *WebAPI) DisplayName(ctx context.Context, access redact.Secret) (string, error) {
@@ -278,6 +279,10 @@ func (w *WebAPI) callFound(ctx context.Context, access redact.Secret, method, pa
 	switch {
 	case status == http.StatusNotFound && failed.Error.Reason == "NO_ACTIVE_DEVICE":
 		return ErrNoDevice
+	case strings.Contains(path, "device_id=") && (status == http.StatusNotFound || status >= 500):
+		// A device asked for by ID that Spotify no longer lists ("Device not found"), or that failed to start
+		// (Bad gateway), as the page's own player does when it can't play.
+		return ErrDeviceFailed
 	case status == http.StatusForbidden && failed.Error.Reason == "PREMIUM_REQUIRED":
 		return ErrPremium
 	}
