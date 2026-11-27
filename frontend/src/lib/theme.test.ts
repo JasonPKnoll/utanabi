@@ -106,6 +106,7 @@ const tokens = [
   "link-strong",
   "danger",
   "success",
+  "spark",
 ];
 
 // Text colours and the surfaces they're drawn on somewhere in the app.
@@ -145,6 +146,28 @@ describe("themes.css", () => {
           if (!(ratio >= 4.5)) {
             failures.push(`${palette} ${mode}: ${text} on ${on} is ${ratio.toFixed(2)}`);
           }
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  // The firework's colours are drawn on the palette's dark set in both modes, as graphics, so they need 3:1.
+  it("keeps the firework's colours at 3:1 or more on the night sky", () => {
+    const failures: string[] = [];
+    for (const [palette, colours] of found) {
+      for (const colour of ["accent", "accent-strong", "spark"]) {
+        for (const on of ["bg", "surface"]) {
+          const ratio = contrast(colours.get(`d-${colour}`) ?? "", colours.get(`d-${on}`) ?? "");
+          if (!(ratio >= 3)) {
+            failures.push(`${palette}: ${colour} on ${on} is ${ratio.toFixed(2)}`);
+          }
+        }
+      }
+      for (const on of ["bg", "surface"]) {
+        const ratio = contrast(colours.get("l-spark") ?? "", colours.get(`l-${on}`) ?? "");
+        if (!(ratio >= 3)) {
+          failures.push(`${palette}: light spark on ${on} is ${ratio.toFixed(2)}`);
         }
       }
     }

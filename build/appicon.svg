@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="-32 -32 64 64">
+  <!-- Utanabi's app icon, the visualizer peony: uneven amber and pink rays like a sound spectrum around a small
+       record, slightly roughened by hand. The source of appicon.png and the mobile icons; the loader is
+       frontend/src/components/Firework.svelte. -->
+  <defs>
+    <filter id="rough" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="8" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+      <feGaussianBlur in="rough" stdDeviation="0.5" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="rough"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="-32" y="-32" width="64" height="64" fill="#0f1420"/>
+  <g filter="url(#rough)" stroke-linecap="round" stroke-width="1.5">
+    <line y1="-10" y2="-25" stroke="#f5b544"/>
+    <line y1="-10" y2="-18" stroke="#ff8fb8" transform="rotate(15)"/>
+    <line y1="-10" y2="-22" stroke="#ffd27f" transform="rotate(30)"/>
+    <line y1="-10" y2="-16" stroke="#f5b544" transform="rotate(45)"/>
+    <line y1="-10" y2="-24" stroke="#ff8fb8" transform="rotate(60)"/>
+    <line y1="-10" y2="-19" stroke="#ffd27f" transform="rotate(75)"/>
+    <line y1="-10" y2="-23" stroke="#f5b544" transform="rotate(90)"/>
+    <line y1="-10" y2="-15" stroke="#ff8fb8" transform="rotate(105)"/>
+    <line y1="-10" y2="-21" stroke="#ffd27f" transform="rotate(120)"/>
+    <line y1="-10" y2="-25" stroke="#f5b544" transform="rotate(135)"/>
+    <line y1="-10" y2="-17" stroke="#ff8fb8" transform="rotate(150)"/>
+    <line y1="-10" y2="-22" stroke="#ffd27f" transform="rotate(165)"/>
+    <line y1="-10" y2="-19" stroke="#f5b544" transform="rotate(180)"/>
+    <line y1="-10" y2="-24" stroke="#ff8fb8" transform="rotate(195)"/>
+    <line y1="-10" y2="-16" stroke="#ffd27f" transform="rotate(210)"/>
+    <line y1="-10" y2="-23" stroke="#f5b544" transform="rotate(225)"/>
+    <line y1="-10" y2="-18" stroke="#ff8fb8" transform="rotate(240)"/>
+    <line y1="-10" y2="-25" stroke="#ffd27f" transform="rotate(255)"/>
+    <line y1="-10" y2="-20" stroke="#f5b544" transform="rotate(270)"/>
+    <line y1="-10" y2="-15" stroke="#ff8fb8" transform="rotate(285)"/>
+    <line y1="-10" y2="-22" stroke="#ffd27f" transform="rotate(300)"/>
+    <line y1="-10" y2="-24" stroke="#f5b544" transform="rotate(315)"/>
+    <line y1="-10" y2="-17" stroke="#ff8fb8" transform="rotate(330)"/>
+    <line y1="-10" y2="-21" stroke="#ffd27f" transform="rotate(345)"/>
+  </g>
+  <circle r="7" fill="#0b0f18" stroke="#3a4560" stroke-width="0.5"/>
+  <circle r="3.6" fill="#ff8fb8"/>
+  <circle r="0.8" fill="#0b0f18"/>
+</svg>

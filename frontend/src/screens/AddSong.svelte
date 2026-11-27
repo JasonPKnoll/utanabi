@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Service as Songs } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
+  import SongBuilding from "../components/SongBuilding.svelte";
   import { toAppError, type AppError } from "../lib/errors";
   import { homeHref, songHref } from "../lib/route";
 
@@ -31,6 +32,10 @@
     }
   }
 </script>
+
+{#if saving}
+  <SongBuilding title={title.trim()} />
+{/if}
 
 <div class="screen">
   <header class="topbar">

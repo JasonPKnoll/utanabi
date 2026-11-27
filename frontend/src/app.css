@@ -17,6 +17,7 @@
   --link-strong: var(--d-link-strong);
   --danger: var(--d-danger);
   --success: var(--d-success);
+  --spark: var(--d-spark);
 
   --radius: 16px;
   --tap: 44px;
@@ -53,6 +54,7 @@
     --link-strong: var(--l-link-strong);
     --danger: var(--l-danger);
     --success: var(--l-success);
+    --spark: var(--l-spark);
 
     color-scheme: light;
   }
@@ -73,6 +75,7 @@
   --link-strong: var(--l-link-strong);
   --danger: var(--l-danger);
   --success: var(--l-success);
+  --spark: var(--l-spark);
 
   color-scheme: light;
 }

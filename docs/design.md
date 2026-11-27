@@ -17,7 +17,7 @@ Both are radio buttons, so they work with a tap and a keyboard. `frontend/src/li
 
 Each palette lives in `frontend/src/themes.css` as one block of dark values (`--d-bg`, `--d-fg`, and so on) and light values (`--l-*`), selected by `[data-palette="…"]`; Utanabi also sits on `:root`. `frontend/src/app.css` maps them onto the tokens components use (`--bg: var(--d-bg)`), switching to the `--l-*` values for light mode. Components use the tokens, never their own hex values, so every screen gets every palette in both modes for free.
 
-**Adding a palette:** add its block to `themes.css` with all 28 values, and its name to `palettes` in `theme.ts`. `theme.test.ts` fails until every palette has every value and every text colour keeps 4.5:1 contrast on the surfaces it's drawn on, in both modes.
+**Adding a palette:** add its block to `themes.css` with all 30 values, and its name to `palettes` in `theme.ts`. `theme.test.ts` fails until every palette has every value and every text colour keeps 4.5:1 contrast on the surfaces it's drawn on, in both modes.
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |
@@ -101,6 +101,16 @@ All in `frontend/src/app.css`:
 - `.visually-hidden`: text for screen readers only, such as a label the layout shows another way.
 
 Use these instead of styling the same thing again in a component.
+
+## The mark: the visualizer peony
+
+Utanabi's icon is a firework whose rays are a sound spectrum, around a small spinning record: amber, strong amber, and a pink spark, slightly rough as if drawn by hand. The concepts are on the canvas "Utanabi icon concepts" on claude.ai (Firework C).
+
+- **The loader** (`frontend/src/components/Firework.svelte`, with its rays in `frontend/src/lib/firework.ts`): 44 thin rays, each jumping on its own rhythm, the flower turning slowly and kicking at 120 bpm, glitter twinkling past the tips, and an SVG filter that wobbles every line. It's drawn on the palette's dark colours (`--d-bg`, `--d-accent`, `--d-accent-strong`, `--d-spark`) in both modes, since a firework needs a night sky. With reduced motion on, it holds still and the wobble is left out.
+- **Building a song** (`frontend/src/components/SongBuilding.svelte`): while Save song or a search result's Add runs, the screen shows the loader and "Building <title>". It fades in after a third of a second, so a short song doesn't flash it.
+- **`--spark`** is the pink of the mark, one per palette. It's a graphics colour, never text: `theme.test.ts` checks it, the accent, and the strong accent at 3:1 on the dark surfaces.
+- **The app icon** is `build/appicon.svg`: 24 rays alternating long and short, so it reads as a spectrum when small. `build/appicon.png` and the Android launcher icons are rendered from it, and `wails3 task common:generate:icons` makes the macOS `.icns` and Windows `.ico` from the PNG. The Icon Composer layer for macOS 26 is `build/appicon.icon/Assets/peony.svg`; building its `Assets.car` needs Xcode's `actool`, so `build/darwin/Assets.car` is left out until it's made on a Mac with Xcode, and macOS uses the `.icns` meanwhile.
+- **The favicon** is `frontend/public/favicon.svg` (12 thick rays) with PNGs at 32 and 16 pixels; the 16 comes from `build/favicon-16.svg`, which has only 8 rays. `apple-touch-icon.png` is the app icon at 180.
 
 ## Mockups
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Service as Songs, type Match } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
+  import SongBuilding from "../components/SongBuilding.svelte";
   import { toAppError, type AppError } from "../lib/errors";
   import { aboutHref, addHref, homeHref, songHref } from "../lib/route";
   import { formatDuration } from "../lib/sources";
@@ -11,6 +12,7 @@
   let unavailable = $state<string[]>([]);
   let failure = $state<AppError | null>(null);
   let adding = $state<string | null>(null);
+  let addingTitle = $derived(matches.find((m) => m.sourceRef === adding)?.title ?? "");
   let input: HTMLInputElement | undefined = $state();
 
   // Opening the screen means you're about to type, so the field is ready.
@@ -66,6 +68,10 @@
       .join(" · ");
   }
 </script>
+
+{#if adding !== null}
+  <SongBuilding title={addingTitle} />
+{/if}
 
 <div class="screen">
   <header class="topbar">
