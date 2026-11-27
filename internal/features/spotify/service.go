@@ -47,13 +47,23 @@ func (s *Service) NowPlaying(ctx context.Context, songID int64) (Playback, error
 	return playback, app.Fail(ctx, err)
 }
 
-// Play plays the song on your Spotify from positionMs.
-func (s *Service) Play(ctx context.Context, songID, positionMs int64) (PlayResult, error) {
+// Play plays the song on your Spotify from positionMs: on deviceId, such as this page's own player, or with none
+// given, on the device you're most likely listening on.
+func (s *Service) Play(ctx context.Context, songID, positionMs int64, deviceID string) (PlayResult, error) {
 	if !s.enabled {
 		return PlayResult{}, app.Fail(ctx, errNotSetUp)
 	}
-	result, err := s.player.Play(ctx, songID, positionMs)
+	result, err := s.player.Play(ctx, songID, positionMs, deviceID)
 	return result, app.Fail(ctx, err)
+}
+
+// BrowserToken is an access token for this page's own Spotify player, which plays in the browser.
+func (s *Service) BrowserToken(ctx context.Context) (BrowserToken, error) {
+	if !s.enabled {
+		return BrowserToken{}, app.Fail(ctx, errNotSetUp)
+	}
+	token, err := s.player.BrowserToken(ctx)
+	return token, app.Fail(ctx, err)
 }
 
 // Resume carries on with what's paused on your Spotify.

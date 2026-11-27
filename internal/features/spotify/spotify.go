@@ -7,6 +7,7 @@ package spotify
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,8 +15,12 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/common/redact"
 )
 
-// Scopes are what the app asks Spotify for: reading what's playing, and playing, pausing, and seeking.
-const Scopes = "user-read-playback-state user-modify-playback-state"
+// Scopes are what the app asks Spotify for: reading what's playing, and playing, pausing, and seeking; and, for the
+// page itself to play (Spotify's Web Playback SDK), streaming and reading the account's email and plan.
+const Scopes = "user-read-playback-state user-modify-playback-state streaming user-read-email user-read-private"
+
+// deviceID matches a Spotify device ID, such as the one the page's own player gets.
+var deviceID = regexp.MustCompile(`^[0-9A-Za-z]{1,64}$`)
 
 // Link is an owner's connection to Spotify: the tokens to call its API for them, and the name on their account.
 type Link struct {
@@ -303,14 +308,18 @@ func (p *Player) ResetOffset(ctx context.Context, songID int64) error {
 	return p.repo.DeleteOffset(ctx, songID)
 }
 
-// Play plays the song songID on the caller's Spotify from positionMS. With no device to play on, it doesn't start,
-// and says so.
-func (p *Player) Play(ctx context.Context, songID, positionMS int64) (PlayResult, error) {
+// Play plays the song songID on the caller's Spotify from positionMS: on the device onDevice, such as the page's own
+// player, or with none given, on the one the caller is most likely listening on. With no device to play on, it
+// doesn't start, and says so.
+func (p *Player) Play(ctx context.Context, songID, positionMS int64, onDevice string) (PlayResult, error) {
 	if songID <= 0 {
 		return PlayResult{}, fault.Invalid("songId", "must be positive")
 	}
 	if positionMS < 0 {
 		return PlayResult{}, fault.Invalid("positionMs", "must not be negative")
+	}
+	if onDevice != "" && !deviceID.MatchString(onDevice) {
+		return PlayResult{}, fault.Invalid("deviceId", "isn't a Spotify device ID")
 	}
 	song, err := p.repo.Song(ctx, songID)
 	if err != nil {
@@ -326,13 +335,16 @@ func (p *Player) Play(ctx context.Context, songID, positionMS int64) (PlayResult
 			return errNotOnSpotify
 		}
 		out = PlayResult{TrackURI: uri(track.ID)}
-		devices, err := p.api.Devices(ctx, access)
-		if err != nil {
-			return err
-		}
-		device, ok := pick(devices)
-		if !ok {
-			return nil
+		device := Device{ID: onDevice}
+		if onDevice == "" {
+			devices, err := p.api.Devices(ctx, access)
+			if err != nil {
+				return err
+			}
+			var ok bool
+			if device, ok = pick(devices); !ok {
+				return nil
+			}
 		}
 		err = p.api.Play(ctx, access, device.ID, track.ID, positionMS)
 		if errors.Is(err, ErrNoDevice) {
@@ -342,6 +354,32 @@ func (p *Player) Play(ctx context.Context, songID, positionMS int64) (PlayResult
 		return err
 	})
 	return out, err
+}
+
+// BrowserToken is an access token for the page's own player, which plays in the browser and needs one there. It's the
+// caller's own, for their own page, and runs out within the hour; the refresh token never leaves the server.
+type BrowserToken struct {
+	AccessToken string `json:"accessToken"`
+	ExpiresAt   int64  `json:"expiresAt"`
+}
+
+// BrowserToken returns a working access token for the caller's page to play with, refreshed first when it's close to
+// running out.
+func (p *Player) BrowserToken(ctx context.Context) (BrowserToken, error) {
+	link, err := p.repo.Link(ctx)
+	if errors.Is(err, fault.ErrNotFound) {
+		return BrowserToken{}, errNotConnected
+	}
+	if err != nil {
+		return BrowserToken{}, err
+	}
+	if !p.now().Before(link.ExpiresAt.Add(-5 * time.Minute)) {
+		if link, err = p.refresh(ctx, link); err != nil {
+			return BrowserToken{}, err
+		}
+	}
+	// The value leaves the process here, to the owner's own page.
+	return BrowserToken{AccessToken: link.AccessToken.Reveal(), ExpiresAt: link.ExpiresAt.UnixMilli()}, nil
 }
 
 // Resume carries on with what's paused.

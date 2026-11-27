@@ -9,6 +9,7 @@
   import { toAppError, type AppError } from "../lib/errors";
   import { caughtUp, hasTimes, lineAt, lyricsTime, positionAt, trackLink, trackTime, type Move } from "../lib/follow";
   import { formatDuration } from "../lib/sources";
+  import { activateWebPlayer, startWebPlayer, webPlayer, webPlayerName } from "../lib/webPlayer.svelte";
   import SpotifyOpenSheet from "./SpotifyOpenSheet.svelte";
   import TimingSheet from "./TimingSheet.svelte";
 
@@ -100,6 +101,8 @@
     if (!connected) {
       return;
     }
+    // This page as a player too, so a song can play here when the Spotify app isn't open.
+    startWebPlayer(() => Spotify.BrowserToken().then((t) => t.accessToken));
     return untrack(() => poll());
   });
 
@@ -155,12 +158,13 @@
     return () => window.clearInterval(timer);
   });
 
-  async function play() {
+  // Plays the song from the line you're on, on device, or with none given, where you're most likely listening.
+  async function play(device = "") {
     busy = true;
     failure = null;
     try {
       const from = trackTime(Math.max(0, startMs), offset);
-      const result = await Spotify.Play(songId, from);
+      const result = await Spotify.Play(songId, from, device);
       if (result.started) {
         moved(from, true);
         await ask();
@@ -176,12 +180,19 @@
   }
 
   function tap() {
+    // The page's player may make sound only from a tap, on a phone; this is the tap.
+    if (webPlayer.status === "ready") {
+      activateWebPlayer();
+    }
     if (playing) {
       moved(trackNow(), false);
       void control(() => Spotify.Pause());
     } else if (following) {
       moved(trackNow(), true);
       void control(() => Spotify.Resume());
+    } else if (webPlayer.status === "ready" && !playback?.active) {
+      // Nothing playing anywhere: play here, in the page, rather than asking you to open the Spotify app.
+      void play(webPlayer.deviceId);
     } else if (playback && !playback.ready && trackLink(playback.trackUri)) {
       // No Spotify open anywhere, so the API can't reach one: ask you to open it.
       opening = trackLink(playback.trackUri);
@@ -262,7 +273,7 @@
       return "This song isn't on Spotify";
     }
     if (following) {
-      const where = playback.device ? ` on ${playback.device}` : "";
+      const where = playback.device === webPlayerName ? " here" : playback.device ? ` on ${playback.device}` : "";
       if (!synced) {
         return `${playback.playing ? "Playing" : "Paused"}${where}. These lyrics aren't synced, so they won't follow.`;
       }
@@ -277,6 +288,9 @@
     }
     if (playback.active && playback.playing) {
       return "Something else is playing on Spotify";
+    }
+    if (webPlayer.status === "reconnect") {
+      return "Play on Spotify. Reconnect it in Settings to play here too.";
     }
     return "Play on Spotify";
   }

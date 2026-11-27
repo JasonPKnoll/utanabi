@@ -404,7 +404,7 @@ func TestPlay(t *testing.T) {
 
 	repo, api := newFakeRepo(), newFakeAPI()
 	api.devices = []Device{{ID: "mac", Type: "Computer"}, {ID: "phone", Type: "Smartphone"}}
-	got, err := newTestPlayer(repo, api).Play(t.Context(), 1, 42000)
+	got, err := newTestPlayer(repo, api).Play(t.Context(), 1, 42000, "")
 	if err != nil {
 		t.Fatalf("Play: %v", err)
 	}
@@ -418,7 +418,7 @@ func TestPlayPrefersTheDevicePlayingNow(t *testing.T) {
 
 	repo, api := newFakeRepo(), newFakeAPI()
 	api.devices = []Device{{ID: "phone", Type: "Smartphone"}, {ID: "speaker", Type: "Speaker", Active: true}}
-	if _, err := newTestPlayer(repo, api).Play(t.Context(), 1, 0); err != nil {
+	if _, err := newTestPlayer(repo, api).Play(t.Context(), 1, 0, ""); err != nil {
 		t.Fatalf("Play: %v", err)
 	}
 	if api.played[0] != "speaker "+kazeTrack {
@@ -441,7 +441,7 @@ func TestPlayWithNoDeviceSaysToOpenSpotify(t *testing.T) {
 			t.Parallel()
 			repo, api := newFakeRepo(), newFakeAPI()
 			api.devices, api.playErr = tt.devices, tt.err
-			got, err := newTestPlayer(repo, api).Play(t.Context(), 1, 0)
+			got, err := newTestPlayer(repo, api).Play(t.Context(), 1, 0, "")
 			if err != nil || got != (PlayResult{TrackURI: "spotify:track:" + kazeTrack}) {
 				t.Errorf("got %+v, %v; want not started, with the track to open", got, err)
 			}
@@ -457,10 +457,12 @@ func TestPlayRefusals(t *testing.T) {
 		setup  func(*fakeRepo, *fakeAPI)
 		songID int64
 		pos    int64
+		device string
 		field  string
 	}{
 		{name: "no song", songID: 0, field: "songId"},
 		{name: "a negative position", songID: 1, pos: -1, field: "positionMs"},
+		{name: "a device ID that isn't one", songID: 1, device: "../../me", field: "deviceId"},
 		{name: "a song Spotify doesn't have", songID: 1, field: "song",
 			setup: func(_ *fakeRepo, a *fakeAPI) { a.found = nil }},
 		{name: "no Premium", songID: 1, field: "spotify",
@@ -475,7 +477,7 @@ func TestPlayRefusals(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(repo, api)
 			}
-			if _, err := newTestPlayer(repo, api).Play(t.Context(), tt.songID, tt.pos); invalidField(err) != tt.field {
+			if _, err := newTestPlayer(repo, api).Play(t.Context(), tt.songID, tt.pos, tt.device); invalidField(err) != tt.field {
 				t.Errorf("err = %v, want invalid %s", err, tt.field)
 			}
 		})
@@ -485,7 +487,7 @@ func TestPlayRefusals(t *testing.T) {
 func TestPlayASongNotInTheLibrary(t *testing.T) {
 	t.Parallel()
 
-	if _, err := newTestPlayer(newFakeRepo(), newFakeAPI()).Play(t.Context(), 9, 0); !errors.Is(err, fault.ErrNotFound) {
+	if _, err := newTestPlayer(newFakeRepo(), newFakeAPI()).Play(t.Context(), 9, 0, ""); !errors.Is(err, fault.ErrNotFound) {
 		t.Errorf("err = %v, want not found", err)
 	}
 }
@@ -669,5 +671,46 @@ func TestOtherLength(t *testing.T) {
 		if got := otherLength(tt.lyricsMS, tt.trackMS); got != tt.want {
 			t.Errorf("%s: otherLength = %d, want %d", tt.name, got, tt.want)
 		}
+	}
+}
+
+func TestPlayOnTheDeviceGiven(t *testing.T) {
+	t.Parallel()
+
+	repo, api := newFakeRepo(), newFakeAPI()
+	got, err := newTestPlayer(repo, api).Play(t.Context(), 1, 5000, "browser01")
+	if err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	if !got.Started || len(api.played) != 1 || api.played[0] != "browser01 "+kazeTrack {
+		t.Errorf("got %+v, played %v; want the page's own player, though Spotify lists no devices", got, api.played)
+	}
+}
+
+func TestBrowserToken(t *testing.T) {
+	t.Parallel()
+
+	repo, api := newFakeRepo(), newFakeAPI()
+	p := newTestPlayer(repo, api)
+	got, err := p.BrowserToken(t.Context())
+	if err != nil {
+		t.Fatalf("BrowserToken: %v", err)
+	}
+	if got.AccessToken != "access" || got.ExpiresAt != clock.Add(time.Hour).UnixMilli() || api.refreshes != 0 {
+		t.Errorf("got %+v after %d refreshes, want the saved token as it is", got, api.refreshes)
+	}
+
+	repo.link.ExpiresAt = clock.Add(2 * time.Minute)
+	got, err = p.BrowserToken(t.Context())
+	if err != nil {
+		t.Fatalf("BrowserToken near expiry: %v", err)
+	}
+	if got.AccessToken != "access-2" || api.refreshes != 1 {
+		t.Errorf("got %+v after %d refreshes, want a refreshed token", got, api.refreshes)
+	}
+
+	repo.link = nil
+	if _, err := p.BrowserToken(t.Context()); invalidField(err) != "spotify" {
+		t.Errorf("with Spotify not connected: %v, want invalid spotify", err)
 	}
 }

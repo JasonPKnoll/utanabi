@@ -16,6 +16,13 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
+ * BrowserToken is an access token for this page's own Spotify player, which plays in the browser.
+ */
+export function BrowserToken(): $CancellablePromise<$models.BrowserToken> {
+    return $Call.ByID(3194499813);
+}
+
+/**
  * Disconnect forgets your Spotify tokens. Spotify's own account page can take the app's access away too.
  */
 export function Disconnect(): $CancellablePromise<void> {
@@ -37,10 +44,11 @@ export function Pause(): $CancellablePromise<void> {
 }
 
 /**
- * Play plays the song on your Spotify from positionMs.
+ * Play plays the song on your Spotify from positionMs: on deviceId, such as this page's own player, or with none
+ * given, on the device you're most likely listening on.
  */
-export function Play(songID: number, positionMs: number): $CancellablePromise<$models.PlayResult> {
-    return $Call.ByID(798673418, songID, positionMs);
+export function Play(songID: number, positionMs: number, deviceID: string): $CancellablePromise<$models.PlayResult> {
+    return $Call.ByID(798673418, songID, positionMs, deviceID);
 }
 
 /**

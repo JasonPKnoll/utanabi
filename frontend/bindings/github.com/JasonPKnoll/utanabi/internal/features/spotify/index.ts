@@ -7,6 +7,7 @@ export {
 };
 
 export type {
+    BrowserToken,
     PlayResult,
     Playback,
     Status

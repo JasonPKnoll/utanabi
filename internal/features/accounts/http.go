@@ -35,10 +35,12 @@ const (
 )
 
 // contentSecurity keeps the page to its own scripts, styles, and connections, so injected markup can't load code from
-// elsewhere or send data away, and the page can't be framed by another site. Svelte sets styles inline.
-const contentSecurity = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-	"img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; " +
-	"form-action 'self'; object-src 'none'"
+// elsewhere or send data away, and the page can't be framed by another site. Svelte sets styles inline. The one
+// exception is Spotify's Web Playback SDK, the player that lets the page itself play a song: its script and the frame
+// it plays in come from sdk.scdn.co, and the frame makes its own connections to Spotify.
+const contentSecurity = "default-src 'self'; script-src 'self' https://sdk.scdn.co; " +
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; " +
+	"frame-src https://sdk.scdn.co; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
 
 // HTTP is sign-in over HTTP, and the middleware that puts the signed-in user in every request's context. Sessions
 // have to be cookies the page's scripts can't read, which only an HTTP response can set, so sign-in lives here rather
