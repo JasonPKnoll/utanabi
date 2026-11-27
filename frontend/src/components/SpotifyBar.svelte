@@ -208,6 +208,11 @@
     }
   }
 
+  // Where the song is in the lyrics' own time, offset taken off, while they follow it; null otherwise.
+  export function lyricsNow(): number | null {
+    return following && playback ? lyricsTime(trackNow(), offset) : null;
+  }
+
   // Jumps the song to ms, such as the start of a line tapped while the lyrics follow.
   export function seek(ms: number) {
     const to = trackTime(Math.max(0, ms), offset);

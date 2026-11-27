@@ -424,3 +424,21 @@ rt {
     background: var(--surface-strong);
   }
 }
+
+/* The sweep across the sung line while it follows Spotify: each piece's Japanese fills from left to right as it's
+   sung, up to --sung, with a soft edge. The text is painted by its background, so the colours come from the theme;
+   furigana keep their own colour. */
+.sweep {
+  background-image: linear-gradient(
+    90deg,
+    var(--fg) calc(var(--sung) - 0.25em),
+    var(--muted) calc(var(--sung) + 0.25em)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sweep rt {
+  -webkit-text-fill-color: var(--muted);
+}

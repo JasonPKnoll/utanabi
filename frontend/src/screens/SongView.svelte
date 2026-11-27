@@ -17,6 +17,7 @@
   import { hasRomaji, loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
   import { aboutHref, homeHref, studyHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
+  import { lineSweep } from "../lib/sweep";
 
   let { id }: { id: number } = $props();
 
@@ -35,6 +36,23 @@
   // While the song loads, stand-in lines go through the same markup, as a skeleton in the song's shape.
   let loading = $derived(song === null && failure === null);
   let shown = $derived(loading ? placeholderLines() : lines);
+  // The lyric time, read from the Spotify bar every frame while the lyrics follow it, and how far through each piece
+  // of the current line the singing is, for the sweep across it.
+  let clock = $state<number | null>(null);
+  let sung = $derived(lineSweep(lines, current, clock));
+  $effect(() => {
+    if (!following) {
+      clock = null;
+      return;
+    }
+    let frame = 0;
+    const tick = () => {
+      clock = bar?.lyricsNow() ?? null;
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  });
   // JMdict's licence asks for a credit wherever its meanings show, so the footnote appears only when they do.
   let hasDefinitions = $derived(lines.some((l) => (l.words ?? []).some((w) => w.entryId > 0)));
   let source = $derived.by(() => {
@@ -199,6 +217,7 @@
                     {line}
                     furigana={aids.furigana}
                     placeholder={loading}
+                    sweep={loading ? null : sung}
                     onword={(word, ruby) => (open = { word, ruby, line: line.position })}
                   />
                   {#if aids.romaji && hasRomaji(line)}
@@ -222,7 +241,7 @@
             {:else if i === current && (line.words ?? []).length > 0}
               <div class="line current" role="group" aria-label={line.text} aria-current="true">
                 <!-- prettier-ignore -->
-                <span class="sung"><span class:ph={loading}>{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [], line: line.position })}>{@render rubyText(piece.ruby ?? [])}</button>{:else}{@render rubyText(piece.ruby ?? [])}{/if}{/each}</span></span>
+                <span class="sung"><span class:ph={loading}>{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{@const p = loading ? undefined : sung?.[j]}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [], line: line.position })}><span class:sweep={p !== undefined} style:--sung={p === undefined ? undefined : `${p * 100}%`}>{@render rubyText(piece.ruby ?? [])}</span></button>{:else}<span class:sweep={p !== undefined} style:--sung={p === undefined ? undefined : `${p * 100}%`}>{@render rubyText(piece.ruby ?? [])}</span>{/if}{/each}</span></span>
                 {#if aids.romaji && hasRomaji(line)}
                   <span class="romaji" lang="ja-Latn"><span class:ph={loading}>{line.romaji}</span></span>
                 {/if}
