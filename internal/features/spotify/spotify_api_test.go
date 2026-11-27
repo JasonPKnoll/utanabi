@@ -109,8 +109,9 @@ func TestSearchTracks(t *testing.T) {
 
 	api := fakeSpotify(t, func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
+		// market=from_token needs a scope the app doesn't ask for, so Spotify refuses the search with it.
 		if r.URL.Path != "/v1/search" || q.Get("q") != "夜に駆ける YOASOBI" || q.Get("type") != "track" ||
-			q.Get("market") != "from_token" {
+			q.Has("market") {
 			t.Errorf("search request %s?%s", r.URL.Path, r.URL.RawQuery)
 		}
 		writeBody(t, w, `{"tracks":{"items":[{"id":"b","name":"夜に駆ける","duration_ms":261000,

@@ -189,7 +189,9 @@ func (w *WebAPI) SearchTracks(ctx context.Context, access redact.Secret, query s
 			Items []trackJSON `json:"items"`
 		} `json:"tracks"`
 	}
-	path := "/v1/search?" + url.Values{"q": {query}, "type": {"track"}, "limit": {"10"}, "market": {"from_token"}}.Encode()
+	// No market: with a user's token, Spotify searches their own country's catalogue anyway, and market=from_token
+	// would need the user-read-private scope, which the app doesn't ask for.
+	path := "/v1/search?" + url.Values{"q": {query}, "type": {"track"}, "limit": {"10"}}.Encode()
 	if err := w.call(ctx, access, http.MethodGet, path, nil, &body); err != nil {
 		return nil, err
 	}
