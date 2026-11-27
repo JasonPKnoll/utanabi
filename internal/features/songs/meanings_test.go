@@ -88,6 +88,27 @@ func newFakeDictionary(t *testing.T) *fakeDictionary {
 			entry(1149130, "ワン", "わん", sense(0, "one", "num")),
 			entry(1217700, "頑張る", "がんばる", sense(0, "to persevere", "v5r", "vi")),
 			entry(1386560, "仕方ない", "しかたない", sense(0, "it can't be helped", "adj-i")),
+			entry(1601440, "分け隔て", "わけへだて", sense(0, "discrimination", "n", "vs")),
+			entry(1499960, "分ける", "わける", sense(0, "to divide", "v1", "vt")),
+			entry(1489590, "隔て", "へだて", sense(0, "partition", "n")),
+			entry(1527980, "分け", "わけ", sense(0, "division", "n")),
+			entry(1600820, "訳", "わけ", sense(0, "conclusion from reasoning", "n")),
+			entry(1525360, "まとめて", "まとめて", sense(0, "all together", "exp", "adv")),
+			entry(1525350, "纏める", "まとめる", sense(0, "to collect", "v1", "vt")),
+			entry(1207590, "掛かる", "かかる", sense(0, "to take (time)", "v5r", "vi")),
+			entry(2084130, "かかってこい", "かかってこい", sense(0, "bring it on!", "int")),
+			entry(1323170, "知る", "しる", sense(0, "to know", "v5r", "vt")),
+			entry(2137720, "知ったこっちゃない", "しったこっちゃない", sense(0, "I don't give a damn", "exp", "adj-i")),
+			entry(1313580, "こと", "こと", sense(0, "thing", "n")),
+			entry(1303980, "肩", "かた", sense(0, "shoulder", "n")),
+			entry(1374630, "落とす", "おとす", sense(0, "to drop", "v5s", "vt")),
+			entry(1578860, "行ける", "いける", sense(0, "to be good at", "v1", "vi")),
+			entry(1591930, "気づく", "きづく", sense(0, "to notice", "v5k", "vi")),
+			entry(1509930, "選ぶ", "えらぶ", sense(0, "to choose", "v5b", "vt")),
+			entry(1185200, "遅い", "おそい", sense(0, "slow", "adj-i")),
+			entry(1593180, "連れる", "つれる", sense(0, "to take (someone) with one", "v1", "vt")),
+			entry(1315720, "持つ", "もつ", sense(0, "to hold", "v5t", "vt")),
+			entry(1294490, "感じる", "かんじる", sense(0, "to feel", "v1", "vt")),
 		},
 		tags: map[string]string{"v5s": "Godan verb with 'su' ending", "vt": "transitive verb", "uk": "usually kana"},
 	}
@@ -510,6 +531,65 @@ func TestSpokenFormsBecomeTheWordsTheyStandFor(t *testing.T) {
 			}
 			if got := romaji(line.Tokens); got != tt.wantRomaji {
 				t.Errorf("romaji of %q = %q, want %q", tt.text, got, tt.wantRomaji)
+			}
+		})
+	}
+}
+
+func TestLyricPatternsReadAsTheyAreMeant(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text string
+		want []string
+	}{
+		{text: "何の分け隔てもない", want: []string{
+			"何 何/なに content 1188490", "の の/の particle no-possession 0", "分け隔て 分け隔て/わけへだて content 1601440",
+			"も も/も particle mo-also 0", "ない ない/ない content adj-i 1529520",
+		}},
+		{text: "まとめてかかってきなさい", want: []string{
+			"まとめて まとめて/まとめて content 1525360",
+			"かかってきなさい かかる/かかる content v5r [te-form te-kuru imperative] 2084130",
+		}},
+		{text: "かかってこい", want: []string{
+			"かかってこい かかる/かかる content v5r [te-form te-kuru imperative] 2084130",
+		}},
+		{text: "そういうわけで", want: []string{
+			"そういう そういう/そういう content 0", "わけ 訳/わけ content 1600820", "で だ/だ auxiliary 0",
+		}},
+		{text: "選びな", want: []string{"選びな 選ぶ/えらぶ content v5b [imperative] 1509930"}},
+		{text: "遅くはねーから", want: []string{
+			"遅く 遅い/おそい content adj-i [adverbial] 1185200", "は は/は particle wa-topic 0",
+			"ねー ない/ない content adj-i 1529520", "から から/から particle kara-because 0",
+		}},
+		{text: "知ったこっちゃない", want: []string{
+			"知ったこっちゃない 知ったこっちゃない/しったこっちゃない content 2137720",
+		}},
+		{text: "肩落とすこたない", want: []string{
+			"肩 肩/かた content 1303980", "落とす 落とす/おとす content v5s 1374630", "こた こと/こと content 1313580",
+			"ない ない/ない content adj-i 1529520",
+		}},
+		{text: "そこへ行けた", want: []string{
+			"そこ そこ/そこ content 0", "へ へ/へ particle he-direction 0",
+			"行けた 行く/いく content v5k-s [potential past] 1578850",
+		}},
+		{text: "気づけん", want: []string{"気づけん 気づく/きづく content v5k [potential negative] 1591930"}},
+		{text: "連れてって", want: []string{
+			"連れてって 連れる/つれる content v1 [te-form te-iku te-form] 1593180",
+		}},
+		{text: "持っていける", want: []string{"持っていける 持つ/もつ content v5t [te-form] 1315720"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := analyzedLine(t, dict, tt.text)
+			got := describeWords(line.Tokens, line.Analysis)
+			for i, w := range line.Analysis {
+				got[i] += " " + strconv.FormatInt(w.EntryID, 10)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("words of %q\n got  %q\n want %q", tt.text, got, tt.want)
 			}
 		})
 	}

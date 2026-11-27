@@ -31,6 +31,13 @@ The rules themselves are in `internal/features/songs`, and the full description 
 | A verb made from a katakana word comes apart, and its ending reads as other words. | オナってる as オナ + って "(quote)" + る | A katakana noun followed by a verb ending (る, った, って, ってる, ってた, っている, らない, らねえ) is one godan verb when JMdict has the word with る. Its tokens are marked as a verb and its pieces, so the romaji writes it as one word. テヘペロって stays a quote, since JMdict has no テヘペロる. | `spoken.go` `joinSlangVerbs` | `TestSpokenFormsBecomeTheWordsTheyStandFor` (ググってる, ググった, テヘペロって) |
 | An adjective said roughly, its あい or おい turned into ええ, reads as a command. | 臭え as 臭う "be fragrant!" | A godan う verb in its え command form is the adjective when JMdict has its kanji with い as one whose reading turns into the spoken form: 臭え is 臭い, read くせえ. The reading is corrected for furigana and romaji. | `spoken.go` `spokenAdjective` | `TestSpokenFormsBecomeTheWordsTheyStandFor` (指が臭え) |
 | ん between two nouns is の said quickly, and read as a negative. | 胸んなか | ん between two nouns, or marked as a case particle, is の: `no-possession`, "'s". | `words.go` `takeWord`, `particles.go` | `TestFindWords` (胸んなか) |
+| A verb's stem and the noun after it were two words. | 分け隔て as 分け "divide" + 隔て "partition" | A verb stem alone joins the next noun or stem when JMdict has them together as a noun; a の before it becomes "'s". | `joins.go` `joinCompounds` | `TestLyricPatternsReadAsTheyAreMeant` (何の分け隔てもない) |
+| A piece kagome doesn't know split a set phrase. | 知ったこっちゃない as 知った + こっち + ゃない | A token with no dictionary form joins up to three words before and one after, longest first, when JMdict has the run. | `joins.go` `joinUnknown` | `TestLyricPatternsReadAsTheyAreMeant` (知ったこっちゃない) |
+| こた, ことは said quickly, read as 濃い "deep" in the past, and took a ない after it. | 肩落とすこたない | こた after a verb's plain form is the word こと, and what follows is a word of its own. | `joins.go` `spokenKotoAt` | `TestLyricPatternsReadAsTheyAreMeant` (肩落とすこたない) |
+| ねー after a 〜くは form was left out of the word joins. | 遅くはねーから | ねえ, ねぇ, and ねー after は that follows a く form are ない, an adjective, so から after it is "because". | `words.go` `spokenNai`, `kuForm` | `TestLyricPatternsReadAsTheyAreMeant` (遅くはねーから) |
+| A verb's stem + な, a casual command, read as the stem and a particle. | 選びな, 咲かせな | な (終助詞) after a verb's 連用形 joins the verb and adds `imperative`. | `words.go` `stemCommand` | `TestLyricPatternsReadAsTheyAreMeant` (選びな) |
+| Any 非自立 verb after て joined as a helper, even with no meaning as one. | 連れてって, 持っていける | After て a 非自立 verb joins only as a known helper step or one of a short list (ある, やる, くださる, おる, いける…); kagome's く in 〜てって is 〜ていく. | `words.go` `attaches`, `nonStepHelpers`, `helperVerbStep` | `TestLyricPatternsReadAsTheyAreMeant` (連れてって, 持っていける) |
+| A godan potential's negative ん read as plain negative. | 気づけん | ん after a godan verb's 仮定形 adds `potential` and `negative`. | `words.go` `steps` | `TestLyricPatternsReadAsTheyAreMeant` (気づけん) |
 
 ### Particle uses
 
@@ -52,6 +59,10 @@ The rules themselves are in `internal/features/songs`, and the full description 
 | A noun used as an adverb matched a noun that sounds the same. | いつかきっと, いつか as 五日 "5th day of the month" | A noun kagome says can be an adverb, with no particle or copula after it, prefers an entry with an adverb sense: いつか "sometime". With a particle it stays a noun, so 全てが is "everything" and 全て忘れて "entirely". | `meanings.go` `usedAsAdverb`, `senseFit` | `TestWordsTakeTheirMeaningFromTheDictionary` (いつかきっと, 全てが, 全て忘れて) |
 | A katakana number in a count or chant read as another word. | サン as "Sun" in サン！ヨン！ゼロワン！ | A katakana word next to a number, with only punctuation between, takes a number entry when it has one. It repeats until nothing changes, so サン！サン！ゼロ turns both. サンが昇る stays "Sun". | `meanings.go` `countingRuns` | `TestWordsTakeTheirMeaningFromTheDictionary` (サン！ヨン！ゼロワン！, サン！サン！ゼロ, サンが昇る) |
 | A godan command read as a potential verb's stem or command. | がんばれ as 頑張れる "can persevere" | A potential verb whose only step is its bare stem or its command is the godan verb's command, spelled the same: がんばれ, がんばれよ. | `meanings.go` `potential` | `TestPotentialVerbsBecomeTheirGodanVerb` (がんばれ がんばれ, がんばれよ 俺ら) |
+| A verb's te form used as an adverb read as the verb. | まとめてかかってきなさい, まとめて "collect" | A verb + て or で followed by another verb takes JMdict's adverb or expression entry for it, with no steps. | `joins.go` `teAdverbs` | `TestLyricPatternsReadAsTheyAreMeant` (まとめてかかってきなさい) |
+| A 〜てくる command took the verb's first sense. | かかってこい as "take (time)" | A command with `te-kuru` takes the entry for its 〜てこい form when JMdict has one ("bring it on!"). | `joins.go` `comeCommand` | `TestLyricPatternsReadAsTheyAreMeant` (かかってこい) |
+| A formal noun matched a noun that sounds the same. | わけ as 分け "division" | A 非自立 noun on the list (わけ, はず, つもり, ため, ほう, ところ, とこ) is looked up by the kanji of its grammar meaning first: 訳. | `joins.go` `formalNoun` | `TestLyricPatternsReadAsTheyAreMeant` (そういうわけで) |
+| A potential after へ or まで kept its ichidan twin. | そこへ行けた as 行ける "to be good at" | After a direction particle the potential reading wins over an ichidan verb JMdict has: 行く, [potential past]. | `meanings.go` `potential`, `afterDirection` | `TestLyricPatternsReadAsTheyAreMeant` (そこへ行けた) |
 
 ### The English under each word
 
@@ -63,6 +74,8 @@ The rules themselves are in `internal/features/songs`, and the full description 
 | "to" was cut from every meaning, not only verbs'. | 半端ない "a great extent" | Only a verb loses its "to": "shine", but "to a great extent". | `explain.go` `glossOf` | `TestLineGlossIsWordByWord` (はんぱねえ) |
 | Some words mean something else before a negative. | もう要らない, もう "already" | もう is "anymore" and まだ is "yet" when a negative comes later in the line. | `explain.go` `beforeNegative` | `TestLineGlossIsWordByWord` (もう要らない; もう行く unchanged) |
 | One grammar point reads differently by what's around it. | 死ぬの, ダサいの, いいのよ, 気がつくなんて | Nominalizer の is "(-ing)" after a verb and "(one)" otherwise; の before よ or ね is "(it's that)"; なんて after a clause is "(to think…)". | `explain.go` `contextGloss` | `TestLineGlossIsWordByWord` |
+| A potential showed its plain meaning. | 気づけん "not notice", 行けた "go" | A potential says "can't" with a negative, "could" in the past, and "can" alone. | `explain.go` `wordGloss` | `TestLineGlossIsWordByWord` (気づけん, そこへ行けた, 会える) |
+| ない after a 〜くは or 〜くも form showed "not there". | 遅くはねー, 感じたくもない | ない after a く form and も or は says "not". | `explain.go` `wordGloss`, `afterKu` | `TestLineGlossIsWordByWord` (遅くはねーから, 感じたくもない) |
 
 ## Not fixed
 
@@ -81,3 +94,7 @@ The rules themselves are in `internal/features/songs`, and the full description 
 | Other kagome mistakes carry through. | In 2人で it reads で as the copula | They're kagome's own; each needs its own rule once it shows up in a song. |
 | A song saved earlier keeps its words when these rules improve. | Shinunoga E-Wa saved before the fixes | Saved words are never re-analysed; re-adding the song analyses it again. Words that had no meaning do fill in when the song is opened. |
 | A line whose tokens no longer match a new analysis keeps no words, and is tried again each time the song opens. | A line of only punctuation | There are no words to save for it. |
+| Chant syllables read as words. | っしゃ, っしゃっしゃ, (え い) | They aren't words; kagome guesses pieces, and the dictionary has nothing for them. |
+| A command repeated for rhythm splits wrongly. | 踊りなさいなさいな, さい as "tear" | kagome cuts the repeat at the wrong places, so there is no なさい to join. |
+| あっけな, a cut-short あっけない, reads as pieces. | あっけな | JMdict has only the full adjective, and nothing marks the cut. |
+| かかる takes its first sense outside a command. | かかってくる "come at" is still "take (time)" | Choosing the sense needs the sentence's meaning. |

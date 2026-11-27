@@ -83,6 +83,10 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 		if a.FirstToken > 0 {
 			c.prev = line.Tokens[a.FirstToken-1]
 		}
+		if a.FirstToken > 1 {
+			c.afterKu = kuForm(line.Tokens[a.FirstToken-2]) && c.prev.POS == morph.Particle &&
+				(c.prev.base() == "も" || c.prev.base() == "は")
+		}
 		if a.LastToken+1 < len(line.Tokens) {
 			c.next = line.Tokens[a.LastToken+1]
 		}
@@ -110,6 +114,9 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 type glossContext struct {
 	prev, next    Token
 	negativeLater bool
+	// afterKu: the word comes after a く form and も or は, as ない does in 感じたくもない and 遅くはない, where it
+	// makes the word before it negative.
+	afterKu bool
 }
 
 func isNegative(w Word) bool {
@@ -204,6 +211,9 @@ func shortGloss(gloss string) string {
 // the dictionary doesn't explain shows its dictionary form, or nothing when that is the word itself. A negative
 // content word says so ("not need"), and a few words read differently before a negative (beforeNegative).
 func wordGloss(w Word, c glossContext) string {
+	if c.afterKu && w.Kind == WordContent && (w.Lemma == "ない" || w.Lemma == "無い") {
+		return "not"
+	}
 	g := glossOf(w, c.prev, c.next)
 	if alt, ok := beforeNegative[w.Lemma]; ok && w.Kind == WordContent && c.negativeLater {
 		g = alt
@@ -212,9 +222,22 @@ func wordGloss(w Word, c glossContext) string {
 	if g == w.Text {
 		return ""
 	}
-	if w.Kind == WordContent && w.Gloss != "" && slices.ContainsFunc(w.Steps, func(s GrammarPoint) bool {
-		return s.ID == "negative"
-	}) {
+	if w.Kind != WordContent || w.Gloss == "" {
+		return g
+	}
+	has := func(id string) bool {
+		return slices.ContainsFunc(w.Steps, func(s GrammarPoint) bool { return s.ID == id })
+	}
+	switch {
+	case has("potential") && has("negative"):
+		// 気づけん, can't notice.
+		return "can't " + g
+	case has("potential") && has("past"):
+		// そこへ行けた, could go there.
+		return "could " + g
+	case has("potential"):
+		return "can " + g
+	case has("negative"):
 		return "not " + g
 	}
 	return g

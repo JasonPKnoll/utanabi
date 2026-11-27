@@ -51,6 +51,16 @@ func TestLineGlossIsWordByWord(t *testing.T) {
 		{name: "an adjective keeps its to", dict: withMeanings, text: "はんぱねえ", want: "to a great extent"},
 		{name: "a phrase with its particle dropped", dict: withMeanings, text: "迷惑かける", want: "cause trouble"},
 		{name: "ん between nouns", dict: noMeanings, text: "胸んなか", want: "'s"},
+		{name: "ない after a く form says not", dict: withMeanings, text: "遅くはねーから", want: "slow · (topic) · not · because"},
+		{name: "ない after a く form and も says not", dict: withMeanings, text: "感じたくもない",
+			want: "feel · also · not"},
+		{name: "a potential negative says can't", dict: withMeanings, text: "気づけん", want: "can't notice"},
+		{name: "a potential past says could", dict: withMeanings, text: "そこへ行けた", want: "toward · could go"},
+		{name: "a potential says can", dict: withMeanings, text: "会える", want: "can meet"},
+		{name: "a te form adverb and a come command", dict: withMeanings, text: "まとめてかかってきなさい",
+			want: "all together · bring it on!"},
+		{name: "a phrase joined around an unknown piece", dict: withMeanings, text: "知ったこっちゃない",
+			want: "I don't give a damn"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

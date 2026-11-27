@@ -59,6 +59,15 @@ func (m *meanings) analyzeWords(ctx context.Context, line *Line) error {
 	if words, err = m.joinSpokenNai(ctx, words, line.Tokens); err != nil {
 		return err
 	}
+	if words, err = m.joinCompounds(ctx, words, line.Tokens); err != nil {
+		return err
+	}
+	if words, err = m.joinUnknown(ctx, words, line.Tokens); err != nil {
+		return err
+	}
+	if err := m.teAdverbs(ctx, words, line.Tokens); err != nil {
+		return err
+	}
 	for i := range words {
 		w := &words[i]
 		if w.Kind != WordContent {
@@ -67,13 +76,17 @@ func (m *meanings) analyzeWords(ctx context.Context, line *Line) error {
 		if err := m.spokenAdjective(ctx, w, line.Tokens); err != nil {
 			return err
 		}
+		formalNoun(w, line.Tokens)
 		cat := wordCategory(*w, line.Tokens)
 		if cat == catVerb && w.ConjClass == "v1" {
-			if err := m.potential(ctx, w); err != nil {
+			if err := m.potential(ctx, w, afterDirection(line.Tokens, w.FirstToken)); err != nil {
 				return err
 			}
 		}
 		if _, err := m.resolve(ctx, w, cat); err != nil {
+			return err
+		}
+		if err := m.comeCommand(ctx, w, line.Tokens); err != nil {
 			return err
 		}
 		if w.EntryID != 0 && numberBeforeCounter(line.Tokens, w.FirstToken) {
@@ -568,7 +581,17 @@ var eRowToURow = map[rune]rune{
 // ichidan verb, and ない. When the dictionary doesn't have 会える as a verb but has 会う as a godan verb, the word is 会う
 // in the potential form. In the same way, 見れる is 見る without its ら (ら抜き), when the dictionary has 見る as an ichidan
 // or kuru verb. It needs the dictionary: without it the word stays as kagome read it.
-func (m *meanings) potential(ctx context.Context, w *WordAnalysis) error {
+// afterDirection reports whether the word at i comes straight after へ or まで, "towards" and "as far as", which go
+// with a verb of moving.
+func afterDirection(tokens []Token, i int) bool {
+	if i == 0 {
+		return false
+	}
+	p := tokens[i-1]
+	return p.POS == morph.Particle && (p.base() == "へ" || p.base() == "まで")
+}
+
+func (m *meanings) potential(ctx context.Context, w *WordAnalysis, towards bool) error {
 	lemma, reading := []rune(w.Lemma), []rune(w.LemmaReading)
 	n := len(lemma)
 	if n < 2 || lemma[n-1] != 'る' {
@@ -579,7 +602,9 @@ func (m *meanings) potential(ctx context.Context, w *WordAnalysis) error {
 		return nil
 	}
 	own, err := m.lookup(ctx, w.Lemma, w.LemmaReading)
-	if err != nil || hasCode(own, func(c string) bool { return c == "v1" }) {
+	// An ichidan verb the dictionary has is itself, unless it comes after へ or まで: there 行ける is "can go", the
+	// potential of 行く, not 行ける "to be good".
+	if err != nil || (!towards && hasCode(own, func(c string) bool { return c == "v1" })) {
 		return err
 	}
 

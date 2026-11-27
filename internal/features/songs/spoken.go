@@ -122,7 +122,8 @@ func (m *meanings) spokenNai(ctx context.Context, words []WordAnalysis, tokens [
 		}
 		for j := w.FirstToken; j <= w.LastToken; j++ {
 			t := tokens[j]
-			if t.POS == morph.Verb || t.POS == morph.Adjective || t.POS == morph.Symbol {
+			spokenNe := t.POS == morph.Adjective && slices.Contains(spokenNaiEnds, t.Surface)
+			if (t.POS == morph.Verb || t.POS == morph.Adjective || t.POS == morph.Symbol) && !spokenNe {
 				// 知らねえ is a verb's own negative, not an adjective.
 				return WordAnalysis{}, false, nil
 			}
