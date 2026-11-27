@@ -26,12 +26,15 @@
 </script>
 
 <!-- A song's row. Without an id it's a stand-in for the skeleton, its text drawn as bars. -->
-{#snippet row(title: string, sub: string, id?: number)}
+{#snippet row(title: string, sub: string, id?: number, synced = false)}
   <svelte:element this={id === undefined ? "div" : "a"} class="row" href={id === undefined ? undefined : songHref(id)}>
     <span class="tile" aria-hidden="true">{id === undefined ? "" : initial(title)}</span>
     <span class="text">
       <span class="title"><span class:ph={id === undefined}>{title}</span></span>
-      <span class="sub"><span class:ph={id === undefined}>{sub}</span></span>
+      <span class="sub"
+        ><span class:ph={id === undefined}>{sub}</span>{#if synced}&nbsp;·&nbsp;<span class="synced">Synced</span
+          >{/if}</span
+      >
     </span>
   </svelte:element>
 {/snippet}
@@ -70,7 +73,7 @@
       <!-- Stand-in songs, drawn as rows like the real ones, as a skeleton in the library's shape. -->
       <ul class="songs skeleton-wait" aria-hidden="true" inert>
         {#each placeholderSongs as stand, i (i)}
-          <li>{@render row(stand.title, `${stand.artist} · Not synced`)}</li>
+          <li>{@render row(stand.title, stand.artist)}</li>
         {/each}
       </ul>
     {:else if songs.length === 0}
@@ -86,11 +89,7 @@
       <ul class="songs">
         {#each songs as song (song.id)}
           <li>
-            {@render row(
-              song.title,
-              `${song.artist || "Unknown artist"} · ${song.synced ? "Synced" : "Not synced"}`,
-              song.id,
-            )}
+            {@render row(song.title, song.artist || "Unknown artist", song.id, song.synced)}
           </li>
         {/each}
       </ul>
@@ -212,6 +211,11 @@
   .sub {
     font-size: 0.8125rem;
     color: var(--muted);
+  }
+
+  .synced {
+    color: var(--link);
+    font-weight: 600;
   }
 
   /* Search and add, together in a slim bar within thumb reach. */
