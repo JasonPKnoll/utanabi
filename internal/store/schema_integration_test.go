@@ -83,6 +83,8 @@ func TestSchemaAcceptsGoodRows(t *testing.T) {
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading) VALUES (11, 0, 'ラーメン', 'らーめんゞ')`},
 		{name: "a token without a reading",
 			sql: `INSERT INTO line_tokens (line_id, position, surface) VALUES (11, 0, '、')`},
+		{name: "a card's progress",
+			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (1000, 2, 5, 1, 1)`},
 		{name: "a token with its part of speech",
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading, pos) VALUES (11, 0, '夜', 'よる', 'noun')`},
 		{name: "a token without a part of speech",
@@ -125,6 +127,14 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 		args    []any
 		wantErr string
 	}{
+		{name: "progress for a card that doesn't exist", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (9999, 0, 0, 0, 1)`},
+		{name: "a negative streak", wantErr: "CHECK",
+			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (1000, -1, 0, 0, 1)`},
+		{name: "a streak longer than the right answers", wantErr: "CHECK",
+			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (1000, 3, 2, 0, 1)`},
+		{name: "progress never reviewed", wantErr: "CHECK",
+			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (1000, 0, 0, 0, 0)`},
 		{name: "song without a title", wantErr: "CHECK",
 			sql: `INSERT INTO songs (title, source, created_at, updated_at) VALUES ('', 'user', 1, 1)`},
 		{name: "song title over 200 characters", wantErr: "CHECK",

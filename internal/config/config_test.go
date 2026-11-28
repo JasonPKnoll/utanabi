@@ -53,6 +53,9 @@ func TestLoadDefaults(t *testing.T) {
 	if got, want := cfg.Platform, "desktop"; got != want {
 		t.Errorf("Platform = %q, want %q", got, want)
 	}
+	if got, want := cfg.StudyStreak, 3; got != want {
+		t.Errorf("StudyStreak = %d, want %d", got, want)
+	}
 }
 
 func TestLoadReadsSettingsFile(t *testing.T) {
@@ -123,6 +126,12 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 		{name: "bad busy timeout", platform: "desktop", settings: `{"db_busy_timeout":"soon"}`, wantName: "db_busy_timeout"},
 		{name: "negative busy timeout", platform: "desktop", settings: `{"db_busy_timeout":"-1s"}`, wantName: "db_busy_timeout"},
 		{name: "unknown setting", platform: "desktop", settings: `{"colour":"blue"}`, wantName: "colour"},
+		{name: "study streak of zero", platform: "desktop", settings: `{"study_streak":0}`, wantName: "study_streak"},
+		{name: "study streak too long", platform: "desktop", settings: `{"study_streak":11}`, wantName: "study_streak"},
+		{name: "study streak not a number", platform: "desktop", settings: `{"study_streak":"three"}`,
+			wantName: "study_streak"},
+		{name: "bad env study streak", platform: "server", env: map[string]string{"UTANABI_STUDY_STREAK": "lots"},
+			wantName: "study_streak"},
 		{
 			name: "dictionary path names a folder", platform: "desktop",
 			settings: `{"dictionary_path":"reference/"}`, wantName: "dictionary_path",
@@ -289,6 +298,39 @@ func TestLoadRejectsBadLyricsSources(t *testing.T) {
 			_, err := config.Load(p)
 			if err == nil || !strings.Contains(err.Error(), "lyrics_sources") {
 				t.Errorf("err = %v, want an error naming lyrics_sources", err)
+			}
+		})
+	}
+}
+
+func TestLoadStudyStreak(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		platform string
+		settings string
+		env      map[string]string
+		want     int
+	}{
+		{name: "from the settings file", platform: "desktop", settings: `{"study_streak":5}`, want: 5},
+		{name: "env var in server mode", platform: "server", settings: `{"study_streak":5}`,
+			env: map[string]string{"UTANABI_STUDY_STREAK": "2"}, want: 2},
+		{name: "the default", platform: "server", want: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p := platform(t, tt.platform, tt.env)
+			if tt.settings != "" {
+				writeSettings(t, p, tt.settings)
+			}
+			cfg, err := config.Load(p)
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if cfg.StudyStreak != tt.want {
+				t.Errorf("StudyStreak = %d, want %d", cfg.StudyStreak, tt.want)
 			}
 		})
 	}

@@ -5,6 +5,7 @@ export type Route =
   | { name: "add" }
   | { name: "about" }
   | { name: "song"; id: number }
+  | { name: "study"; id: number }
   | { name: "missing" };
 
 export const homeHref = "#/";
@@ -14,6 +15,10 @@ export const aboutHref = "#/about";
 
 export function songHref(id: number): string {
   return `#/song/${id}`;
+}
+
+export function studyHref(songId: number): string {
+  return `#/song/${songId}/study`;
 }
 
 export function parseRoute(hash: string): Route {
@@ -30,9 +35,9 @@ export function parseRoute(hash: string): Route {
   if (path === "/about") {
     return { name: "about" };
   }
-  const id = /^\/song\/([1-9]\d{0,14})$/.exec(path)?.[1];
-  if (id !== undefined) {
-    return { name: "song", id: Number(id) };
+  const song = /^\/song\/([1-9]\d{0,14})(\/study)?$/.exec(path);
+  if (song?.[1] !== undefined) {
+    return { name: song[2] ? "study" : "song", id: Number(song[1]) };
   }
   return { name: "missing" };
 }

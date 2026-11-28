@@ -17,6 +17,7 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/config"
 	"github.com/JasonPKnoll/utanabi/internal/dictionary"
 	"github.com/JasonPKnoll/utanabi/internal/features/songs"
+	"github.com/JasonPKnoll/utanabi/internal/features/study"
 	"github.com/JasonPKnoll/utanabi/internal/logger"
 	"github.com/JasonPKnoll/utanabi/internal/store"
 )
@@ -88,6 +89,7 @@ func run() (err error) {
 		application.NewService(app.NewAboutService(cfg, credits...)),
 		application.NewService(songs.NewService(songs.NewSQLite(db), songs.NewMorph(morph.New()), meanings,
 			sources...)),
+		application.NewService(study.NewService(study.NewSQLite(db), study.NewJMdict(dict), cfg.StudyStreak)),
 		app.CloseOnShutdown(closers...),
 	)
 

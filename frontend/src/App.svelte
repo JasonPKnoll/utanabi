@@ -5,6 +5,7 @@
   import Home from "./screens/Home.svelte";
   import Search from "./screens/Search.svelte";
   import SongView from "./screens/SongView.svelte";
+  import Study from "./screens/Study.svelte";
 
   let route = $state(parseRoute(window.location.hash));
 
@@ -29,6 +30,10 @@
 {:else if route.name === "song"}
   {#key route.id}
     <SongView id={route.id} />
+  {/key}
+{:else if route.name === "study"}
+  {#key route.id}
+    <Study songId={route.id} />
   {/key}
 {:else}
   <main class="screen missing">

@@ -17,7 +17,7 @@ Both are radio buttons, so they work with a tap and a keyboard. `frontend/src/li
 
 Each palette lives in `frontend/src/themes.css` as one block of dark values (`--d-bg`, `--d-fg`, and so on) and light values (`--l-*`), selected by `[data-palette="…"]`; Utanabi also sits on `:root`. `frontend/src/app.css` maps them onto the tokens components use (`--bg: var(--d-bg)`), switching to the `--l-*` values for light mode. Components use the tokens, never their own hex values, so every screen gets every palette in both modes for free.
 
-**Adding a palette:** add its block to `themes.css` with all 26 values, and its name to `palettes` in `theme.ts`. `theme.test.ts` fails until every palette has every value and every text colour keeps 4.5:1 contrast on the surfaces it's drawn on, in both modes.
+**Adding a palette:** add its block to `themes.css` with all 28 values, and its name to `palettes` in `theme.ts`. `theme.test.ts` fails until every palette has every value and every text colour keeps 4.5:1 contrast on the surfaces it's drawn on, in both modes.
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |
@@ -105,3 +105,16 @@ Use these instead of styling the same thing again in a component.
 ## Mockups
 
 The design came from the mockup canvas "Utanabi mobile mockups" on claude.ai (row B, "Night stage"). The canvas also has other styles worth borrowing from later, such as colour-coded grammar and a word-by-word gloss.
+
+## Study
+
+A song's flashcards (`frontend/src/screens/Study.svelte`, `#/song/<id>/study`), opened from the cards button in the song's top bar. Each card is one word with the meaning it has in the song. It's asked the way WaniKani asks:
+
+- **The front** is the word in its dictionary form, large, over the line it's first sung in with the word underlined in dotted amber.
+- **Reading, then meaning.** The reading is typed in kana: WanaKana's kana input turns romaji into hiragana as it's typed (`naoru` becomes なおる), and kana from a Japanese keyboard goes straight in. A word written only in kana has no reading to ask. The meaning is typed in English, and any of the word's meanings counts, ignoring case, punctuation, notes in parentheses, a leading "to", "be", "a", "an", or "the", and a small typo (`frontend/src/lib/answers.ts`).
+- **Right goes straight on; wrong waits.** A wrong answer turns the field red and shows the right one, with "I was right" for a typo or synonym the check missed. Enter goes on either way.
+- **The back** shows the reading, the song's meaning, and the card's streak as dots ("1 of 3 in a row"). A card is right only when every question on it is. Enter, or Next card, saves the answer (`Study.Answer`).
+- **The rotation** (`frontend/src/lib/studyQueue.ts`) is a shuffled queue of the cards not learned yet: a right card goes to the back, a wrong one comes back after three others, and a learned one leaves. When every card is learned, "Review all again" goes round them all.
+- **One answer field for the whole session,** kept focused even while an answer shows, so a phone's keyboard stays up from card to card.
+
+The top bar counts learned cards ("12/39"), with a bar in `--success` under it. Right is `--success` and wrong is `--danger`, in every palette.
