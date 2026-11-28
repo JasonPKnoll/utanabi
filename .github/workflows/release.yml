@@ -239,7 +239,7 @@ jobs:
             printf '%s' "$KEYSTORE" | base64 -d >"$RUNNER_TEMP/release.keystore"
             echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >>"$GITHUB_ENV"
           fi
-      - name: Build, for phones and for the emulator
+      - name: Build, for phones (arm64)
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -248,9 +248,6 @@ jobs:
         run: |
           export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           mkdir -p out
-          # The emulator here is x86-64, so the same build for it proves the app; the release is for phones, arm64.
-          wails3 task android:package EXTRA_TAGS=bundled_dictionary ARCH=amd64
-          mv bin/utanabi.apk "$RUNNER_TEMP/utanabi-emulator.apk"
           wails3 task android:package EXTRA_TAGS=bundled_dictionary
           mv bin/utanabi.apk "out/Utanabi-$VERSION-android.apk"
           for f in out/*; do sha256sum "$f" | awk '{print $1}' >"$f.sha256"; done
@@ -259,17 +256,22 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      # The emulator is x86-64, and runs the arm64 app the release ships through Android's own ARM translation, so it
+      # proves the very file people install. (An x86-64 build of the app can't run on Android: the SQLite library's
+      # stat calls there are ones Android's seccomp filter refuses.)
       - name: Install it on an emulator, and start it
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         with:
           api-level: 34
           arch: x86_64
           target: google_apis
           disable-animations: true
           script: |
-            adb install -r "$RUNNER_TEMP/utanabi-emulator.apk"
+            adb install -r "out/Utanabi-$VERSION-android.apk"
             adb shell monkey -p com.jasonpknoll.utanabi -c android.intent.category.LAUNCHER 1
-            sleep 45
+            sleep 90
             adb logcat -d | grep -iE "utanabi|wails|AndroidRuntime" | tail -n 60 || true
             adb shell pidof com.jasonpknoll.utanabi
             ! adb logcat -d | grep -q "FATAL EXCEPTION"
