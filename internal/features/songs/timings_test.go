@@ -289,3 +289,32 @@ func TestLikelySheetsMatchesTitlesAcrossScripts(t *testing.T) {
 		t.Errorf("likelySheets = %v, want %v", ids, want)
 	}
 }
+
+func TestNamesMatchShortOnesWhole(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		outer, inner string
+		want         bool
+	}{
+		{outer: "beabadoobee", inner: "Ado", want: false},
+		{outer: "Wasureranneyo", inner: "Era", want: false},
+		{outer: "Ado", inner: "Ado", want: true},
+		{outer: "Fujii Kaze - Matsuri (Official Video)", inner: "Matsuri", want: true},
+		{outer: "東京事変", inner: "事変", want: true},
+		{outer: "夜に駆ける", inner: "夜", want: false},
+	}
+	for _, tt := range tests {
+		outer, err := nameOf(t.Context(), fakeAnalyzer{}, tt.outer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inner, err := nameOf(t.Context(), fakeAnalyzer{}, tt.inner)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := outer.has(inner); got != tt.want {
+			t.Errorf("%q has %q = %v, want %v", tt.outer, tt.inner, got, tt.want)
+		}
+	}
+}

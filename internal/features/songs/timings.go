@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
@@ -199,6 +200,10 @@ func findIn(ctx context.Context, analyzer Analyzer, src TimingSource, song Song)
 // name is a title or an artist's name in the two forms names are compared in: as written, and in romaji.
 type name struct{ written, latin string }
 
+func isJapanese(r rune) bool {
+	return unicode.In(r, unicode.Hiragana, unicode.Katakana, unicode.Han)
+}
+
 func nameOf(ctx context.Context, analyzer Analyzer, s string) (name, error) {
 	tokens, err := analyzer.Analyze(ctx, jtext.Normalize(s))
 	if err != nil {
@@ -211,10 +216,12 @@ func nameOf(ctx context.Context, analyzer Analyzer, s string) (name, error) {
 	return name{written: jtext.Plain(s), latin: jtext.FoldRomaji(jtext.RomajiLine(in))}, nil
 }
 
-// has reports whether outer has inner in it, as written or in romaji. A short name must match whole: 愛 is ai, which
-// too many titles have in them.
+// has reports whether outer has inner in it, as written or in romaji. A short name must match whole: 愛 is ai, and Ado
+// is in beabadoobee, which too many names have in them. Two characters of kana or kanji are name enough.
 func (outer name) has(inner name) bool {
-	if utf8.RuneCountInString(inner.written) >= 2 && strings.Contains(outer.written, inner.written) {
+	short := utf8.RuneCountInString(inner.written) < 2 ||
+		(utf8.RuneCountInString(inner.written) < 4 && !strings.ContainsFunc(inner.written, isJapanese))
+	if inner.written != "" && (outer.written == inner.written || !short && strings.Contains(outer.written, inner.written)) {
 		return true
 	}
 	if utf8.RuneCountInString(inner.latin) < 4 {
