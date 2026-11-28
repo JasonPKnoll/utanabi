@@ -269,6 +269,29 @@ jobs:
           size=$(unzip -l "$apk" | awk '$4 == "lib/arm64-v8a/libwails.so" {print $1}')
           echo "libwails.so is $size bytes"
           test "${size:-0}" -gt 100000000
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      # A try, not a check: the emulator runs the arm64 app through Android's ARM translation, which can't run every
+      # Go program, so a crash here says little about phones.
+      - name: Try it on an emulator
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r "out/Utanabi-$VERSION-android.apk"
+            adb shell monkey -p com.jasonpknoll.utanabi -c android.intent.category.LAUNCHER 1
+            sleep 90
+            adb logcat -d | grep -iE "utanabi|wails|Fatal signal" | tail -n 40 || true
+            adb shell pidof com.jasonpknoll.utanabi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android
