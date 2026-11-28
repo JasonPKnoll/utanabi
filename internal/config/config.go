@@ -73,6 +73,9 @@ type Config struct {
 	// DictionaryPath and no dictionary_path is set; empty when there's no such copy to look for.
 	DictionaryPath        string
 	BundledDictionaryPath string
+	// DictionaryPathSet is whether dictionary_path names the dictionary. When it doesn't, a dictionary built into the
+	// app may be written to DictionaryPath.
+	DictionaryPathSet bool
 	// LyricsSources are the online lyrics sources that are on, in order. Empty means online search is off and
 	// nothing is sent to any lyrics service.
 	LyricsSources []string
@@ -161,6 +164,7 @@ func Load(p Platform) (Config, error) {
 	}
 
 	cfg.DictionaryPath, err = dictionaryPath(p.Dirs.Data, s.DictionaryPath)
+	cfg.DictionaryPathSet = s.DictionaryPath != ""
 	if s.DictionaryPath == "" && p.Dirs.Bundled != "" {
 		cfg.BundledDictionaryPath = filepath.Join(p.Dirs.Bundled, "dictionary.db")
 	}

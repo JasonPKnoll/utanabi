@@ -19,6 +19,7 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/common/secretbox"
 	"github.com/JasonPKnoll/utanabi/internal/config"
 	"github.com/JasonPKnoll/utanabi/internal/dictionary"
+	"github.com/JasonPKnoll/utanabi/internal/dictionary/bundled"
 	"github.com/JasonPKnoll/utanabi/internal/features/accounts"
 	"github.com/JasonPKnoll/utanabi/internal/features/songs"
 	"github.com/JasonPKnoll/utanabi/internal/features/spotify"
@@ -70,7 +71,7 @@ func run() (err error) {
 	}
 	closers := []io.Closer{db}
 
-	dict, err := openDictionary(ctx, log, cfg.DictionaryPath, cfg.BundledDictionaryPath)
+	dict, err := openDictionary(ctx, log, cfg)
 	if err != nil {
 		return errors.Join(err, db.Close())
 	}
@@ -171,12 +172,24 @@ func run() (err error) {
 // openDictionary opens the read-only reference dictionary. Without the file the app still runs, with word meanings
 // unavailable, so a missing file is one info line and no error. Any other failure, such as a file built for another
 // schema version, stops startup: rebuild it with task dictionary.
-// openDictionary opens the reference dictionary at path, or else the copy bundled with the app, when there is one.
-// Without either, the app runs with word meanings unavailable.
-func openDictionary(ctx context.Context, log *slog.Logger, path, bundled string) (*dictionary.Dictionary, error) {
+// openDictionary opens the reference dictionary: the one at its path, else the copy in the app's bundle folder, else
+// the one built into the app, written to its path first. A dictionary from an older version of the app is replaced by
+// the one built in. Without any, the app runs with word meanings unavailable.
+func openDictionary(ctx context.Context, log *slog.Logger, cfg config.Config) (*dictionary.Dictionary, error) {
+	path := cfg.DictionaryPath
 	dict, err := dictionary.Open(ctx, path)
-	if errors.Is(err, dictionary.ErrMissing) && bundled != "" {
-		path = bundled
+	if errors.Is(err, dictionary.ErrMissing) && cfg.BundledDictionaryPath != "" {
+		path = cfg.BundledDictionaryPath
+		dict, err = dictionary.Open(ctx, path)
+	}
+	built := bundled.Data()
+	if (errors.Is(err, dictionary.ErrMissing) || errors.Is(err, dictionary.ErrVersion)) && built != nil &&
+		!cfg.DictionaryPathSet {
+		path = cfg.DictionaryPath
+		if err := writeFileAtomic(path, built); err != nil {
+			return nil, fmt.Errorf("install the built-in dictionary: %w", err)
+		}
+		log.InfoContext(ctx, "installed the built-in dictionary", slog.String("path", path))
 		dict, err = dictionary.Open(ctx, path)
 	}
 	if errors.Is(err, dictionary.ErrMissing) {
@@ -187,6 +200,30 @@ func openDictionary(ctx context.Context, log *slog.Logger, path, bundled string)
 		return nil, fmt.Errorf("open dictionary: %w", err)
 	}
 	return dict, nil
+}
+
+// writeFileAtomic writes data to path through a temporary file beside it, so a crash halfway leaves no half-written
+// file for the next start to open.
+func writeFileAtomic(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".dictionary-*.tmp")
+	if err != nil {
+		return err
+	}
+	_, werr := tmp.Write(data)
+	cerr := tmp.Close()
+	if err := errors.Join(werr, cerr); err != nil {
+		return errors.Join(err, os.Remove(tmp.Name()))
+	}
+	if err := os.Chmod(tmp.Name(), 0o600); err != nil {
+		return errors.Join(err, os.Remove(tmp.Name()))
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return errors.Join(err, os.Remove(tmp.Name()))
+	}
+	return nil
 }
 
 func closeAll(closers []io.Closer) error {

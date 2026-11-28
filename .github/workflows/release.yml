@@ -1,7 +1,20 @@
 name: Release
 
-# A tag such as v0.1.0, pushed for the version in build/config.yml, builds the Mac app and publishes it as a GitHub
-# release: Utanabi-<version>-macos.zip and its SHA-256, which the Homebrew cask and scripts/install.sh install.
+# A tag such as v0.1.0, pushed for the version in build/config.yml, builds Utanabi for every platform and publishes a
+# GitHub release with all of them:
+#
+#   Utanabi-<version>-macos.zip              Mac app, Apple silicon and Intel (the Homebrew cask and install.sh use it)
+#   Utanabi-<version>-windows-x64-setup.exe  Windows installer
+#   Utanabi-<version>-linux-x86_64.AppImage  Linux, plus .deb and .rpm packages
+#   Utanabi-<version>-android.apk            Android app (experimental in Wails)
+#   utanabi-server-<version>-linux-*.tar.gz  The server, for using Utanabi in any browser
+#
+# and the server image ghcr.io/<owner>/utanabi:<version> and :latest. Each file has its SHA-256 beside it.
+#
+# Signing, all optional: MACOS_SIGN_IDENTITY needs a Developer ID in the runner's keychain (see
+# scripts/package-macos.sh); ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and
+# ANDROID_KEY_PASSWORD sign the APK with your own key, so each release installs over the last. Without them the APK is
+# signed with a throwaway key, and updating it means uninstalling first.
 on:
   push:
     tags: ["v*"]
@@ -13,17 +26,23 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  LINUX_DEPS: libgtk-4-dev libwebkitgtk-6.0-dev
+
 jobs:
-  macos:
-    name: Mac app
-    runs-on: macos-latest
+  draft:
+    name: Draft the release
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: The tag is the app's version
+      - id: version
+        name: The tag is the app's version
         env:
           TAG: ${{ github.ref_name }}
         run: |
@@ -32,6 +51,35 @@ jobs:
             echo "The tag is $TAG, but build/config.yml says $version. Tag v$version, or bump info.version." >&2
             exit 1
           fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - name: Draft it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cat >notes.md <<EOF
+          Utanabi ${TAG#v}: learn Japanese through the songs you love.
+
+          - **Windows:** Utanabi-${TAG#v}-windows-x64-setup.exe
+          - **Mac:** \`brew install --cask jasonpknoll/utanabi/utanabi\`, or Utanabi-${TAG#v}-macos.zip
+          - **Linux:** the AppImage, or the .deb or .rpm package
+          - **Android:** Utanabi-${TAG#v}-android.apk (experimental)
+          - **Any browser:** run the server, \`docker run -p 8080:8080 -v utanabi:/data ghcr.io/jasonpknoll/utanabi:${TAG#v}\`
+
+          Each file's SHA-256 is beside it.
+          EOF
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "Utanabi ${TAG#v}" --notes-file notes.md
+
+  macos:
+    name: Mac app
+    needs: draft
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -41,15 +89,201 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: go install tool
-      - name: Build the dictionary
-        run: wails3 task dictionary
-      - name: Package the app
-        run: scripts/package-macos.sh
-      - name: Publish the release
+      - run: wails3 task dictionary
+      - run: scripts/package-macos.sh
+      - name: Attach it
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+        run: gh release upload "${{ github.ref_name }}" bin/release/*.zip bin/release/*.zip.sha256 --repo "$GITHUB_REPOSITORY"
+
+  windows:
+    name: Windows installer
+    needs: draft
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: NSIS, for the installer
         run: |
-          gh release create "$TAG" bin/release/*.zip bin/release/*.zip.sha256 \
-            --repo "$GITHUB_REPOSITORY" --title "Utanabi ${TAG#v}" \
-            --notes "Utanabi ${TAG#v} for Mac (Apple silicon and Intel). Install with Homebrew: \`brew install --cask jasonpknoll/utanabi/utanabi\`, or: \`curl -fsSL https://raw.githubusercontent.com/JasonPKnoll/utanabi/main/scripts/install.sh | sh\`"
+          if ! command -v makensis >/dev/null; then choco install nsis -y --no-progress; fi
+          echo "C:/Program Files (x86)/NSIS" >>"$GITHUB_PATH"
+      - run: go install tool
+      - run: wails3 task dictionary
+      - run: cp data/dictionary.db internal/dictionary/bundled/dictionary.db
+      - run: wails3 task windows:package EXTRA_TAGS=bundled_dictionary
+      - name: Attach it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.draft.outputs.version }}
+        run: |
+          out="Utanabi-$VERSION-windows-x64-setup.exe"
+          mv bin/utanabi-amd64-installer.exe "$out"
+          sha256sum "$out" | awk '{print $1}' >"$out.sha256"
+          gh release upload "${{ github.ref_name }}" "$out" "$out.sha256" --repo "$GITHUB_REPOSITORY"
+
+  linux:
+    name: Linux packages
+    needs: draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install -y $LINUX_DEPS
+      - run: go install tool
+      - run: wails3 task dictionary
+      - run: cp data/dictionary.db internal/dictionary/bundled/dictionary.db
+      - run: wails3 task linux:package EXTRA_TAGS=bundled_dictionary
+      - name: Attach them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.draft.outputs.version }}
+        run: |
+          mkdir -p out
+          mv bin/*.AppImage "out/Utanabi-$VERSION-linux-x86_64.AppImage"
+          mv bin/*.deb "out/utanabi_${VERSION}_amd64.deb"
+          mv bin/*.rpm "out/utanabi-$VERSION.x86_64.rpm"
+          for f in out/*; do sha256sum "$f" | awk '{print $1}' >"$f.sha256"; done
+          gh release upload "${{ github.ref_name }}" out/* --repo "$GITHUB_REPOSITORY"
+
+  android:
+    name: Android app
+    needs: draft
+    runs-on: ubuntu-latest
+    # Mobile is experimental in Wails: an Android build that fails leaves the release to go out without it.
+    continue-on-error: true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install webview headers
+        # Building the wails3 CLI on Linux needs them, even for an Android build.
+        run: sudo apt-get update && sudo apt-get install -y $LINUX_DEPS
+      - run: go install tool
+      - run: wails3 task dictionary
+      - run: cp data/dictionary.db internal/dictionary/bundled/dictionary.db
+      - name: The signing key, when there is one
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            printf '%s' "$KEYSTORE" | base64 -d >"$RUNNER_TEMP/release.keystore"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >>"$GITHUB_ENV"
+          fi
+      - name: Build
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME" wails3 task android:package EXTRA_TAGS=bundled_dictionary
+      - name: Attach it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.draft.outputs.version }}
+        run: |
+          out="Utanabi-$VERSION-android.apk"
+          mv bin/utanabi.apk "$out"
+          sha256sum "$out" | awk '{print $1}' >"$out.sha256"
+          gh release upload "${{ github.ref_name }}" "$out" "$out.sha256" --repo "$GITHUB_REPOSITORY"
+
+  server:
+    name: Server, for any browser
+    needs: draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: cd frontend && npm ci && npm run build
+      - run: go run ./internal/dictionary/cmd/dictbuild -out internal/dictionary/bundled/dictionary.db
+      - name: Server binaries
+        env:
+          VERSION: ${{ needs.draft.outputs.version }}
+        run: |
+          mkdir -p out
+          for arch in amd64 arm64; do
+            name="utanabi-server-$VERSION-linux-$arch"
+            mkdir -p "dist/$name"
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -tags server,production,bundled_dictionary -trimpath \
+              -buildvcs=false -ldflags="-s -w -X github.com/JasonPKnoll/utanabi/internal/config.version=$VERSION" \
+              -o "dist/$name/utanabi-server" .
+            cp .env.example README.md "dist/$name/"
+            tar -C dist -czf "out/$name.tar.gz" "$name"
+            sha256sum "out/$name.tar.gz" | awk '{print $1}' >"out/$name.tar.gz.sha256"
+          done
+      - name: Attach them
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" out/* --repo "$GITHUB_REPOSITORY"
+      - name: The image
+        env:
+          VERSION: ${{ needs.draft.outputs.version }}
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          image="ghcr.io/$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')/utanabi"
+          printf '%s' "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker buildx create --use --name utanabi
+          docker buildx build -f build/docker/Dockerfile.release --platform linux/amd64,linux/arm64 \
+            --build-arg VERSION="$VERSION" -t "$image:$VERSION" -t "$image:latest" \
+            --label org.opencontainers.image.source="https://github.com/$GITHUB_REPOSITORY" --push .
+
+  publish:
+    name: Publish the release
+    needs: [draft, macos, windows, linux, android, server]
+    # Android may fail without holding the rest back; the others must all have worked.
+    if: >-
+      always() && needs.macos.result == 'success' && needs.windows.result == 'success' &&
+      needs.linux.result == 'success' && needs.server.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ github.ref_name }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
