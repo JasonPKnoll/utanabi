@@ -11,7 +11,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.wails.app"
+        applicationId = "com.jasonpknoll.utanabi"
         minSdk = 21
         targetSdk = 36
         versionCode = 1
