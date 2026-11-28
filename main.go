@@ -70,7 +70,7 @@ func run() (err error) {
 	}
 	closers := []io.Closer{db}
 
-	dict, err := openDictionary(ctx, log, cfg.DictionaryPath)
+	dict, err := openDictionary(ctx, log, cfg.DictionaryPath, cfg.BundledDictionaryPath)
 	if err != nil {
 		return errors.Join(err, db.Close())
 	}
@@ -171,8 +171,14 @@ func run() (err error) {
 // openDictionary opens the read-only reference dictionary. Without the file the app still runs, with word meanings
 // unavailable, so a missing file is one info line and no error. Any other failure, such as a file built for another
 // schema version, stops startup: rebuild it with task dictionary.
-func openDictionary(ctx context.Context, log *slog.Logger, path string) (*dictionary.Dictionary, error) {
+// openDictionary opens the reference dictionary at path, or else the copy bundled with the app, when there is one.
+// Without either, the app runs with word meanings unavailable.
+func openDictionary(ctx context.Context, log *slog.Logger, path, bundled string) (*dictionary.Dictionary, error) {
 	dict, err := dictionary.Open(ctx, path)
+	if errors.Is(err, dictionary.ErrMissing) && bundled != "" {
+		path = bundled
+		dict, err = dictionary.Open(ctx, path)
+	}
 	if errors.Is(err, dictionary.ErrMissing) {
 		log.InfoContext(ctx, "dictionary not found, so word meanings are unavailable", slog.String("path", path))
 		return nil, nil

@@ -18,7 +18,20 @@ func Platform() (config.Platform, error) {
 	if err != nil {
 		return config.Platform{}, err
 	}
+	// Without the executable's path there are no bundled files to look for, which the app runs without.
+	if exe, err := os.Executable(); err == nil {
+		dirs.Bundled = bundledDir(runtime.GOOS, exe)
+	}
 	return config.Platform{Name: "desktop", Dirs: dirs}, nil
+}
+
+// bundledDir is where the files that ship with the app are: a Mac app's Contents/Resources, beside the executable
+// in Contents/MacOS, and elsewhere the executable's own folder.
+func bundledDir(goos, exe string) string {
+	if goos == "darwin" {
+		return filepath.Join(filepath.Dir(filepath.Dir(exe)), "Resources")
+	}
+	return filepath.Dir(exe)
 }
 
 // desktopDirs follows each OS's convention. getenv only resolves the folders, never settings.

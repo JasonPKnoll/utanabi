@@ -425,3 +425,29 @@ func TestLoadServerSongTools(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadBundledDictionary(t *testing.T) {
+	t.Parallel()
+
+	p := platform(t, "desktop", nil)
+	p.Dirs.Bundled = filepath.Join(p.Dirs.Data, "Resources")
+	cfg, err := config.Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if want := filepath.Join(p.Dirs.Bundled, "dictionary.db"); cfg.BundledDictionaryPath != want {
+		t.Errorf("BundledDictionaryPath = %q, want %q", cfg.BundledDictionaryPath, want)
+	}
+
+	// A dictionary_path you set is the one used, with no bundled one to fall back on.
+	chosen := platform(t, "desktop", nil)
+	chosen.Dirs.Bundled = filepath.Join(chosen.Dirs.Data, "Resources")
+	writeSettings(t, chosen, `{"dictionary_path":"mine.db"}`)
+	cfg, err = config.Load(chosen)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.BundledDictionaryPath != "" {
+		t.Errorf("BundledDictionaryPath = %q, want none with dictionary_path set", cfg.BundledDictionaryPath)
+	}
+}

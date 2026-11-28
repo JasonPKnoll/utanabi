@@ -46,6 +46,9 @@ type Dirs struct {
 	Config string
 	Data   string
 	Log    string
+	// Bundled is the folder of read-only files that ship with the app, such as the dictionary inside a Mac app's
+	// Resources. Empty when the app has none.
+	Bundled string
 }
 
 // Platform describes where the app runs. internal/app builds it per build target.
@@ -66,8 +69,10 @@ type Config struct {
 	DBPath        string
 	DBBusyTimeout time.Duration
 	// DictionaryPath is the read-only reference dictionary, dictionary.db. The app runs without it, with word meanings
-	// unavailable.
-	DictionaryPath string
+	// unavailable. BundledDictionaryPath is the copy that ships with the app, used when there's none at
+	// DictionaryPath and no dictionary_path is set; empty when there's no such copy to look for.
+	DictionaryPath        string
+	BundledDictionaryPath string
 	// LyricsSources are the online lyrics sources that are on, in order. Empty means online search is off and
 	// nothing is sent to any lyrics service.
 	LyricsSources []string
@@ -156,6 +161,9 @@ func Load(p Platform) (Config, error) {
 	}
 
 	cfg.DictionaryPath, err = dictionaryPath(p.Dirs.Data, s.DictionaryPath)
+	if s.DictionaryPath == "" && p.Dirs.Bundled != "" {
+		cfg.BundledDictionaryPath = filepath.Join(p.Dirs.Bundled, "dictionary.db")
+	}
 	if err != nil {
 		return Config{}, err
 	}

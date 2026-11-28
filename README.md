@@ -4,6 +4,20 @@
 
 A Wails v3 app with a Go backend and a Svelte frontend. It builds for desktop (Windows, macOS, Linux), the web (Wails server mode), and iOS and Android (experimental).
 
+## Install on a Mac
+
+```bash
+brew install --cask jasonpknoll/utanabi/utanabi
+```
+
+or
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JasonPKnoll/utanabi/main/scripts/install.sh | sh
+```
+
+The Mac app has the dictionary built in. Playing along with Spotify or YouTube needs the server, in the browser.
+
 ## Quick start
 
 Install Go (the version in `go.mod`), Node 26.13.0, and on Linux `libgtk-4-dev` and `libwebkitgtk-6.0-dev`. Then:
