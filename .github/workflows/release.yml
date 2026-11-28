@@ -6,7 +6,7 @@ name: Release
 #   Utanabi-<version>-windows-x64-setup.exe  Windows installer: installed silently, then started
 #   Utanabi-<version>-macos.zip              Mac app, Apple silicon and Intel (the Homebrew cask and install.sh use it)
 #   Utanabi-<version>-linux-x86_64.AppImage  Linux, started under a virtual display; plus .deb and .rpm
-#   Utanabi-<version>-android.apk            Android app (experimental in Wails): installed and started on an emulator
+#   Utanabi-<version>-android.apk            Android app (experimental in Wails): its ID, ARM build, and dictionary checked
 #   utanabi-server-<version>-linux-*.tar.gz  The server, for using Utanabi in any browser
 #   ghcr.io/<owner>/utanabi:<version>        The server image, started and asked for /health
 #
@@ -251,30 +251,23 @@ jobs:
           wails3 task android:package EXTRA_TAGS=bundled_dictionary
           mv bin/utanabi.apk "out/Utanabi-$VERSION-android.apk"
           for f in out/*; do sha256sum "$f" | awk '{print $1}' >"$f.sha256"; done
-      - name: Let the emulator use KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      # The emulator is x86-64, and runs the arm64 app the release ships through Android's own ARM translation, so it
-      # proves the very file people install. (An x86-64 build of the app can't run on Android: the SQLite library's
-      # stat calls there are ones Android's seccomp filter refuses.)
-      - name: Install it on an emulator, and start it
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+      # GitHub's runners can't start it: their emulators are x86-64, where Android's seccomp filter refuses the stat
+      # calls the SQLite library makes, and their ARM translation crashes Go programs at start. So this checks the
+      # APK itself: Utanabi's ID and name, built for arm64 phones, with the dictionary inside.
+      - name: Check the APK
         env:
           VERSION: ${{ needs.version.outputs.version }}
-        with:
-          api-level: 34
-          arch: x86_64
-          target: google_apis
-          disable-animations: true
-          script: |
-            adb install -r "out/Utanabi-$VERSION-android.apk"
-            adb shell monkey -p com.jasonpknoll.utanabi -c android.intent.category.LAUNCHER 1
-            sleep 90
-            adb logcat -d | grep -iE "utanabi|wails|AndroidRuntime" | tail -n 60 || true
-            adb shell pidof com.jasonpknoll.utanabi
-            ! adb logcat -d | grep -q "FATAL EXCEPTION"
+        run: |
+          apk="out/Utanabi-$VERSION-android.apk"
+          aapt=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -n 1)
+          badging=$("$aapt" dump badging "$apk")
+          echo "$badging" | grep -E "^package:|sdkVersion|application-label:|native-code"
+          echo "$badging" | grep -q "package: name='com.jasonpknoll.utanabi'"
+          echo "$badging" | grep -q "application-label:'Utanabi'"
+          echo "$badging" | grep -q "native-code: 'arm64-v8a'"
+          size=$(unzip -l "$apk" | awk '$4 == "lib/arm64-v8a/libwails.so" {print $1}')
+          echo "libwails.so is $size bytes"
+          test "${size:-0}" -gt 100000000
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android
