@@ -48,9 +48,12 @@ tasks:
             ref: .PRODUCTION
     cmds:
       - echo "Building Android app {{.APP_NAME}}..."
+      # Production is passed on: without it, a release APK carried a debug build of the Go code, without the
+      # production or extra tags.
       - task: compile:go:shared
         vars:
           ARCH: '{{.ARCH | default .HOST_ARCH}}'
+          PRODUCTION: '{{.PRODUCTION}}'
     vars:
       BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s {{.VERSION_LDFLAG}}"{{else}}-tags android,debug -buildvcs=false -gcflags=all="-l"{{end}}'
     env:

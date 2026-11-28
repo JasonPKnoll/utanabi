@@ -246,7 +246,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME" UTANABI_VERSION="$VERSION"
           mkdir -p out
           wails3 task android:package EXTRA_TAGS=bundled_dictionary
           mv bin/utanabi.apk "out/Utanabi-$VERSION-android.apk"
@@ -263,6 +263,7 @@ jobs:
           badging=$("$aapt" dump badging "$apk")
           echo "$badging" | grep -E "^package:|sdkVersion|application-label:|native-code"
           echo "$badging" | grep -q "package: name='com.jasonpknoll.utanabi'"
+          echo "$badging" | grep -q "versionName='$VERSION'"
           echo "$badging" | grep -q "application-label:'Utanabi'"
           echo "$badging" | grep -q "native-code: 'arm64-v8a'"
           size=$(unzip -l "$apk" | awk '$4 == "lib/arm64-v8a/libwails.so" {print $1}')

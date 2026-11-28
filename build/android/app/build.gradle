@@ -2,6 +2,12 @@ plugins {
     id 'com.android.application'
 }
 
+// A release passes its version, from build/config.yml: 0.1.0 is versionCode 100, and 1.2.3 is 10203. Android
+// installs an update only over a lower versionCode.
+def utanabiVersion = System.getenv("UTANABI_VERSION") ?: "0.0.0-dev"
+def utanabiParts = utanabiVersion.tokenize('.-').take(3).collect { it.isInteger() ? it.toInteger() : 0 } + [0, 0, 0]
+def utanabiVersionCode = Math.max(1, utanabiParts[0] * 10000 + utanabiParts[1] * 100 + utanabiParts[2])
+
 android {
     namespace = 'com.wails.app'
     compileSdk = 36
@@ -14,8 +20,8 @@ android {
         applicationId = "com.jasonpknoll.utanabi"
         minSdk = 21
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionName = utanabiVersion
+        versionCode = utanabiVersionCode
 
         // Configure supported ABIs
         ndk {
