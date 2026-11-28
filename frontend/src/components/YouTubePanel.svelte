@@ -203,27 +203,27 @@
     await look();
   }
 
-  function note(): string {
+  // What the bar says: a short line, and under it, when there's more to say, a shorter one, so the controls stay one
+  // row on a phone.
+  function note(): { main: string; sub: string } {
     if (failure) {
-      return failure.message;
+      return { main: failure.message, sub: "" };
     }
     if (!looked) {
-      return "Looking for the song's video…";
+      return { main: "Looking for the video…", sub: "" };
     }
     if (!video?.id) {
-      return searchable ? "No video found. Add a YouTube link." : "Add a YouTube link to play the song's video.";
+      return { main: searchable ? "No video found" : "No video yet", sub: "Add a YouTube link" };
     }
     if (playerError) {
-      return playerError;
+      return { main: playerError, sub: "" };
     }
     if (following) {
-      if (!synced) {
-        return `${playing ? "Playing" : "Paused"}. These lyrics aren't synced, so they won't follow.`;
-      }
-      return playing ? "Playing on YouTube, the lyrics follow" : "Paused";
+      return { main: playing ? "Playing on YouTube" : "Paused", sub: synced ? "" : "Lyrics aren't synced" };
     }
-    return "Play the video";
+    return { main: "Play the video", sub: "" };
   }
+  let said = $derived(note());
 </script>
 
 <div class="youtube">
@@ -259,7 +259,10 @@
         >
       {/if}
     </button>
-    <p class="note" class:alert={failure !== null} role="status">{note()}</p>
+    <p class="note" class:alert={failure !== null} role="status">
+      <span class="main">{said.main}</span>
+      {#if said.sub}<span class="sub">{said.sub}</span>{/if}
+    </p>
     {#if following && synced}
       <button type="button" class="icon-button" aria-label="Lyrics timing" onclick={() => (timing = true)}>
         <svg
@@ -291,11 +294,6 @@
         /></svg
       >
     </button>
-    {#if switchTo && onswitch}
-      <button type="button" class="switch" aria-label={`Play along with ${switchTo} instead`} onclick={onswitch}
-        >{switchTo}</button
-      >
-    {/if}
   </div>
 </div>
 
@@ -319,6 +317,8 @@
     {query}
     onsave={saveLink}
     onsearch={searchAgain}
+    {switchTo}
+    {onswitch}
     onclose={() => (choosing = false)}
   />
 {/if}
@@ -371,28 +371,32 @@
   .note {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
     margin: 0;
     font-size: 0.875rem;
+    color: var(--fg);
+  }
+
+  .note .main {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .note .sub {
+    overflow: hidden;
     color: var(--muted);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .note.alert {
     padding: 0;
     background: transparent;
-  }
-
-  /* Switches the song to the other player, when there is one. */
-  .switch {
-    flex: none;
-    min-height: var(--tap);
-    padding: 0 12px;
-    border: 1px solid var(--border);
-    border-radius: 22px;
-    background: transparent;
-    color: var(--fg);
-    font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    cursor: pointer;
   }
 </style>

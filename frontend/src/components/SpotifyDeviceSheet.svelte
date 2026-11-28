@@ -15,6 +15,8 @@
     playingOn,
     paused = false,
     onchoose,
+    switchTo = "",
+    onswitch,
     onclose,
   }: {
     // This page's own player's device ID, or empty when it isn't ready.
@@ -24,6 +26,9 @@
     playingOn: string;
     paused?: boolean;
     onchoose: (device: Device) => void;
+    // The other player the song can play along with, such as "YouTube", and switching to it; none when there's none.
+    switchTo?: string;
+    onswitch?: () => void;
     onclose: () => void;
   } = $props();
 
@@ -107,6 +112,16 @@
       <button type="button" class="button again" onclick={look}>Look again</button>
     {/if}
     {#if note}<p class="alert" role="alert">{note}</p>{/if}
+    {#if switchTo && onswitch}
+      <button
+        type="button"
+        class="button again"
+        onclick={() => {
+          close();
+          onswitch();
+        }}>Play along with {switchTo} instead</button
+      >
+    {/if}
   {/snippet}
 </Sheet>
 

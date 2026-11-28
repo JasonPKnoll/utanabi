@@ -11,6 +11,8 @@
     query,
     onsave,
     onsearch,
+    switchTo = "",
+    onswitch,
     onclose,
   }: {
     video: Video | null;
@@ -19,6 +21,9 @@
     query: string;
     onsave: (link: string) => Promise<void>;
     onsearch: () => Promise<void>;
+    // The other player the song can play along with, such as "Spotify", and switching to it; none when there's none.
+    switchTo?: string;
+    onswitch?: () => void;
     onclose: () => void;
   } = $props();
 
@@ -101,6 +106,16 @@
       </button>
     {/if}
     {#if note}<p class="alert" role="alert">{note}</p>{/if}
+    {#if switchTo && onswitch}
+      <button
+        type="button"
+        class="button search"
+        onclick={() => {
+          close();
+          onswitch();
+        }}>Play along with {switchTo} instead</button
+      >
+    {/if}
   {/snippet}
 </Sheet>
 

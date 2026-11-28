@@ -360,38 +360,42 @@
     }
   }
 
-  function note(): string {
+  // What the bar says: a short line, and under it, when there's more to say, a shorter one. They're kept to a line
+  // or two, so the bar stays one row on a phone.
+  function note(): { main: string; sub: string } {
     if (failure) {
-      return failure.message;
+      return { main: failure.message, sub: "" };
     }
     if (!playback) {
-      return "Checking your Spotify…";
+      return { main: "Checking your Spotify…", sub: "" };
     }
     if (!playback.trackUri && !following) {
-      return "This song isn't on Spotify";
+      return { main: "This song isn't on Spotify", sub: "" };
     }
     if (following) {
       const where = playback.device === webPlayerName ? " here" : playback.device ? ` on ${playback.device}` : "";
+      const main = `${playback.playing ? "Playing" : "Paused"}${where}`;
       if (!synced) {
-        return `${playback.playing ? "Playing" : "Paused"}${where}. These lyrics aren't synced, so they won't follow.`;
+        return { main, sub: "Lyrics aren't synced" };
       }
       if (playback.timedForMs) {
         // Lyrics from a video or a live recording: following would put the wrong line up.
-        return `${playback.playing ? "Playing" : "Paused"}${where}. These lyrics are timed for a ${formatDuration(playback.timedForMs)} version: set the timing to line them up.`;
+        return { main, sub: `Lyrics timed for ${formatDuration(playback.timedForMs)}` };
       }
-      return playback.playing ? `Playing${where}, the lyrics follow` : `Paused${where}`;
+      return { main, sub: "" };
     }
     if (waiting) {
-      return "Open Spotify, then come back here";
+      return { main: "Open Spotify, then come back", sub: "" };
     }
     if (playback.active && playback.playing) {
-      return "Something else is playing on Spotify";
+      return { main: "Something else is playing", sub: "on your Spotify" };
     }
     if (!canPlayHere || webPlayer.status === "reconnect") {
-      return "Play on Spotify. Reconnect it in Settings to play here too.";
+      return { main: "Play on Spotify", sub: "Reconnect in Settings to play here" };
     }
-    return "Play on Spotify";
+    return { main: "Play on Spotify", sub: "" };
   }
+  let said = $derived(note());
 </script>
 
 {#if connected}
@@ -413,7 +417,10 @@
         >
       {/if}
     </button>
-    <p class="note" class:alert={failure !== null} role="status">{note()}</p>
+    <p class="note" class:alert={failure !== null} role="status">
+      <span class="main">{said.main}</span>
+      {#if said.sub}<span class="sub">{said.sub}</span>{/if}
+    </p>
     <button
       type="button"
       class="icon-button"
@@ -436,7 +443,13 @@
       >
     </button>
     {#if following && synced}
-      <button type="button" class="icon-button" aria-label="Lyrics timing" onclick={() => (timing = true)}>
+      <button
+        type="button"
+        class="icon-button"
+        class:attention={!!playback?.timedForMs}
+        aria-label={playback?.timedForMs ? "Lyrics timing, which needs setting" : "Lyrics timing"}
+        onclick={() => (timing = true)}
+      >
         <svg
           width="22"
           height="22"
@@ -449,11 +462,6 @@
           aria-hidden="true"><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5M10 2h4M12 2v3" /></svg
         >
       </button>
-    {/if}
-    {#if switchTo && onswitch}
-      <button type="button" class="switch" aria-label={`Play along with ${switchTo} instead`} onclick={onswitch}
-        >{switchTo}</button
-      >
     {/if}
   </div>
 {/if}
@@ -482,6 +490,8 @@
     playingOn={playback?.active ? playback.device : ""}
     paused={!playback?.playing}
     onchoose={chooseOn}
+    {switchTo}
+    {onswitch}
     onclose={() => (choosingDevice = false)}
   />
 {/if}
@@ -516,9 +526,28 @@
   .note {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
     margin: 0;
     font-size: 0.875rem;
+    color: var(--fg);
+  }
+
+  .note .main {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .note .sub {
+    overflow: hidden;
     color: var(--muted);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .note.alert {
@@ -526,18 +555,19 @@
     background: transparent;
   }
 
-  /* Switches the song to the other player, when there is one. */
-  .switch {
-    flex: none;
-    min-height: var(--tap);
-    padding: 0 12px;
-    border: 1px solid var(--border);
-    border-radius: 22px;
-    background: transparent;
-    color: var(--fg);
-    font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    cursor: pointer;
+  /* A dot on a button that has something for you to do, such as timing lyrics timed for another version. */
+  .attention {
+    position: relative;
+  }
+
+  .attention::after {
+    content: "";
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--link);
   }
 </style>
