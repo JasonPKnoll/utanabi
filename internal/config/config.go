@@ -91,8 +91,8 @@ type Server struct {
 	// YouTubeAPIKey is a YouTube Data API key, for finding a song's video by searching. Empty means search is off:
 	// videos are pasted as links. It's a secret: it spends the key's quota, so it stays on the server.
 	YouTubeAPIKey redact.Secret
-	// SongTools turns on the admins' song tools, for testing: finding songs with word times, and removing a song from
-	// every library to add it again fresh. Off unless UTANABI_SONG_TOOLS is on.
+	// SongTools turns on the admins' song tools, for testing: finding songs with word times, and building a song again
+	// as if just added. Off unless UTANABI_SONG_TOOLS is on.
 	SongTools bool
 }
 

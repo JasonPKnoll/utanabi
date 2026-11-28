@@ -18,7 +18,7 @@
   // The sheet or song a tool is working on, and what each one did.
   let working = $state("");
   let results = $state<Record<string, ToolResult | string>>({});
-  // The song you asked to add again, until you say yes: it's removed from every library first.
+  // The song you asked to add again, until you say yes: its lines are built again, and word times tapped for it go.
   let confirming = $state<number | null>(null);
 
   async function find() {
@@ -159,8 +159,9 @@
       <section>
         <h2>Your songs</h2>
         <p class="muted intro">
-          Adding one again removes it from every library on this server, with its timings and cards, then adds it fresh
-          from LRCLIB and looks its word times up.
+          Adding one again fetches its lyrics from LRCLIB, builds it fresh as when it was first added, and looks its
+          word times up again. Its timing offset and Spotify match stay; word times tapped for it, and its line cards,
+          go.
         </p>
         {#if mine === null}
           <p class="muted">Loading…</p>
@@ -175,7 +176,7 @@
                   <a class="title" href={songHref(song.id)}>{song.title}</a>
                   <span class="sub">{song.artist || "Unknown artist"}{song.synced ? " · synced" : ""}</span>
                   {#if confirming === song.id}
-                    <span class="result">Remove it everywhere and add it again?</span>
+                    <span class="result">Build it again from LRCLIB?</span>
                   {/if}
                 </span>
                 {#if confirming === song.id}

@@ -144,8 +144,9 @@ func (k Toolkit) AddTimedSong(ctx context.Context, sheetID string) (ToolResult, 
 	return k.result(ctx, song.ID, src.Name())
 }
 
-// ReaddSong removes one of your songs from every library on the server, and everything that belongs to it, then adds
-// it again from its lyrics source, analysed fresh, and looks its word times up again. Your own lyrics can't be
+// ReaddSong builds one of your songs again as if it were just added: its lyrics fetched again from its source,
+// analysed fresh, and its word times looked up again. It keeps the song, and with it its offsets and its matched
+// track and video; its lines go, with what belongs to them, such as word times you tapped. Your own lyrics can't be
 // fetched again, so a song with them is refused.
 func (k Toolkit) ReaddSong(ctx context.Context, songID int64) (ToolResult, error) {
 	if _, err := identity.Admin(ctx); err != nil {
@@ -158,25 +159,36 @@ func (k Toolkit) ReaddSong(ctx context.Context, songID int64) (ToolResult, error
 	if err != nil {
 		return ToolResult{}, err
 	}
-	if song.Source == SourceUser || findSource(k.Sources, song.Source) == nil {
+	src := findSource(k.Sources, song.Source)
+	if song.Source == SourceUser || src == nil {
 		return ToolResult{}, fault.Invalid("song", "has lyrics that can't be fetched again")
 	}
-	if err := k.Repo.PurgeSong(ctx, songID); err != nil {
-		return ToolResult{}, err
-	}
-	added, err := AddFromSource(ctx, k.Repo, k.Analyzer, k.Dict, k.Sources, song.Source, song.SourceRef)
+	fetched, err := src.Lyrics(ctx, song.SourceRef)
 	if err != nil {
 		return ToolResult{}, err
 	}
+	lines := linesFromSource(fetched.Plain, fetched.Synced)
+	if len(lines) == 0 {
+		return ToolResult{}, fault.Invalid("lyrics", "aren't available for this song")
+	}
+	if lyricsLen(lines) > maxLyricsLen {
+		return ToolResult{}, fault.Invalid("lyrics", "are too long to save")
+	}
+	if err := analyzeLines(ctx, k.Analyzer, k.Dict, lines); err != nil {
+		return ToolResult{}, err
+	}
+	if err := k.Repo.ReplaceLines(ctx, songID, fetched.DurationMS, lines); err != nil {
+		return ToolResult{}, err
+	}
 	source := ""
-	if len(k.Timings) > 0 && slices.ContainsFunc(added.Lines, func(l Line) bool { return l.StartMS != nil }) {
-		found, err := FindWordTimes(ctx, k.Repo, k.Analyzer, k.Timings, added.ID)
+	if len(k.Timings) > 0 && slices.ContainsFunc(lines, func(l Line) bool { return l.StartMS != nil }) {
+		found, err := FindWordTimes(ctx, k.Repo, k.Analyzer, k.Timings, songID)
 		if err != nil {
 			return ToolResult{}, err
 		}
 		source = found.Source
 	}
-	return k.result(ctx, added.ID, source)
+	return k.result(ctx, songID, source)
 }
 
 func (k Toolkit) sheetRef(ctx context.Context, sheetID string) (TimingSource, SheetRef, error) {

@@ -45,28 +45,33 @@ func (s *SQLite) AddSong(ctx context.Context, song Song) (Song, error) {
 			owner, song.ID, now); err != nil {
 			return store.Translate(err)
 		}
-		for _, line := range song.Lines {
-			var lineID int64
-			err := q.QueryRowContext(ctx,
-				`INSERT INTO lyric_lines (song_id, position, stanza, text, start_ms) VALUES (?, ?, ?, ?, ?) RETURNING id`,
-				song.ID, line.Position, line.Stanza, line.Text, line.StartMS,
-			).Scan(&lineID)
-			if err != nil {
-				return store.Translate(err)
-			}
-			if err := insertTokens(ctx, q, lineID, line.Tokens); err != nil {
-				return err
-			}
-			if err := insertWords(ctx, q, lineID, line.Analysis); err != nil {
-				return err
-			}
-		}
-		return nil
+		return insertLines(ctx, q, song.ID, song.Lines)
 	})
 	if err != nil {
 		return Song{}, err
 	}
 	return song, nil
+}
+
+// insertLines inserts a song's lines with their tokens and words.
+func insertLines(ctx context.Context, q store.Querier, songID int64, lines []Line) error {
+	for _, line := range lines {
+		var lineID int64
+		err := q.QueryRowContext(ctx,
+			`INSERT INTO lyric_lines (song_id, position, stanza, text, start_ms) VALUES (?, ?, ?, ?, ?) RETURNING id`,
+			songID, line.Position, line.Stanza, line.Text, line.StartMS,
+		).Scan(&lineID)
+		if err != nil {
+			return store.Translate(err)
+		}
+		if err := insertTokens(ctx, q, lineID, line.Tokens); err != nil {
+			return err
+		}
+		if err := insertWords(ctx, q, lineID, line.Analysis); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Songs returns every song without its lines, newest first.
@@ -258,27 +263,34 @@ func (s *SQLite) SetWordTimes(ctx context.Context, songID int64, source string, 
 	})
 }
 
-// PurgeSong deletes the song itself, for every library, when it's in the owner's: its lines, analysis, timings, and
-// everything else that belongs to it go with it.
-func (s *SQLite) PurgeSong(ctx context.Context, songID int64) error {
+// ReplaceLines replaces the lines of a song in the owner's library, in one transaction, with everything that
+// belongs to them: tokens, words, word times, sung readings, and line cards. The song keeps its ID, and with it its
+// libraries, offsets, and matched tracks and videos. durationMS 0 leaves the length unknown.
+func (s *SQLite) ReplaceLines(ctx context.Context, songID, durationMS int64, lines []Line) error {
 	owner, err := s.owners.Of(ctx)
 	if err != nil {
 		return err
 	}
-	res, err := s.db.Querier().ExecContext(ctx,
-		`DELETE FROM songs WHERE id = ? AND EXISTS (SELECT 1 FROM library_songs WHERE owner = ? AND song_id = ?)`,
-		songID, owner, songID)
-	if err != nil {
-		return store.Translate(err)
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return store.Translate(err)
-	}
-	if n == 0 {
-		return fault.ErrNotFound
-	}
-	return nil
+	return s.db.WithTx(ctx, func(q store.Querier) error {
+		res, err := q.ExecContext(ctx,
+			`UPDATE songs SET duration_ms = ?, updated_at = max(updated_at, ?)
+			 WHERE id = ? AND EXISTS (SELECT 1 FROM library_songs WHERE owner = ? AND song_id = ?)`,
+			nullPositive(durationMS), time.Now().UnixMilli(), songID, owner, songID)
+		if err != nil {
+			return store.Translate(err)
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return store.Translate(err)
+		}
+		if n == 0 {
+			return fault.ErrNotFound
+		}
+		if _, err := q.ExecContext(ctx, `DELETE FROM lyric_lines WHERE song_id = ?`, songID); err != nil {
+			return store.Translate(err)
+		}
+		return insertLines(ctx, q, songID, lines)
+	})
 }
 
 // ClearWordTimes removes the owner's word times for every line of the song. A song outside the owner's library is

@@ -9,33 +9,48 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
 )
 
-func TestSQLitePurgesASongFromEveryLibrary(t *testing.T) {
+func TestSQLiteReplacesASongsLinesAndKeepsTheSong(t *testing.T) {
 	t.Parallel()
 
 	repo, hana, kaze := twoUsers(t)
-	song, err := repo.AddSong(hana, Song{Title: "歌", Source: "lrclib", SourceRef: "7", Lines: sampleLines()})
+	song, err := repo.AddSong(hana, Song{Title: "歌", Source: "lrclib", SourceRef: "7", Lines: []Line{searchingLine()}})
 	if err != nil {
 		t.Fatalf("AddSong: %v", err)
 	}
-	if err := repo.PurgeSong(kaze, song.ID); !errors.Is(err, fault.ErrNotFound) {
-		t.Errorf("kaze purging a song not in their library: %v, want not found", err)
-	}
-	if _, ok, err := repo.AddSavedSong(kaze, "lrclib", "7"); err != nil || !ok {
-		t.Fatalf("AddSavedSong = %v, %v", ok, err)
-	}
-	if err := repo.SetWordTimes(kaze, song.ID, TimesByUser, []LineTimes{{Line: 0, Times: []WordTime{{0, 1000}}}}); err != nil {
+	if err := repo.SetWordTimes(hana, song.ID, TimesByUser, []LineTimes{{Line: 0, Times: []WordTime{{0, 1000}}}}); err != nil {
 		t.Fatalf("SetWordTimes: %v", err)
 	}
-	if err := repo.PurgeSong(hana, song.ID); err != nil {
-		t.Fatalf("PurgeSong: %v", err)
+	// Something of another slice's that belongs to the song, which a refresh must keep.
+	if _, err := repo.db.Querier().ExecContext(t.Context(),
+		`INSERT INTO lyric_offsets (owner, song_id, offset_ms) VALUES (1, ?, -1000)`, song.ID); err != nil {
+		t.Fatalf("insert offset: %v", err)
 	}
-	if _, err := repo.SongByID(hana, song.ID); !errors.Is(err, fault.ErrNotFound) {
-		t.Errorf("hana's song after purging: %v, want not found", err)
+	if err := repo.ReplaceLines(kaze, song.ID, 1000, sampleLines()); !errors.Is(err, fault.ErrNotFound) {
+		t.Errorf("kaze replacing a song not in their library: %v, want not found", err)
 	}
-	if _, err := repo.SongByID(kaze, song.ID); !errors.Is(err, fault.ErrNotFound) {
-		t.Errorf("kaze's copy after purging: %v, want not found", err)
+
+	start := int64(5000)
+	fresh := sampleLines()
+	fresh[0].StartMS = &start
+	if err := repo.ReplaceLines(hana, song.ID, 215000, fresh); err != nil {
+		t.Fatalf("ReplaceLines: %v", err)
 	}
-	if ids, err := repo.SongIDsBySource(kaze, "lrclib", []string{"7"}); err != nil || len(ids) != 0 {
-		t.Errorf("saved from lrclib after purging = %v, %v; want none, so it's added fresh", ids, err)
+	got, err := repo.SongByID(hana, song.ID)
+	if err != nil {
+		t.Fatalf("SongByID: %v", err)
+	}
+	if len(got.Lines) != len(fresh) || got.Lines[0].Text != fresh[0].Text || *got.Lines[0].StartMS != 5000 {
+		t.Errorf("lines = %+v, want the new ones", got.Lines)
+	}
+	if got.DurationMS != 215000 {
+		t.Errorf("duration = %d, want 215000", got.DurationMS)
+	}
+	if len(got.Lines[0].Times) != 0 {
+		t.Errorf("word times = %+v, want them gone with the old lines", got.Lines[0].Times)
+	}
+	var offset int64
+	if err := repo.db.Querier().QueryRowContext(t.Context(),
+		`SELECT offset_ms FROM lyric_offsets WHERE owner = 1 AND song_id = ?`, song.ID).Scan(&offset); err != nil || offset != -1000 {
+		t.Errorf("offset after replacing = %d, %v; want it kept", offset, err)
 	}
 }

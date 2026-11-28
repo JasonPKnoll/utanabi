@@ -171,8 +171,8 @@ func (t *Tools) AddTimedSong(ctx context.Context, sheet string) (ToolResult, err
 	return result, app.Fail(ctx, err)
 }
 
-// ReaddSong removes one of your songs from every library and adds it again fresh from its lyrics source, with its
-// word times looked up again. The song gets a new ID.
+// ReaddSong builds one of your songs again as if just added: lyrics fetched again, analysed fresh, and word times
+// looked up again. It keeps the song's offsets and matched track and video.
 func (t *Tools) ReaddSong(ctx context.Context, songID int64) (ToolResult, error) {
 	if !t.on {
 		return ToolResult{}, app.Fail(ctx, fault.ErrNotFound)

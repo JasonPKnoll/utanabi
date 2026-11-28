@@ -20,7 +20,7 @@ type fakeRepo struct {
 	meaningSaves []WordAnalysis
 	timeSaves    []timeSave
 	cleared      []int64
-	purged       []int64
+	replaced     []int64
 }
 
 type timeSave struct {
@@ -50,12 +50,14 @@ func (f *fakeRepo) SetWordTimes(_ context.Context, songID int64, source string, 
 	return nil
 }
 
-func (f *fakeRepo) PurgeSong(_ context.Context, songID int64) error {
-	if _, ok := f.songs[songID]; !ok {
+func (f *fakeRepo) ReplaceLines(_ context.Context, songID, durationMS int64, lines []Line) error {
+	song, ok := f.songs[songID]
+	if !ok {
 		return fault.ErrNotFound
 	}
-	delete(f.songs, songID)
-	f.purged = append(f.purged, songID)
+	song.Lines, song.DurationMS = lines, durationMS
+	f.songs[songID] = song
+	f.replaced = append(f.replaced, songID)
 	return nil
 }
 

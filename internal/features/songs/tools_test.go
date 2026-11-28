@@ -143,7 +143,7 @@ func TestAddTimedSongRefusesLyricsItsTimesDontFit(t *testing.T) {
 	}
 }
 
-func TestReaddSongAddsItAgainFresh(t *testing.T) {
+func TestReaddSongBuildsItAgainInPlace(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepo()
@@ -156,11 +156,14 @@ func TestReaddSongAddsItAgainFresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReaddSong: %v", err)
 	}
-	if !reflect.DeepEqual(repo.purged, []int64{5}) {
-		t.Errorf("purged %v, want the old song", repo.purged)
+	if !reflect.DeepEqual(repo.replaced, []int64{5}) || len(repo.added) != 0 {
+		t.Errorf("replaced %v and added %d, want the song's lines replaced in place", repo.replaced, len(repo.added))
 	}
-	if got.SongID == 5 || got.Lines != 2 || got.Timed != 0 {
-		t.Errorf("ReaddSong = %+v, want a new song with LRCLIB's two lines", got)
+	if got.SongID != 5 || got.Lines != 2 || got.Timed != 0 {
+		t.Errorf("ReaddSong = %+v, want song 5 with LRCLIB's two lines", got)
+	}
+	if lines := repo.songs[5].Lines; lines[0].Text != "夜の空に" || lines[0].Tokens == nil || repo.songs[5].DurationMS != 215000 {
+		t.Errorf("song now = %+v, want LRCLIB's lines, analysed, and its length", repo.songs[5])
 	}
 }
 
@@ -174,8 +177,8 @@ func TestReaddSongRefusesYourOwnLyrics(t *testing.T) {
 	if _, err := kit.ReaddSong(asAdmin(t.Context()), 5); !errors.As(err, &invalid) {
 		t.Errorf("err = %v, want invalid", err)
 	}
-	if len(repo.purged) != 0 {
-		t.Errorf("purged %v, want nothing", repo.purged)
+	if len(repo.replaced) != 0 {
+		t.Errorf("replaced %v, want nothing", repo.replaced)
 	}
 	if _, err := kit.ReaddSong(asAdmin(t.Context()), 99); !errors.Is(err, fault.ErrNotFound) {
 		t.Errorf("no such song: %v, want not found", err)
