@@ -18,6 +18,43 @@ type fakeRepo struct {
 	deleted      []int64
 	tokenSaves   int
 	meaningSaves []WordAnalysis
+	timeSaves    []timeSave
+	cleared      []int64
+}
+
+type timeSave struct {
+	songID int64
+	source string
+	lines  []LineTimes
+}
+
+// SetWordTimes keeps the times on the fake's song, as the database would: found times never replace yours.
+func (f *fakeRepo) SetWordTimes(_ context.Context, songID int64, source string, lines []LineTimes) error {
+	song, ok := f.songs[songID]
+	if !ok {
+		return fault.ErrNotFound
+	}
+	f.timeSaves = append(f.timeSaves, timeSave{songID: songID, source: source, lines: lines})
+	for _, lt := range lines {
+		for i := range song.Lines {
+			if song.Lines[i].Position != lt.Line || (source != TimesByUser && song.Lines[i].TimesBy == TimesByUser) {
+				continue
+			}
+			song.Lines[i].Times, song.Lines[i].TimesBy = lt.Times, source
+			if len(lt.Times) == 0 {
+				song.Lines[i].TimesBy = ""
+			}
+		}
+	}
+	return nil
+}
+
+func (f *fakeRepo) ClearWordTimes(_ context.Context, songID int64) error {
+	if _, ok := f.songs[songID]; !ok {
+		return fault.ErrNotFound
+	}
+	f.cleared = append(f.cleared, songID)
+	return nil
 }
 
 func newFakeRepo() *fakeRepo {

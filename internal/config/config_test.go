@@ -240,7 +240,9 @@ func TestLoadLyricsSources(t *testing.T) {
 		env      map[string]string
 		want     []string
 	}{
-		{name: "on by default", platform: "desktop", want: []string{"lrclib"}},
+		{name: "on by default", platform: "desktop", want: []string{"lrclib", "amll"}},
+		{name: "the timing database alone", platform: "desktop", settings: `{"lyrics_sources":["amll"]}`,
+			want: []string{"amll"}},
 		{name: "an empty list turns them off", platform: "desktop", settings: `{"lyrics_sources":[]}`, want: []string{}},
 		{name: "none turns them off", platform: "desktop", settings: `{"lyrics_sources":["none"]}`, want: []string{}},
 		{name: "named sources are on", platform: "desktop", settings: `{"lyrics_sources":["lrclib"]}`,

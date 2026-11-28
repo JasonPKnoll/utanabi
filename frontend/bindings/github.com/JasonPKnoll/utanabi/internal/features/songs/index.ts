@@ -11,9 +11,11 @@ export {
 } from "./models.js";
 
 export type {
+    FoundTimes,
     GrammarPoint,
     Line,
     LinePiece,
+    LineTimesChange,
     Match,
     Meaning,
     Meanings,
@@ -23,5 +25,6 @@ export type {
     Song,
     Summary,
     SungReadingChange,
-    Word
+    Word,
+    WordTime
 } from "./models.js";

@@ -121,6 +121,10 @@ func TestSchemaAcceptsGoodRows(t *testing.T) {
 			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (5, 10, 2, 2, '声', 'ボイス')`},
 		{name: "a sung reading in hiragana over several tokens",
 			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 4, 6, '探している', 'さがしてる')`},
+		{name: "a word time you tapped",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (5, 10, 0, 1500, 'user')`},
+		{name: "word times found in the timing database, at a line's first and last characters",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, 0, 'amll'), (0, 10, 499, 3600000, 'amll')`},
 		{name: "a token with its part of speech",
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading, pos) VALUES (11, 0, '夜', 'よる', 'noun')`},
 		{name: "a token without a part of speech",
@@ -338,6 +342,22 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 		{name: "a second sung reading for one word in one owner's readings", wantErr: "UNIQUE",
 			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'うた');
 			      INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'こえ')`},
+		{name: "a word time before the line's first character", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, -1, 1000, 'user')`},
+		{name: "a word time past the longest line", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 500, 1000, 'user')`},
+		{name: "a negative word time", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, -1, 'user')`},
+		{name: "a word time past an hour", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, 3600001, 'user')`},
+		{name: "a word time from an unknown source", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, 1000, 'musixmatch')`},
+		{name: "a word time for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (99, 10, 0, 1000, 'user')`},
+		{name: "a word time for no line", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 999, 0, 1000, 'user')`},
+		{name: "two word times at one character in one owner's times", wantErr: "UNIQUE",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 2, 1000, 'user'), (0, 10, 2, 1200, 'user')`},
 		{name: "a second card for the same line", wantErr: "UNIQUE",
 			sql: `INSERT INTO cards (kind, line_id, label, created_at) VALUES ('line', 11, 'x', 1)`},
 	}
@@ -374,9 +394,10 @@ func TestSchemaDeletingASongRemovesEverythingFromIt(t *testing.T) {
 
 	db := newSchemaDB(t)
 	_, err := db.Querier().ExecContext(t.Context(),
-		`INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'うた')`)
+		`INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'うた');
+		 INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, 1000, 'user')`)
 	if err != nil {
-		t.Fatalf("insert sung reading: %v", err)
+		t.Fatalf("insert sung reading and word time: %v", err)
 	}
 	if _, err := db.Querier().ExecContext(t.Context(), `DELETE FROM songs WHERE id = 1`); err != nil {
 		t.Fatalf("delete song: %v", err)
@@ -388,6 +409,7 @@ func TestSchemaDeletingASongRemovesEverythingFromIt(t *testing.T) {
 		"words":           `SELECT count(*) FROM line_words WHERE line_id IN (10, 11)`,
 		"inflections":     `SELECT count(*) FROM word_inflections WHERE word_id = 104`,
 		"translations":    `SELECT count(*) FROM line_translations WHERE line_id IN (10, 11)`,
+		"word times":      `SELECT count(*) FROM word_times WHERE line_id IN (10, 11)`,
 		"line card":       `SELECT count(*) FROM cards WHERE id = 1002`,
 		"sung readings":   `SELECT count(*) FROM sung_readings WHERE line_id IN (10, 11)`,
 	}
@@ -427,12 +449,14 @@ func TestSchemaLibrariesAndAccounts(t *testing.T) {
 	exec(`INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 5, 3, 0, '探す', 1)`)
 	exec(`INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (5, 10, 2, 2, '声', 'うた')`)
 	exec(`INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (5, 'a', 'r', 2, 1)`)
+	exec(`INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (5, 10, 0, 1000, 'user')`)
 	exec(`DELETE FROM users WHERE id = 5`)
 	for name, query := range map[string]string{
 		"their keys":     `SELECT count(*) FROM passkeys WHERE user_id = 5`,
 		"their sign-ins": `SELECT count(*) FROM sessions WHERE user_id = 5`,
 		"their cards":    `SELECT count(*) FROM cards WHERE owner = 5`,
 		"their readings": `SELECT count(*) FROM sung_readings WHERE owner = 5`,
+		"their timings":  `SELECT count(*) FROM word_times WHERE owner = 5`,
 		"their Spotify":  `SELECT count(*) FROM spotify_links WHERE owner = 5`,
 		"their library":  `SELECT count(*) FROM library_songs WHERE owner = 5`,
 		"song 2":         `SELECT count(*) FROM songs WHERE id = 2`,

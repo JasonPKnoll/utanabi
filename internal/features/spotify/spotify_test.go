@@ -587,23 +587,6 @@ func TestBestMatchFailsWhenRomajiFails(t *testing.T) {
 	}
 }
 
-func TestFolded(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct{ in, want string }{
-		{in: "Tōkyō Jihen", want: "tokyojihen"},
-		{in: "toukyou jihen", want: "tokyojihen"},
-		{in: "Tokyo Jihen", want: "tokyojihen"},
-		{in: "Ookii", want: "oki"},
-		{in: "Shiseikatsu", want: "shiseikatsu"},
-	}
-	for _, tt := range tests {
-		if got := folded(tt.in); got != tt.want {
-			t.Errorf("folded(%q) = %q, want %q", tt.in, got, tt.want)
-		}
-	}
-}
-
 func TestNowPlayingKeepsTheLengthOfATrackMatchedWithoutIt(t *testing.T) {
 	t.Parallel()
 

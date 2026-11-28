@@ -2,6 +2,7 @@ package songs
 
 import (
 	"context"
+	"slices"
 
 	"github.com/JasonPKnoll/utanabi/internal/app"
 )
@@ -11,13 +12,16 @@ type Service struct {
 	repo     Repository
 	analyzer Analyzer
 	dict     Dictionary
+	timings  []TimingSource
 	sources  []LyricsSource
 }
 
-// NewService returns the songs service. It analyses lines with analyzer, explains their words with dict, and
-// searches the given lyrics sources in order.
-func NewService(repo Repository, analyzer Analyzer, dict Dictionary, sources ...LyricsSource) *Service {
-	return &Service{repo: repo, analyzer: analyzer, dict: dict, sources: sources}
+// NewService returns the songs service. It analyses lines with analyzer, explains their words with dict, looks word
+// times up in timings, and searches the given lyrics sources in order.
+func NewService(
+	repo Repository, analyzer Analyzer, dict Dictionary, timings []TimingSource, sources ...LyricsSource,
+) *Service {
+	return &Service{repo: repo, analyzer: analyzer, dict: dict, timings: timings, sources: sources}
 }
 
 // List returns every song, newest first.
@@ -71,10 +75,50 @@ func (s *Service) Search(ctx context.Context, query string) (SearchResult, error
 	return result, app.Fail(ctx, err)
 }
 
-// AddFromSource saves a song found by Search to the library, or returns it if it's already there.
+// AddFromSource saves a song found by Search to the library, or returns it if it's already there. When its lyrics
+// are synced, it looks its word times up too; a song the timing sources don't have, or can't be reached for, is
+// saved all the same.
 func (s *Service) AddFromSource(ctx context.Context, source, ref string) (Song, error) {
 	song, err := AddFromSource(ctx, s.repo, s.analyzer, s.dict, s.sources, source, ref)
-	return song, app.Fail(ctx, err)
+	if err != nil {
+		return song, app.Fail(ctx, err)
+	}
+	if len(s.timings) > 0 && slices.ContainsFunc(song.Lines, func(l Line) bool { return l.StartMS != nil }) &&
+		!slices.ContainsFunc(song.Lines, func(l Line) bool { return len(l.Times) > 0 }) {
+		if _, err := FindWordTimes(ctx, s.repo, s.analyzer, s.timings, song.ID); err != nil {
+			app.Note(ctx, err)
+		}
+	}
+	return song, nil
+}
+
+// TimingSources returns the names of the word timing databases that are on, in the order they're asked. Empty means
+// word times are only ever yours.
+func (s *Service) TimingSources() []string {
+	names := make([]string, len(s.timings))
+	for i, src := range s.timings {
+		names[i] = src.Name()
+	}
+	return names
+}
+
+// FindWordTimes looks the song's word times up in the timing databases and saves them, for the lines you haven't
+// timed yourself. It says how many lines got times, and from where; none when no database has the song.
+func (s *Service) FindWordTimes(ctx context.Context, songID int64) (FoundTimes, error) {
+	found, err := FindWordTimes(ctx, s.repo, s.analyzer, s.timings, songID)
+	return found, app.Fail(ctx, err)
+}
+
+// SetLineTimes saves when the words of one line start, as you tapped them along with the song, or removes the
+// line's word times when there are none. It returns the times as saved.
+func (s *Service) SetLineTimes(ctx context.Context, change LineTimesChange) ([]WordTime, error) {
+	times, err := SetLineTimes(ctx, s.repo, change)
+	return times, app.Fail(ctx, err)
+}
+
+// ClearWordTimes removes every word time of a song, yours and found ones.
+func (s *Service) ClearWordTimes(ctx context.Context, songID int64) error {
+	return app.Fail(ctx, ClearWordTimes(ctx, s.repo, songID))
 }
 
 // SetSungReading sets how a word of a song is sung when that isn't how it's written, such as 羅針盤 sung コンパス, or

@@ -117,6 +117,8 @@ export function placeholderLines(): Line[] {
       words,
       pieces,
       gloss: "",
+      times: [],
+      timesBy: "",
     };
   });
 }

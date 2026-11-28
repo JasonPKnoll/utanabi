@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { Player } from "../lib/players";
   import type { ReadingAids } from "../lib/readingAids";
   import ReadingAidSwitches from "./ReadingAidSwitches.svelte";
@@ -6,8 +7,8 @@
   import ThemePicker from "./ThemePicker.svelte";
 
   // The song's display options in one place: the reading aids as switches, what the lyrics play along with (Spotify
-  // or the song's YouTube video, when both are there), the app's theme, where the lyrics came from, and deleting the
-  // song, so none of them take room from the lyrics.
+  // or the song's YouTube video, when both are there), its word timing, the app's theme, where the lyrics came from,
+  // and deleting the song, so none of them take room from the lyrics.
   let {
     aids,
     source,
@@ -18,6 +19,7 @@
     ontoggle,
     ondelete,
     onclose,
+    timing,
   }: {
     aids: ReadingAids;
     source: string;
@@ -28,6 +30,8 @@
     ontoggle: (aid: keyof ReadingAids) => void;
     ondelete: () => void;
     onclose: () => void;
+    // The song's word timing, given the sheet's close, for actions that leave the sheet.
+    timing?: Snippet<[() => void]>;
   } = $props();
 
   const playerNames: Record<Player, string> = { spotify: "Spotify", youtube: "YouTube" };
@@ -66,6 +70,11 @@
           </label>
         {/each}
       </fieldset>
+    {/if}
+
+    {#if timing}
+      <h3 class="section">Word timing</h3>
+      {@render timing(close)}
     {/if}
 
     <h3 class="section">Theme</h3>

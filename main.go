@@ -48,7 +48,7 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
-	sources, err := lyricsSources(cfg)
+	sources, timings, err := lyricsSources(cfg)
 	if err != nil {
 		return err
 	}
@@ -139,10 +139,16 @@ func run() (err error) {
 		{Name: "JMdict", Text: dictionary.Attribution()},
 		{Name: "IPA dictionary", Text: morph.Attribution()},
 	}
+	if len(timings) > 0 {
+		// CC0 asks for no credit, but the people who timed the songs earned one.
+		credits = append(credits, app.Credit{Name: "AMLL TTML DB",
+			Text: "Word times from the AMLL TTML DB (github.com/amll-dev/amll-ttml-db), timed by hand by its " +
+				"contributors and shared under CC0 1.0."})
+	}
 	services := append([]application.Service{
 		application.NewService(app.NewAboutService(cfg, credits...)),
 		application.NewService(songs.NewService(songs.NewSQLite(db, owners), songs.NewMorph(analyzer), meanings,
-			sources...)),
+			timings, sources...)),
 		application.NewService(study.NewService(study.NewSQLite(db, owners), study.NewJMdict(dict), cfg.StudyStreak)),
 		application.NewService(spotify.NewService(spotifyRepo, spotifyAPI, spotify.NewMorph(analyzer), spotifyOn)),
 		application.NewService(youtube.NewService(youtubeRepo, youtubeRepo, cfg.Server.YouTubeAPIKey,
@@ -183,17 +189,21 @@ func closeAll(closers []io.Closer) error {
 	return errors.Join(errs...)
 }
 
-// lyricsSources builds the online lyrics sources that config turns on, in order. The lyrics_sources setting is the
-// switch: with it empty, the app sends nothing to any lyrics service.
-func lyricsSources(cfg config.Config) ([]songs.LyricsSource, error) {
+// lyricsSources builds the online lyrics sources that config turns on: the ones song search asks, in order, and the
+// word timing databases. The lyrics_sources setting is the switch: with it empty, the app sends nothing to any lyrics
+// service.
+func lyricsSources(cfg config.Config) ([]songs.LyricsSource, []songs.TimingSource, error) {
 	sources := make([]songs.LyricsSource, 0, len(cfg.LyricsSources))
+	var timings []songs.TimingSource
 	for _, name := range cfg.LyricsSources {
 		switch name {
 		case "lrclib":
 			sources = append(sources, songs.NewLRCLIB(songs.LRCLIBURL, cfg.Version))
+		case "amll":
+			timings = append(timings, songs.NewAMLL(songs.AMLLURL, cfg.Version))
 		default:
-			return nil, fmt.Errorf("build lyrics sources: config allows %q but main.go has no adapter for it", name)
+			return nil, nil, fmt.Errorf("build lyrics sources: config allows %q but main.go has no adapter for it", name)
 		}
 	}
-	return sources, nil
+	return sources, timings, nil
 }

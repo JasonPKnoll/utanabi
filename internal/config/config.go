@@ -33,11 +33,12 @@ var version = "dev"
 // defaultLyricsSources is the comma-separated list of online lyrics sources a build turns on when the user hasn't
 // chosen, or "none". A build can ship with them off:
 // -ldflags "-X github.com/JasonPKnoll/utanabi/internal/config.defaultLyricsSources=none".
-var defaultLyricsSources = "lrclib"
+var defaultLyricsSources = "lrclib,amll"
 
-// LyricsSources returns the online lyrics sources this build has an adapter for, in the order search asks them.
+// LyricsSources returns the online lyrics sources this build has an adapter for: lrclib, which song search asks for
+// lyrics, and amll, a database of songs timed word by word, which a song's word times are looked up in.
 func LyricsSources() []string {
-	return []string{"lrclib"}
+	return []string{"lrclib", "amll"}
 }
 
 // Dirs are the OS folders the app writes to. An empty Log means log to stderr.

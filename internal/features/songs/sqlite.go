@@ -166,7 +166,120 @@ func (s *SQLite) SongByID(ctx context.Context, id int64) (Song, error) {
 	if err := s.addSungReadings(ctx, &song, owner); err != nil {
 		return Song{}, err
 	}
+	if err := s.addWordTimes(ctx, &song, owner); err != nil {
+		return Song{}, err
+	}
 	return song, nil
+}
+
+// addWordTimes reads the owner's word times for the song's lines, in order. A line with none keeps nil Times.
+func (s *SQLite) addWordTimes(ctx context.Context, song *Song, owner int64) error {
+	byPosition := make(map[int]int, len(song.Lines))
+	for i, line := range song.Lines {
+		byPosition[line.Position] = i
+	}
+	rows, err := s.db.Querier().QueryContext(ctx,
+		`SELECT l.position, w.at, w.start_ms, w.source
+		 FROM word_times w JOIN lyric_lines l ON l.id = w.line_id
+		 WHERE l.song_id = ? AND w.owner = ?
+		 ORDER BY l.position, w.at`, song.ID, owner)
+	if err != nil {
+		return store.Translate(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var position int
+		var t WordTime
+		var source string
+		if err := rows.Scan(&position, &t.At, &t.MS, &source); err != nil {
+			return store.Translate(err)
+		}
+		if i, ok := byPosition[position]; ok {
+			song.Lines[i].Times = append(song.Lines[i].Times, t)
+			song.Lines[i].TimesBy = source
+		}
+	}
+	return store.Translate(rows.Err())
+}
+
+// SetWordTimes replaces the owner's word times of each listed line in one transaction. From a source other than the
+// user, a line with times of the user's own is left alone. A song outside the owner's library is fault.ErrNotFound;
+// a position the song has no line at is skipped.
+func (s *SQLite) SetWordTimes(ctx context.Context, songID int64, source string, lines []LineTimes) error {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return err
+	}
+	return s.db.WithTx(ctx, func(q store.Querier) error {
+		var in int
+		err := q.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM library_songs WHERE owner = ? AND song_id = ?`, owner, songID).Scan(&in)
+		if err != nil {
+			return store.Translate(err)
+		}
+		if in == 0 {
+			return fault.ErrNotFound
+		}
+		for _, line := range lines {
+			var lineID int64
+			err := q.QueryRowContext(ctx, `SELECT id FROM lyric_lines WHERE song_id = ? AND position = ?`,
+				songID, line.Line).Scan(&lineID)
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				return store.Translate(err)
+			}
+			if source != TimesByUser {
+				var mine int
+				err := q.QueryRowContext(ctx,
+					`SELECT COUNT(*) FROM word_times WHERE owner = ? AND line_id = ? AND source = ?`,
+					owner, lineID, TimesByUser).Scan(&mine)
+				if err != nil {
+					return store.Translate(err)
+				}
+				if mine > 0 {
+					continue
+				}
+			}
+			if _, err := q.ExecContext(ctx, `DELETE FROM word_times WHERE owner = ? AND line_id = ?`,
+				owner, lineID); err != nil {
+				return store.Translate(err)
+			}
+			for _, t := range line.Times {
+				if _, err := q.ExecContext(ctx,
+					`INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (?, ?, ?, ?, ?)`,
+					owner, lineID, t.At, t.MS, source); err != nil {
+					return store.Translate(err)
+				}
+			}
+		}
+		return nil
+	})
+}
+
+// ClearWordTimes removes the owner's word times for every line of the song. A song outside the owner's library is
+// fault.ErrNotFound.
+func (s *SQLite) ClearWordTimes(ctx context.Context, songID int64) error {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return err
+	}
+	return s.db.WithTx(ctx, func(q store.Querier) error {
+		var in int
+		err := q.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM library_songs WHERE owner = ? AND song_id = ?`, owner, songID).Scan(&in)
+		if err != nil {
+			return store.Translate(err)
+		}
+		if in == 0 {
+			return fault.ErrNotFound
+		}
+		_, err = q.ExecContext(ctx,
+			`DELETE FROM word_times WHERE owner = ?
+			   AND line_id IN (SELECT id FROM lyric_lines WHERE song_id = ?)`, owner, songID)
+		return store.Translate(err)
+	})
 }
 
 // addSungReadings reads the owner's sung readings for the song's lines.

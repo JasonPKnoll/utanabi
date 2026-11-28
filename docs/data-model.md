@@ -132,6 +132,20 @@ The reading a song's lyrics give a word in place of its dictionary one. This is 
 
 It changes what's sung, not what the word is: the word's furigana, its romaji, and the word sheet's "Sung as" follow it, while its dictionary form and reading, its meaning, and its card stay the written word's. A katakana reading goes over the whole word; a hiragana one is lined up with the word's kana, like any furigana.
 
+### `word_times`
+
+When the words of a line are sung. Lyrics sources give a time per line only, so without these the sweep across a line spreads its words by their beats, a guess that misses by about half a second on average. Each row is the time one word starts, by the character of the line's text it starts at. They come from the AMLL TTML DB, a CC0 database of songs timed word by word by hand (source `amll`), looked up when a synced song is added from LRCLIB or when you press Find word times, or from tapping along with the song (source `user`). Each owner's own, as offsets and sung readings are, since the song is shared.
+
+| Column | Type | Rules |
+| --- | --- | --- |
+| `owner` | INTEGER | Whose timing it is (see "Accounts and owners"). |
+| `line_id` | INTEGER, references `lyric_lines`, cascade | |
+| `at` | INTEGER | The character of the line's text the word starts at, in Unicode code points, 0 to 499. Primary key `(owner, line_id, at)`. Characters, not tokens or pieces, so a line analysed again keeps its timing. |
+| `start_ms` | INTEGER | When the word starts, in the lyrics' own time, before the owner's offset onto the track. 0 to an hour. |
+| `source` | TEXT | `amll` or `user`. A line's times are all from one source: setting a line replaces all of its times, and found times never replace a line you tapped. |
+
+A database sheet is timed for its own recording, so its times are moved onto the lyrics' by the middle difference between the two's line starts, over the lines whose letters and digits match exactly. A sheet is used only when it matches at least 6 lines, and 60% of the song's.
+
 ### `word_inflections`
 
 How a word got from its dictionary form to the form in the line. The steps are ordered, because Japanese stacks conjugations.
@@ -251,6 +265,7 @@ Server mode has accounts, signed in with passkeys (see [security](security.md#id
 | `sessions` | `token_hash` (SHA-256 of the cookie's token, never the token), `user_id` (cascade), `created_at`, `expires_at`. |
 | `library_songs` | Each owner's library: `(owner, song_id)` with `added_at`. A song from a lyrics source is saved once however many people add it, so its analysis is shared; a song with your own lyrics is only in its owner's library. A trigger deletes a song when the last library holding it lets it go. |
 | `sung_readings.owner` | Whose sung reading it is. |
+| `word_times.owner` | Whose word timing it is. |
 | `cards.owner` | Whose card it is. There is one card per meaning, grammar point, and line **for each owner**, and `card_progress` belongs to its card. |
 
 Migration `006_accounts.sql` gave every song saved before it to the device's library, and every card to the device. `007_admins_and_invites.sql` added `users.admin` and `invites`, and `008_sung_readings.sql` added `sung_readings`.
@@ -363,6 +378,7 @@ The songs slice fills `line_words` and `word_inflections` from kagome's tokens a
 | 011 | `spotify_links.scopes` | Built. The spotify slice knows whether a connection lets the page play. |
 | 012 | `youtube_videos` | Built. The youtube slice keeps each owner's video for their songs, and its offset. |
 | 013 | `server_secrets` | Built. The youtube slice keeps the YouTube API key an admin enters, sealed. |
+| 014 | `word_times` | Built. The songs slice reads each owner's with the song, finds them in the AMLL TTML DB, and saves the ones you tap. |
 | `dictionary.db` | `meta`, `tags`, `entries`, `entry_forms`, `senses`, `grammar_points` | Built (#9): `task dictionary` and the `internal/dictionary` lookup package, which the songs slice uses for word meanings and the word sheet. Packaging with the apps is a follow-up. |
 
 New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number (`dictionary.SchemaVersion`, stored in `meta`), checked at startup.

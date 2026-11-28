@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { beats, lineEnd, lineSweep, pieceBeats, songPace, sweep } from "./sweep";
+import { beats, lineEnd, lineSweep, pieceBeats, pieceOffsets, pieceStarts, songPace, sweep, timedSweep } from "./sweep";
 
 describe("beats", () => {
   it.each([
@@ -145,5 +145,102 @@ describe("songPace", () => {
   it("stays between 100 and 600 ms a beat", () => {
     expect(songPace([0, 100, 200, 300, 400, 500].map(line))).toBe(100);
     expect(songPace([0, 4000, 8000, 12000, 16000, 20000].map(line))).toBe(600);
+  });
+});
+
+describe("word times", () => {
+  // 夜 (よる, 2 beats), の (1), 、 (none), 空 (そら, 2, and a beat more held): the line 夜の、空.
+  const pieces = [
+    { ruby: [{ text: "夜", reading: "よる" }] },
+    { ruby: [{ text: "の", reading: "" }] },
+    { ruby: [{ text: "、", reading: "" }] },
+    { ruby: [{ text: "空", reading: "そら" }] },
+  ];
+
+  it("finds where each piece starts in the line's text", () => {
+    expect(pieceOffsets("夜の、空", pieces)).toEqual([0, 1, 2, 3]);
+    // Text no piece covers, such as a space the analysis left out, is skipped over.
+    expect(pieceOffsets("夜の 、空", pieces)).toEqual([0, 1, 3, 4]);
+    // A piece that isn't in the text starts where the one before ended.
+    expect(pieceOffsets("夜", pieces)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("starts timed pieces at their times and spreads the rest by their beats", () => {
+    const starts = pieceStarts(
+      pieces,
+      [0, 1, 2, 3],
+      [
+        { at: 0, ms: 1000 },
+        { at: 3, ms: 1800 },
+      ],
+      1000,
+      2400,
+    );
+    // の is beat 2 of the 3 between 夜 at 1000 and 空 at 1800.
+    [1000, 1000 + (800 * 2) / 3, 1800, 1800].forEach((want, i) => expect(starts[i]).toBeCloseTo(want));
+  });
+
+  it("starts a line's first word when it's sung, not when the line starts", () => {
+    const starts = pieceStarts(pieces, [0, 1, 2, 3], [{ at: 0, ms: 1500 }], 1000, 3000);
+    expect(starts[0]).toBe(1500);
+    // Without a time after it, the rest share the time to the line's end: の at beat 2 of 6.
+    expect(starts[1]).toBeCloseTo(1500 + (1500 * 2) / 6);
+  });
+
+  it("never goes back in time, nor past the line's end", () => {
+    const starts = pieceStarts(
+      pieces,
+      [0, 1, 2, 3],
+      [
+        { at: 0, ms: 1500 },
+        { at: 3, ms: 1200 },
+      ],
+      1000,
+      2000,
+    );
+    expect(starts[3]).toBe(1500);
+    expect(pieceStarts(pieces, [0, 1, 2, 3], [{ at: 3, ms: 9000 }], 1000, 2000)[3]).toBe(2000);
+  });
+
+  it.each([
+    [1400, [0.5, 0, 0, 0]],
+    [1900, [1, 0.5, 0, 0]],
+    [2000, [1, 1, 1, 0]],
+    [2300, [1, 1, 1, 0.5]],
+    [2600, [1, 1, 1, 1]],
+  ])("sweeps each word from its start to the next's, at %d ms", (ms, want) => {
+    const got = timedSweep(pieces, [1000, 1800, 2000, 2000], 2600, ms);
+    got.forEach((p, i) => expect(p).toBeCloseTo(want[i] ?? -1));
+  });
+
+  it("sweeps a line with word times by them", () => {
+    const lines = [
+      {
+        startMs: 1000,
+        ruby: null,
+        text: "夜の、空",
+        pieces,
+        times: [
+          { at: 0, ms: 1000 },
+          { at: 3, ms: 2000 },
+        ],
+      },
+      { startMs: 4000, ruby: null, text: "次", pieces: [{ ruby: [{ text: "次", reading: "つぎ" }] }] },
+    ];
+    // の is beat 2 of the 3 between 夜 at 1000 and 空 at 2000: 夜 runs to 1667, so it's half sung at 1333.
+    expect(lineSweep(lines, 0, 1000 + 1000 / 3, 400)?.[0]).toBeCloseTo(0.5);
+    expect(lineSweep(lines, 0, 2000, 400)).toEqual([1, 1, 1, 0]);
+  });
+
+  it("gives a line's last timed word its beats before the line ends, but not past the next line", () => {
+    // Three beats of 空 at 400 ms from 2000: 3.2 s, past the line's own end by its beats, and short of the next.
+    const lines = [
+      { startMs: 1000, ruby: null, text: "夜の、空", pieces, times: [{ at: 3, ms: 2000 }] },
+      { startMs: 9000, ruby: null, text: "次", pieces: [] },
+    ];
+    expect(lineSweep(lines, 0, 2400, 400)?.[3]).toBeGreaterThan(0);
+    expect(lineSweep(lines, 0, 2700, 400)?.[3]).toBeLessThan(1);
+    const close = [lines[0]!, { startMs: 2500, ruby: null, text: "次", pieces: [] }];
+    expect(lineSweep(close, 0, 2500, 400)?.[3]).toBe(1);
   });
 });

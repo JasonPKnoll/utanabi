@@ -2,12 +2,10 @@ package spotify
 
 import (
 	"context"
-	"slices"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/text/unicode/norm"
+	"github.com/JasonPKnoll/utanabi/internal/common/jtext"
 )
 
 // sameLengthMS is how close in length a track with the song's title must be to be the song when its artist's name
@@ -32,7 +30,7 @@ func (p *Player) nameOf(ctx context.Context, s string) (name, error) {
 	if err != nil {
 		return name{}, err
 	}
-	return name{written: plain(s), latin: folded(r)}, nil
+	return name{written: jtext.Plain(s), latin: jtext.FoldRomaji(r)}, nil
 }
 
 func (p *Player) wantedFor(ctx context.Context, song Song) (wanted, error) {
@@ -145,38 +143,4 @@ func contains(outer, inner name) bool {
 		return inner.latin != "" && outer.latin == inner.latin
 	}
 	return strings.Contains(outer.latin, inner.latin)
-}
-
-// plain is text for comparing: NFKC, lower case, letters and digits only, so "Shinunoga E-Wa" is "shinunogaewa".
-func plain(s string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			return unicode.ToLower(r)
-		}
-		return -1
-	}, norm.NFKC.String(s))
-}
-
-// folded is romaji for comparing: plain, with no accents, and long vowels written one way, since romaji spells them
-// many ways: Tōkyō, Toukyou, and Tokyo are all tokyo.
-func folded(romaji string) string {
-	var b strings.Builder
-	for _, r := range norm.NFD.String(romaji) {
-		if !unicode.Is(unicode.Mn, r) {
-			b.WriteRune(r)
-		}
-	}
-	s := plain(b.String())
-	var out []rune
-	for _, r := range s {
-		if n := len(out); n > 0 && isVowel(r) && (out[n-1] == r || (r == 'u' && out[n-1] == 'o')) {
-			continue
-		}
-		out = append(out, r)
-	}
-	return string(out)
-}
-
-func isVowel(r rune) bool {
-	return slices.Contains([]rune("aeiou"), r)
 }

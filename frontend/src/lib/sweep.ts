@@ -1,4 +1,5 @@
-// The sweep across the sung line: how far through each of its pieces the singing is. Lyrics give a time for each line
+// The sweep across the sung line: how far through each of its pieces the singing is. A line with word times, found
+// or tapped, sweeps each word from when it starts to when the next does. Otherwise lyrics give a time for each line
 // only, so each piece gets a share of the line's time by how long it takes to sing, its beats (morae): 羅針盤 is
 // らしんばん, four beats, though it's three characters.
 
@@ -13,6 +14,19 @@ export interface Piece {
 
 export interface Timed {
   startMs: number | null;
+}
+
+// When a word of a line starts: at is the character of the line's text it starts at, in code points.
+export interface WordTime {
+  at: number;
+  ms: number;
+}
+
+// A line as the sweep reads it: its start, its pieces, and, when it has them, its text and word times.
+export interface SweptLine extends Timed, Piece {
+  pieces: Piece[] | null;
+  text?: string;
+  times?: WordTime[] | null;
 }
 
 // Small kana share a beat with the kana before them: きゃ is one beat.
@@ -145,10 +159,104 @@ export function sweep(pieces: readonly Piece[], startMs: number, endMs: number, 
   });
 }
 
+// Where each piece starts in text, in code points: each piece's text is looked for after the one before it, since
+// pieces cover the line in order. A piece that isn't found is taken to start where the one before ended.
+export function pieceOffsets(text: string, pieces: readonly Piece[]): number[] {
+  const chars = Array.from(text);
+  let cursor = 0;
+  return pieces.map((piece) => {
+    const own = Array.from((piece.ruby ?? []).map((part) => part.text).join(""));
+    let at = cursor;
+    for (let i = cursor; own.length > 0 && i + own.length <= chars.length; i++) {
+      if (own.every((c, k) => chars[i + k] === c)) {
+        at = i;
+        break;
+      }
+    }
+    cursor = at + own.length;
+    return at;
+  });
+}
+
+// The beats of each piece, the last sung one held a beat longer, as the sweep spreads a line's time.
+function weightsOf(pieces: readonly Piece[]): number[] {
+  const weights = pieces.map(pieceBeats);
+  const last = weights.findLastIndex((w) => w > 0);
+  if (last >= 0) {
+    weights[last] = (weights[last] ?? 0) + finalHold;
+  }
+  return weights;
+}
+
+// When each piece starts, for a line sung from startMs to endMs with some word times known: a piece with a time
+// starts then, and the rest are spread between the known ones by their beats.
+export function pieceStarts(
+  pieces: readonly Piece[],
+  offsets: readonly number[],
+  times: readonly WordTime[],
+  startMs: number,
+  endMs: number,
+): number[] {
+  const weights = weightsOf(pieces);
+  const before: number[] = [];
+  let total = 0;
+  for (const w of weights) {
+    before.push(total);
+    total += w;
+  }
+  const lengths = pieces.map((p) => Array.from((p.ruby ?? []).map((part) => part.text).join("")).length);
+  // Anchors, by beat: the known starts, in order and never going back, between the line's start and end.
+  const anchors: { beat: number; ms: number }[] = [];
+  pieces.forEach((_, j) => {
+    const from = offsets[j] ?? 0;
+    const known =
+      (weights[j] ?? 0) > 0 ? times.find((t) => t.at >= from && t.at < from + Math.max(1, lengths[j] ?? 0)) : undefined;
+    if (known) {
+      const floor = anchors.at(-1)?.ms ?? startMs;
+      anchors.push({ beat: before[j] ?? 0, ms: Math.min(Math.max(known.ms, floor), endMs) });
+    }
+  });
+  if (anchors[0]?.beat !== 0) {
+    anchors.unshift({ beat: 0, ms: Math.min(startMs, anchors[0]?.ms ?? startMs) });
+  }
+  if ((anchors.at(-1)?.beat ?? 0) < total) {
+    anchors.push({ beat: total, ms: Math.max(endMs, anchors.at(-1)?.ms ?? endMs) });
+  }
+  return before.map((beat) => {
+    const k = anchors.findLastIndex((a) => a.beat <= beat);
+    const from = anchors[k] ?? { beat: 0, ms: startMs };
+    const to = anchors[k + 1];
+    if (!to || to.beat === from.beat) {
+      return from.ms;
+    }
+    return from.ms + ((to.ms - from.ms) * (beat - from.beat)) / (to.beat - from.beat);
+  });
+}
+
+// How far through each piece the singing is at ms, from 0 to 1, for pieces starting at starts and the line ending at
+// endMs: each sung piece fills from its start to the next sung piece's. Pieces with no beats are done once the
+// piece before them is.
+export function timedSweep(pieces: readonly Piece[], starts: readonly number[], endMs: number, ms: number): number[] {
+  const weights = pieces.map(pieceBeats);
+  return pieces.map((_, j) => {
+    const from = starts[j] ?? endMs;
+    if ((weights[j] ?? 0) === 0) {
+      return ms >= from ? 1 : 0;
+    }
+    const next = weights.findIndex((w, k) => k > j && w > 0);
+    const to = next >= 0 ? (starts[next] ?? endMs) : endMs;
+    if (to <= from) {
+      return ms >= from ? 1 : 0;
+    }
+    return Math.min(1, Math.max(0, (ms - from) / (to - from)));
+  });
+}
+
 // The sweep for line i of lines at lyric time ms, or null when there's none to show: no time to go by, or a line
-// with no time.
+// with no time. A line with word times sweeps by them, and its last word gets at least its beats at the song's
+// pace before the line ends, though never past the next line's start.
 export function lineSweep(
-  lines: readonly (Timed & Piece & { pieces: Piece[] | null })[],
+  lines: readonly SweptLine[],
   i: number,
   ms: number | null,
   beatMs: number = defaultBeatMs,
@@ -158,11 +266,23 @@ export function lineSweep(
     return null;
   }
   const pieces = line.pieces ?? [];
-  const end = lineEnd(
-    lines,
-    i,
-    pieces.reduce((n, p) => n + pieceBeats(p), 0),
-    beatMs,
-  );
-  return end === null ? null : sweep(pieces, line.startMs, end, ms);
+  const total = pieces.reduce((n, p) => n + pieceBeats(p), 0);
+  let end = lineEnd(lines, i, total, beatMs);
+  if (end === null) {
+    return null;
+  }
+  const times = line.times ?? [];
+  if (times.length === 0 || line.text === undefined) {
+    return sweep(pieces, line.startMs, end, ms);
+  }
+  const offsets = pieceOffsets(line.text, pieces);
+  const lastAt = Math.max(...times.map((t) => t.at));
+  const lastMs = Math.max(...times.map((t) => t.ms));
+  const after = pieces.reduce((n, p, j) => n + ((offsets[j] ?? 0) + 1 > lastAt ? pieceBeats(p) : 0), 0);
+  end = Math.max(end, lastMs + Math.max(1, after) * beatMs);
+  const next = nextStart(lines, i);
+  if (next !== null) {
+    end = Math.min(end, next);
+  }
+  return timedSweep(pieces, pieceStarts(pieces, offsets, times, line.startMs, end), end, ms);
 }

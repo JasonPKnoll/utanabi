@@ -46,6 +46,10 @@ type Line struct {
 	Analysis []WordAnalysis `json:"-"`
 	// Sung are the readings you set for words of the line that aren't sung as written.
 	Sung []SungReading `json:"-"`
+	// Times are when the line's words start, yours or found, in order; empty when only the line's start is known.
+	// TimesBy says whose: TimesByUser, a timing source's code, or empty.
+	Times   []WordTime `json:"times"`
+	TimesBy string     `json:"timesBy"`
 }
 
 // LinePiece is a run of a line: one word, or text that belongs to no word, such as punctuation. Word is the index of
@@ -217,6 +221,12 @@ type Repository interface {
 	// SaveMeanings sets the dictionary entry, meaning, and conjugation class of words found without one. Words that
 	// gained one meanwhile, and words you corrected, are left as they are.
 	SaveMeanings(ctx context.Context, words []WordAnalysis) error
+	// SetWordTimes replaces the word times of each of lines, from source, or removes them for a line with none. Found
+	// times never replace yours: from any source but TimesByUser, a line you timed is left as it is. It returns
+	// fault.ErrNotFound when the song isn't in the library.
+	SetWordTimes(ctx context.Context, songID int64, source string, lines []LineTimes) error
+	// ClearWordTimes removes every word time of the song, yours and found ones.
+	ClearWordTimes(ctx context.Context, songID int64) error
 }
 
 // AddSong validates a song the user typed in, splits its lyrics into lines, analyses them, and saves it.

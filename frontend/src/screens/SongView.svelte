@@ -22,7 +22,9 @@
   import { aboutHref, homeHref, studyHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
   import { lineSweep, songPace } from "../lib/sweep";
+  import { tapAt, tappedAll, tapStops, type Tapping } from "../lib/taps";
   import { searchFor } from "../lib/versions";
+  import WordTiming from "../components/WordTiming.svelte";
 
   let { id }: { id: number } = $props();
 
@@ -142,6 +144,96 @@
     if (word && piece) {
       open = { word, ruby: piece.ruby ?? [], line };
     }
+  }
+
+  // The timing databases word times can be looked up in, when they're on.
+  let timingSources = $state<string[]>([]);
+  Songs.TimingSources()
+    .then((names) => (timingSources = names ?? []))
+    .catch(() => (timingSources = []));
+
+  let synced = $derived(lines.filter((l) => l.startMs !== null).length);
+  let timed = $derived(lines.filter((l) => (l.times ?? []).length > 0).length);
+  let timedByYou = $derived(lines.filter((l) => (l.times ?? []).length > 0 && l.timesBy === "user").length);
+
+  // Tapping along: while it's on, each tap times the next word of the line being sung. A line is saved once all its
+  // words are tapped, or when the song moves on from it.
+  let tappingOn = $state(false);
+  let tapping = $state<Tapping | null>(null);
+  let tapNote = $state("");
+
+  function showTimes(index: number, times: { at: number; ms: number }[], by: string) {
+    if (!song) {
+      return;
+    }
+    song = {
+      ...song,
+      lines: lines.map((l, i) => (i === index ? { ...l, times, timesBy: times.length > 0 ? by : "" } : l)),
+    };
+  }
+
+  async function saveTapped(t: Tapping) {
+    const line = lines[t.line];
+    if (!line || t.times.length === 0) {
+      return;
+    }
+    try {
+      const saved = await Songs.SetLineTimes({ songId: id, line: line.position, times: t.times });
+      showTimes(t.line, saved ?? [], "user");
+      tapNote = "";
+    } catch (err) {
+      tapNote = toAppError(err).message;
+    }
+  }
+
+  function tap() {
+    const ms = bar?.lyricsNow() ?? null;
+    if (ms === null) {
+      tapNote = "Play the song to tap along.";
+      return;
+    }
+    const next = tapAt(lines, tapping, ms);
+    if (!next) {
+      return;
+    }
+    if (tapping && tapping.line !== next.line && !tappedAll(lines, tapping)) {
+      void saveTapped(tapping);
+    }
+    tapping = next;
+    showTimes(next.line, next.times, "user");
+    if (tappedAll(lines, next)) {
+      void saveTapped(next);
+    }
+  }
+
+  function stopTapping() {
+    if (tapping && !tappedAll(lines, tapping)) {
+      void saveTapped(tapping);
+    }
+    tapping = null;
+    tappingOn = false;
+  }
+
+  let tapLine = $derived(tapping ? lines[tapping.line] : undefined);
+  let tapProgress = $derived(
+    tapping && tapLine
+      ? `Line ${tapping.line + 1}: ${tapping.times.length} of ${tapStops(tapLine).length} words`
+      : "Tap as each word starts",
+  );
+
+  async function reload() {
+    song = await Songs.Get(id);
+  }
+
+  async function findTimes() {
+    const found = await Songs.FindWordTimes(id);
+    await reload();
+    return found;
+  }
+
+  async function clearTimes() {
+    await Songs.ClearWordTimes(id);
+    await reload();
   }
 
   async function remove() {
@@ -305,33 +397,57 @@
       {/if}
     </main>
 
-    {#if song && player === "spotify"}
-      <SpotifyBar
-        bind:this={bar}
-        bind:following
-        songId={id}
-        {lines}
-        startMs={lines[current]?.startMs ?? 0}
-        oncurrent={follow}
-        switchTo={available.includes("youtube") ? "YouTube" : ""}
-        lyricsMs={song.durationMs ?? 0}
-        query={searchFor(song.title, song.artist)}
-        onswitch={() => choosePlayer("youtube")}
-      />
-    {:else if song && player === "youtube"}
-      <YouTubePanel
-        bind:this={bar}
-        bind:following
-        songId={id}
-        {lines}
-        startMs={lines[current]?.startMs ?? 0}
-        searchable={youtubeSearch}
-        query={searchFor(song.title, song.artist)}
-        oncurrent={follow}
-        switchTo={available.includes("spotify") ? "Spotify" : ""}
-        onswitch={() => choosePlayer("spotify")}
-      />
-    {/if}
+    <div class="dock">
+      {#if tappingOn}
+        <section class="tapper" aria-label="Tap along">
+          <div class="tapper-head">
+            <p class="tapper-note" role="status">{tapNote || tapProgress}</p>
+            <button type="button" class="button" onclick={stopTapping}>Done</button>
+          </div>
+          <!-- A tap lands on press, not on release, so it's as close to the word as a finger can be. -->
+          <button
+            type="button"
+            class="button primary tap"
+            onpointerdown={(event) => {
+              event.preventDefault();
+              tap();
+            }}
+            onclick={(event) => {
+              if (event.detail === 0) {
+                tap();
+              }
+            }}>Tap</button
+          >
+        </section>
+      {/if}
+      {#if song && player === "spotify"}
+        <SpotifyBar
+          bind:this={bar}
+          bind:following
+          songId={id}
+          {lines}
+          startMs={lines[current]?.startMs ?? 0}
+          oncurrent={follow}
+          switchTo={available.includes("youtube") ? "YouTube" : ""}
+          lyricsMs={song.durationMs ?? 0}
+          query={searchFor(song.title, song.artist)}
+          onswitch={() => choosePlayer("youtube")}
+        />
+      {:else if song && player === "youtube"}
+        <YouTubePanel
+          bind:this={bar}
+          bind:following
+          songId={id}
+          {lines}
+          startMs={lines[current]?.startMs ?? 0}
+          searchable={youtubeSearch}
+          query={searchFor(song.title, song.artist)}
+          oncurrent={follow}
+          switchTo={available.includes("spotify") ? "Spotify" : ""}
+          onswitch={() => choosePlayer("spotify")}
+        />
+      {/if}
+    </div>
 
     {#if open}
       <WordSheet
@@ -353,12 +469,70 @@
         ontoggle={toggle}
         ondelete={remove}
         onclose={() => (displayOpen = false)}
-      />
+      >
+        {#snippet timing(close)}
+          <WordTiming
+            {timed}
+            {synced}
+            byYou={timedByYou}
+            sources={timingSources}
+            canTap={following && synced > 0}
+            ontap={() => {
+              tappingOn = true;
+              tapping = null;
+              tapNote = "";
+              close();
+            }}
+            onfind={findTimes}
+            onclear={clearTimes}
+          />
+        {/snippet}
+      </DisplaySheet>
     {/if}
   {/if}
 </div>
 
 <style>
+  /* The tap panel and the player, together at the bottom of the screen within thumb reach. */
+  .dock {
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+  }
+
+  .tapper {
+    padding: 12px 12px 4px;
+    border-radius: 18px 18px 0 0;
+    background: var(--surface);
+  }
+
+  .tapper-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .tapper-head .button {
+    flex: none;
+    padding: 0 22px;
+  }
+
+  .tapper-note {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+
+  .tap {
+    width: 100%;
+    min-height: 72px;
+    font-size: 1.25rem;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+  }
   /* Over the whole screen, as the song-building overlay is: the skeleton under it fades in, and that puts it in a layer
      of its own, which an overlay without a z-index sits beneath. */
   .opening {
