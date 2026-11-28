@@ -1,6 +1,8 @@
 <script lang="ts">
   import { Service as Songs } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
+  import SongBuilding from "../components/SongBuilding.svelte";
   import { toAppError, type AppError } from "../lib/errors";
+  import { buildingAtLeastMs, holdFor } from "../lib/hold";
   import { homeHref, songHref } from "../lib/route";
 
   let title = $state("");
@@ -20,8 +22,10 @@
     }
     saving = true;
     failure = null;
+    const started = Date.now();
     try {
       const song = await Songs.Add({ title, artist, lyrics });
+      await holdFor(started, buildingAtLeastMs);
       // Replace the form in history, so Back from the new song goes to the list.
       window.location.replace(songHref(song.id));
     } catch (err) {
@@ -31,6 +35,10 @@
     }
   }
 </script>
+
+{#if saving}
+  <SongBuilding title={title.trim()} />
+{/if}
 
 <div class="screen">
   <header class="topbar">

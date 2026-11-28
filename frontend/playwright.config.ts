@@ -18,6 +18,8 @@ export default defineConfig({
     env: {
       WAILS_SERVER_PORT: port,
       UTANABI_DATA_DIR: process.env.SMOKE_DATA_DIR ?? "../.task/smoke-data",
+      // A test value: the smoke server's accounts sign up with it.
+      UTANABI_SIGNUP_CODE: "smoke-test-sign-up-code",
     },
   },
 });

@@ -275,10 +275,10 @@ func TestAddFromSourceIsRefusedWhenItsSourceIsOff(t *testing.T) {
 func TestServiceListsTheSourcesThatAreOn(t *testing.T) {
 	t.Parallel()
 
-	if got := NewService(newFakeRepo(), fakeAnalyzer{}, noMeanings(t)).SearchSources(); len(got) != 0 {
+	if got := NewService(newFakeRepo(), fakeAnalyzer{}, noMeanings(t), nil).SearchSources(); len(got) != 0 {
 		t.Errorf("no sources = %v, want none", got)
 	}
-	got := NewService(newFakeRepo(), fakeAnalyzer{}, noMeanings(t), newLRCLIBFake()).SearchSources()
+	got := NewService(newFakeRepo(), fakeAnalyzer{}, noMeanings(t), nil, newLRCLIBFake()).SearchSources()
 	if !reflect.DeepEqual(got, []string{"LRCLIB"}) {
 		t.Errorf("sources = %v, want [LRCLIB]", got)
 	}

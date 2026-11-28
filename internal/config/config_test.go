@@ -130,6 +130,14 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 		{name: "study streak too long", platform: "desktop", settings: `{"study_streak":11}`, wantName: "study_streak"},
 		{name: "study streak not a number", platform: "desktop", settings: `{"study_streak":"three"}`,
 			wantName: "study_streak"},
+		{name: "short sign-up code", platform: "server", env: map[string]string{"UTANABI_SIGNUP_CODE": "abc"},
+			wantName: "UTANABI_SIGNUP_CODE"},
+		{name: "Spotify client ID that isn't one", platform: "server",
+			env: map[string]string{"UTANABI_SPOTIFY_CLIENT_ID": "not-a-client-id"}, wantName: "UTANABI_SPOTIFY_CLIENT_ID"},
+		{name: "YouTube API key that isn't one", platform: "server",
+			env: map[string]string{"UTANABI_YOUTUBE_API_KEY": "short key"}, wantName: "UTANABI_YOUTUBE_API_KEY"},
+		{name: "song tools neither on nor off", platform: "server", env: map[string]string{"UTANABI_SONG_TOOLS": "maybe"},
+			wantName: "UTANABI_SONG_TOOLS"},
 		{name: "bad env study streak", platform: "server", env: map[string]string{"UTANABI_STUDY_STREAK": "lots"},
 			wantName: "study_streak"},
 		{
@@ -234,7 +242,9 @@ func TestLoadLyricsSources(t *testing.T) {
 		env      map[string]string
 		want     []string
 	}{
-		{name: "on by default", platform: "desktop", want: []string{"lrclib"}},
+		{name: "on by default", platform: "desktop", want: []string{"lrclib", "amll"}},
+		{name: "the timing database alone", platform: "desktop", settings: `{"lyrics_sources":["amll"]}`,
+			want: []string{"amll"}},
 		{name: "an empty list turns them off", platform: "desktop", settings: `{"lyrics_sources":[]}`, want: []string{}},
 		{name: "none turns them off", platform: "desktop", settings: `{"lyrics_sources":["none"]}`, want: []string{}},
 		{name: "named sources are on", platform: "desktop", settings: `{"lyrics_sources":["lrclib"]}`,
@@ -333,5 +343,111 @@ func TestLoadStudyStreak(t *testing.T) {
 				t.Errorf("StudyStreak = %d, want %d", cfg.StudyStreak, tt.want)
 			}
 		})
+	}
+}
+
+func TestLoadServerAccounts(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(platform(t, "server", map[string]string{
+		"WAILS_SERVER_PORT": "18080", "UTANABI_SIGNUP_CODE": "a long sign-up code",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Server.Port != 18080 || cfg.Server.SignupCode.Reveal() != "a long sign-up code" {
+		t.Errorf("Server = %+v, want port 18080 and the sign-up code", cfg.Server)
+	}
+	closed, err := config.Load(platform(t, "server", nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if closed.Server.Port != 8080 || !closed.Server.SignupCode.IsZero() {
+		t.Errorf("Server = %+v, want port 8080 and sign-up closed", closed.Server)
+	}
+}
+
+func TestLoadServerSpotify(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(platform(t, "server", map[string]string{
+		"UTANABI_SPOTIFY_CLIENT_ID": "9c5b5e6198d34e34825de3ff7b7ae015",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Server.SpotifyClientID != "9c5b5e6198d34e34825de3ff7b7ae015" {
+		t.Errorf("SpotifyClientID = %q, want the one set", cfg.Server.SpotifyClientID)
+	}
+	off, err := config.Load(platform(t, "server", nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if off.Server.SpotifyClientID != "" {
+		t.Errorf("SpotifyClientID = %q, want Spotify off", off.Server.SpotifyClientID)
+	}
+}
+
+func TestLoadServerYouTube(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(platform(t, "server", map[string]string{
+		"UTANABI_YOUTUBE_API_KEY": "AIzaTestKeyTestKeyTestKeyTestKey123",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Server.YouTubeAPIKey.Reveal() != "AIzaTestKeyTestKeyTestKeyTestKey123" {
+		t.Error("YouTubeAPIKey isn't the one set")
+	}
+	off, err := config.Load(platform(t, "server", nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !off.Server.YouTubeAPIKey.IsZero() {
+		t.Error("YouTubeAPIKey is set, want search off")
+	}
+}
+
+func TestLoadServerSongTools(t *testing.T) {
+	t.Parallel()
+
+	for _, v := range []string{"on", "ON", "true", "1"} {
+		cfg, err := config.Load(platform(t, "server", map[string]string{"UTANABI_SONG_TOOLS": v}))
+		if err != nil || !cfg.Server.SongTools {
+			t.Errorf("UTANABI_SONG_TOOLS=%q: SongTools = %v, %v; want on", v, cfg.Server.SongTools, err)
+		}
+	}
+	for _, v := range []string{"", "off", "false", "0"} {
+		cfg, err := config.Load(platform(t, "server", map[string]string{"UTANABI_SONG_TOOLS": v}))
+		if err != nil || cfg.Server.SongTools {
+			t.Errorf("UTANABI_SONG_TOOLS=%q: SongTools = %v, %v; want off", v, cfg.Server.SongTools, err)
+		}
+	}
+}
+
+func TestLoadBundledDictionary(t *testing.T) {
+	t.Parallel()
+
+	p := platform(t, "desktop", nil)
+	p.Dirs.Bundled = filepath.Join(p.Dirs.Data, "Resources")
+	cfg, err := config.Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if want := filepath.Join(p.Dirs.Bundled, "dictionary.db"); cfg.BundledDictionaryPath != want {
+		t.Errorf("BundledDictionaryPath = %q, want %q", cfg.BundledDictionaryPath, want)
+	}
+
+	// A dictionary_path you set is the one used, with no bundled one to fall back on.
+	chosen := platform(t, "desktop", nil)
+	chosen.Dirs.Bundled = filepath.Join(chosen.Dirs.Data, "Resources")
+	writeSettings(t, chosen, `{"dictionary_path":"mine.db"}`)
+	cfg, err = config.Load(chosen)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.BundledDictionaryPath != "" {
+		t.Errorf("BundledDictionaryPath = %q, want none with dictionary_path set", cfg.BundledDictionaryPath)
 	}
 }

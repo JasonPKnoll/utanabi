@@ -34,7 +34,7 @@ depguard in `.golangci.yml` enforces these rules. A slice never imports another 
 
 Wails binds every exported method of every service passed to `app.New`. Wails then generates TypeScript for those methods into `frontend/bindings`. The frontend imports the generated functions and never builds a URL of its own.
 
-A method may take `context.Context` as its first parameter. Wails fills it in. In server mode the context carries the HTTP request's values, which is where auth middleware will put the caller's identity.
+A method may take `context.Context` as its first parameter. Wails fills it in. In server mode the context carries the HTTP request's values, which is where the accounts middleware puts the signed-in user (`internal/identity`).
 
 `internal/app` holds services that belong to the app rather than to a feature, such as `AboutService`. Feature services live in their slice.
 

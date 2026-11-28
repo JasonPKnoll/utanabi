@@ -80,6 +80,11 @@ func findWords(tokens []Token) []WordAnalysis {
 			i++
 			continue
 		}
+		if spokenKotoAt(tokens, i) {
+			words = append(words, spokenKoto(tokens, i))
+			i += 2
+			continue
+		}
 		w := takeWord(tokens, i)
 		words = append(words, w)
 		i = w.LastToken + 1
@@ -170,6 +175,25 @@ func takeWord(tokens []Token, i int) WordAnalysis {
 		d.stepsFrom = d.w.LastToken + 1
 		d.w.Lemma, d.w.LemmaReading = t.Surface+"でも", t.Reading+"でも"
 		d.w.altLemma, d.w.altReading = t.base(), lemmaReading(t)
+	case t.POS == morph.Pronoun && slices.Contains(questionWords, t.base()) && i+1 < len(tokens) &&
+		tokens[i+1].POS == morph.Particle && tokens[i+1].base() == "も":
+		// A question word and も are one word, every- or (with a negative) no-: なんも, nothing; だれも, no one.
+		d.w.LastToken = i + 1
+		d.stepsFrom = i + 2
+		d.w.Lemma, d.w.LemmaReading = t.Surface+"も", t.Reading+"も"
+		d.w.altLemma, d.w.altReading = t.base(), lemmaReading(t)
+	case spokenNai(tokens, i):
+		// なんもねえ, 金がねえ: ない, "there isn't", in its spoken form, which kagome reads as the particle ね or as
+		// the auxiliary that only follows a verb.
+		d.w.Lemma, d.w.LemmaReading = "ない", "ない"
+		d.w.ConjClass = "adj-i"
+		// It's the adjective now, so what follows reads it as one: から after it is "because".
+		tokens[i].POS = morph.Adjective
+	case t.base() == "ん" && (t.POS == morph.Particle || (t.POS == morph.Auxiliary && i > 0 && i+1 < len(tokens) &&
+		isNounish(tokens[i-1]) && isNounish(tokens[i+1]))):
+		// 胸んなか: ん between two nouns is の said quickly, not a negative.
+		d.w.Kind = WordParticle
+		d.w.Lemma, d.w.LemmaReading = "の", "の"
 	case t.POS == morph.Other && i+1 < len(tokens) && (tokens[i+1].base() == "まま" || tokens[i+1].base() == "儘"):
 		// このまま, そのまま: a word of its own in the dictionary, "as it is".
 		d.w.LastToken = i + 1
@@ -210,6 +234,35 @@ func takeWord(tokens []Token, i int) WordAnalysis {
 	d.name()
 	d.w.Steps = d.steps()
 	return d.w
+}
+
+// spokenNai reports whether token i is ない standing alone after a particle, as in なんもない or 金がねえ: the
+// adjective "there isn't". kagome reads ない after a particle as the auxiliary, which only follows a verb, and the
+// spoken ねえ as the particle ね, an interjection, or that auxiliary. ねえ counts only after も or が, or after は
+// when an adjective's く form comes before it (遅くはねえ, it's not too late): after は alone it is as likely to be
+// ね, holding the listener (僕はねえ、).
+func spokenNai(tokens []Token, i int) bool {
+	if i == 0 || tokens[i-1].POS != morph.Particle {
+		return false
+	}
+	t, prev := tokens[i], tokens[i-1]
+	switch {
+	case t.Surface == "ねえ" || t.Surface == "ねぇ" || t.Surface == "ねー":
+		return prev.base() == "も" || prev.base() == "が" || (prev.base() == "は" && i >= 2 && kuForm(tokens[i-2]))
+	case t.POS == morph.Auxiliary && t.ConjType == "特殊・ナイ":
+		return prev.Detail != "接続助詞"
+	}
+	return false
+}
+
+// kuForm reports whether t is an adjective, or たい, in its く form: 遅く, 感じたく.
+func kuForm(t Token) bool {
+	return (t.POS == morph.Adjective || (t.POS == morph.Auxiliary && t.ConjType == "特殊・タイ")) &&
+		t.ConjForm == "連用テ接続"
+}
+
+func isNounish(t Token) bool {
+	return t.POS == morph.Noun || t.POS == morph.Pronoun
 }
 
 // demoAfter counts the tokens of でも at position i: 1 for でも, 2 when kagome reads it as で and も, 0 for none.
@@ -283,11 +336,33 @@ func (d *wordDraft) attaches(j int) bool {
 	case morph.Auxiliary:
 		return conjugationAuxiliary(t)
 	case morph.Particle:
-		return t.Detail == "接続助詞" && (t.base() == "て" || t.base() == "で" || t.base() == "ば")
-	case morph.Verb, morph.Adjective:
+		// 選びな, 咲かせな: な straight after a verb's stem is a gentle command, なさい said short.
+		return (t.Detail == "接続助詞" && (t.base() == "て" || t.base() == "で" || t.base() == "ば")) ||
+			stemCommand(t, prev)
+	case morph.Verb:
+		// After the te form only the helper verbs join: まとめて and かかって stay two words in
+		// まとめてかかってきなさい, "come at me all at once", though kagome marks かかる as a helper.
+		if prev.POS == morph.Particle && (prev.base() == "て" || prev.base() == "で") && t.Detail == "非自立" {
+			return helperVerbStep(t, prev) != nil || nonStepHelpers[t.base()]
+		}
+		return t.Detail == "非自立" || isNai(t)
+	case morph.Adjective:
 		return t.Detail == "非自立" || isNai(t)
 	}
 	return false
+}
+
+// nonStepHelpers are the helper verbs after the te form that add no step of their own but belong to the verb:
+// 書いてある, 見てやる, 来てください, 行ってらっしゃい.
+var nonStepHelpers = map[string]bool{
+	"ある": true, "やる": true, "くださる": true, "下さる": true, "らっしゃる": true, "いらっしゃる": true, "おる": true,
+	"もらえる": true, "貰える": true, "いける": true, "ゆける": true,
+}
+
+// stemCommand reports whether t is な as a command after a verb's stem: 選びな, choose (as you like)!
+func stemCommand(t, prev Token) bool {
+	return t.POS == morph.Particle && t.base() == "な" && t.Detail == "終助詞" && prev.POS == morph.Verb &&
+		prev.ConjForm == "連用形"
 }
 
 // conjugationAuxiliary reports whether an auxiliary conjugates the word before it (ない, た, ます, たい, う), rather than
@@ -502,6 +577,12 @@ func (d *wordDraft) steps() []string {
 				add(suffixStep(p, prev)...)
 			}
 		case morph.Auxiliary:
+			if p.base() == "ん" && p.ConjType == "不変化型" && prev.POS == morph.Verb && prev.ConjForm == "仮定形" &&
+				strings.HasPrefix(prev.ConjType, "五段") {
+				// 気づけん, 行けん: a godan verb's え form with ん is "can't", spoken in the west of Japan.
+				add("potential", "negative")
+				continue
+			}
 			add(auxiliaryStep(p)...)
 		case morph.Particle:
 			switch {
@@ -511,6 +592,8 @@ func (d *wordDraft) steps() []string {
 				add("conditional-ba")
 			case p.Detail == "副詞化":
 				add("adverbial")
+			case stemCommand(p, prev):
+				add("imperative")
 			}
 		case morph.Verb:
 			add(helperVerbStep(p, prev)...)
@@ -596,7 +679,8 @@ func helperVerbStep(p, prev Token) []string {
 		}
 	case "ちゃう", "じゃう", "ちまう", "じまう":
 		return []string{"chau"}
-	case "いく", "ゆく":
+	case "いく", "ゆく", "く":
+		// く is いく said short, as kagome splits it: 連れてって, 食べてった.
 		if afterTe {
 			return []string{"te-iku"}
 		}

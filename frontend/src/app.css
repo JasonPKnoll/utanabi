@@ -17,6 +17,7 @@
   --link-strong: var(--d-link-strong);
   --danger: var(--d-danger);
   --success: var(--d-success);
+  --spark: var(--d-spark);
 
   --radius: 16px;
   --tap: 44px;
@@ -53,6 +54,7 @@
     --link-strong: var(--l-link-strong);
     --danger: var(--l-danger);
     --success: var(--l-success);
+    --spark: var(--l-spark);
 
     color-scheme: light;
   }
@@ -73,6 +75,7 @@
   --link-strong: var(--l-link-strong);
   --danger: var(--l-danger);
   --success: var(--l-success);
+  --spark: var(--l-spark);
 
   color-scheme: light;
 }
@@ -128,7 +131,9 @@ rt {
   background: linear-gradient(to bottom, transparent, var(--bg) 24px);
 }
 
+/* border-box, as a <button> is already, so a link styled as one fits the width it's given, padding and all. */
 .button {
+  box-sizing: border-box;
   flex: 1;
   display: inline-flex;
   align-items: center;
@@ -367,4 +372,75 @@ rt {
     transform: translateY(24px);
     opacity: 0;
   }
+}
+
+/* Skeletons. While content loads, a screen draws stand-in content (lib/placeholders.ts) through its own markup, so
+   the skeleton has the real layout's shape: the same fonts, line heights, and reading aids. .ph draws text as
+   shimmering bars, one over each line it wraps onto, furigana included; .skeleton fills a block. .skeleton-wait shows a
+   skeleton only once a load has taken a fifth of a second, so a quick load shows nothing. */
+.ph,
+.ph rt,
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-strong) 0%, var(--surface) 50%, var(--surface-strong) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.ph,
+.ph rt {
+  color: transparent !important;
+  border-radius: 0.35em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.skeleton {
+  display: block;
+  border-radius: 8px;
+}
+
+.skeleton-wait {
+  animation: skeleton-appear 0.2s ease-out 0.2s both;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes skeleton-appear {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ph,
+  .ph rt,
+  .skeleton {
+    animation: none;
+    background: var(--surface-strong);
+  }
+}
+
+/* The sweep across the sung line while it follows Spotify: each piece's Japanese fills from left to right as it's
+   sung, up to --sung, in the highlight colour, with a soft edge; the rest of the line stays in full colour until it's
+   sung. The text is painted by its background, so the colours come from the theme; furigana keep their own colour. */
+.sweep {
+  background-image: linear-gradient(
+    90deg,
+    var(--link) calc(var(--sung) - 0.25em),
+    var(--fg) calc(var(--sung) + 0.25em)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sweep rt {
+  -webkit-text-fill-color: var(--muted);
 }

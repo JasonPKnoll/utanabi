@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -17,6 +18,55 @@ type fakeRepo struct {
 	deleted      []int64
 	tokenSaves   int
 	meaningSaves []WordAnalysis
+	timeSaves    []timeSave
+	cleared      []int64
+	replaced     []int64
+}
+
+type timeSave struct {
+	songID int64
+	source string
+	lines  []LineTimes
+}
+
+// SetWordTimes keeps the times on the fake's song, as the database would: found times never replace yours.
+func (f *fakeRepo) SetWordTimes(_ context.Context, songID int64, source string, lines []LineTimes) error {
+	song, ok := f.songs[songID]
+	if !ok {
+		return fault.ErrNotFound
+	}
+	f.timeSaves = append(f.timeSaves, timeSave{songID: songID, source: source, lines: lines})
+	for _, lt := range lines {
+		for i := range song.Lines {
+			if song.Lines[i].Position != lt.Line || (source != TimesByUser && song.Lines[i].TimesBy == TimesByUser) {
+				continue
+			}
+			song.Lines[i].Times, song.Lines[i].TimesBy = lt.Times, source
+			if len(lt.Times) == 0 {
+				song.Lines[i].TimesBy = ""
+			}
+		}
+	}
+	return nil
+}
+
+func (f *fakeRepo) ReplaceLines(_ context.Context, songID, durationMS int64, lines []Line) error {
+	song, ok := f.songs[songID]
+	if !ok {
+		return fault.ErrNotFound
+	}
+	song.Lines, song.DurationMS = lines, durationMS
+	f.songs[songID] = song
+	f.replaced = append(f.replaced, songID)
+	return nil
+}
+
+func (f *fakeRepo) ClearWordTimes(_ context.Context, songID int64) error {
+	if _, ok := f.songs[songID]; !ok {
+		return fault.ErrNotFound
+	}
+	f.cleared = append(f.cleared, songID)
+	return nil
 }
 
 func newFakeRepo() *fakeRepo {
@@ -33,7 +83,8 @@ func (f *fakeRepo) AddSong(_ context.Context, song Song) (Song, error) {
 func (f *fakeRepo) Songs(context.Context) ([]Summary, error) {
 	list := []Summary{}
 	for _, s := range f.songs {
-		list = append(list, Summary{ID: s.ID, Title: s.Title, Artist: s.Artist, Source: s.Source})
+		synced := slices.ContainsFunc(s.Lines, func(l Line) bool { return l.StartMS != nil })
+		list = append(list, Summary{ID: s.ID, Title: s.Title, Artist: s.Artist, Synced: synced})
 	}
 	return list, nil
 }
@@ -77,6 +128,26 @@ func (f *fakeRepo) SaveAnalysis(_ context.Context, songID int64, lines []Line) e
 	return nil
 }
 
+func (f *fakeRepo) SetSungReading(_ context.Context, songID int64, r SungReading) error {
+	song, ok := f.songs[songID]
+	if !ok {
+		return fault.ErrNotFound
+	}
+	for i := range song.Lines {
+		line := &song.Lines[i]
+		if line.Position != r.Line {
+			continue
+		}
+		line.Sung = slices.DeleteFunc(slices.Clone(line.Sung), func(s SungReading) bool { return s.FirstToken == r.FirstToken })
+		if r.Reading != "" {
+			line.Sung = append(line.Sung, r)
+		}
+		f.songs[songID] = song
+		return nil
+	}
+	return fault.ErrNotFound
+}
+
 func (f *fakeRepo) SaveMeanings(_ context.Context, words []WordAnalysis) error {
 	f.meaningSaves = append(f.meaningSaves, words...)
 	return nil
@@ -116,6 +187,10 @@ func withoutAnalysis(song Song) Song {
 	}
 	song.Lines = lines
 	return song
+}
+
+func (f *fakeRepo) AddSavedSong(context.Context, string, string) (int64, bool, error) {
+	return 0, false, nil
 }
 
 func (f *fakeRepo) SongIDsBySource(_ context.Context, source string, refs []string) (map[string]int64, error) {

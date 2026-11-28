@@ -39,7 +39,20 @@ export default ts.config(
     },
   },
   {
-    files: ["*.config.{js,ts}", "e2e/**"],
+    // Sign-in is the one exception: a session must be a cookie scripts can't read, which only an HTTP response from
+    // the app's own /auth/ endpoints can set.
+    files: ["src/lib/auth.ts"],
+    rules: {
+      "no-restricted-globals": [
+        "error",
+        { name: "XMLHttpRequest", message: network },
+        { name: "WebSocket", message: network },
+        { name: "EventSource", message: network },
+      ],
+    },
+  },
+  {
+    files: ["*.config.{js,ts}", "e2e/**", "scripts/**"],
     languageOptions: { globals: { ...globals.node } },
   },
 );

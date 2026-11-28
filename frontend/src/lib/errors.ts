@@ -19,8 +19,18 @@ function isAppError(value: unknown): value is AppError {
   return typeof v.code === "string" && typeof v.message === "string";
 }
 
+// Called when a call finds the session has ended, so the app can go back to the sign-in screen.
+let onUnauthorized: () => void = () => {};
+
+export function whenSignedOut(fn: () => void): void {
+  onUnauthorized = fn;
+}
+
 export function toAppError(err: unknown): AppError {
   if (err instanceof Error && isAppError(err.cause)) {
+    if (err.cause.code === "unauthorized") {
+      onUnauthorized();
+    }
     return err.cause;
   }
   return internal;

@@ -1,200 +1,221 @@
 <script lang="ts">
-  import { toHiragana } from "wanakana";
+  import { tick } from "svelte";
 
   import {
     Service as Study,
     type Card,
     type Deck,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/study";
-  import { meaningIsRight, readingIsRight, typedReading } from "../lib/answers";
   import { toAppError, type AppError } from "../lib/errors";
-  import { songHref } from "../lib/route";
-  import { afterAnswer, startQueue } from "../lib/studyQueue";
+  import { placeholderCards } from "../lib/placeholders";
+  import { quizHref, songHref, studyHref } from "../lib/route";
+  import { lineParts, otherMeanings, placeOf, shownCards, startFilter, type Filter } from "../lib/studyList";
 
-  // Flashcards for one song, asked the way WaniKani asks: the word, then its reading typed in kana, then its meaning
-  // typed in English. A card is right when every question on it is, and only then does its streak grow.
-  let { songId }: { songId: number } = $props();
-
-  type Question = "reading" | "meaning";
+  // A song's words to study before the quiz: a list of every card with its reading and meaning, and each card on its
+  // own, stepped through with Previous and Next (or a swipe, or the arrow keys). Nothing here is an answer: only the
+  // quiz changes a card's progress.
+  let { songId, cardId }: { songId: number; cardId?: number } = $props();
 
   let deck = $state<Deck | null>(null);
   let failure = $state<AppError | null>(null);
-  let queue = $state<number[]>([]);
-  let question = $state<Question>("reading");
-  let answer = $state("");
-  // Each question's result on the card being asked. checked: the current question has been answered. done: every
-  // question has, and the back of the card shows.
-  let marks = $state<Partial<Record<Question, boolean>>>({});
-  let checked = $state(false);
-  let done = $state(false);
-  let saving = $state(false);
-  let input: HTMLInputElement | undefined = $state();
+  let filter = $state<Filter>("learn");
+  // The last card opened, so the list comes back to it.
+  let lastCard: number | undefined;
 
-  let cards = $derived((deck?.cards ?? []).filter((c) => questionsOf(c).length > 0));
-  let card = $derived(cards.find((c) => c.id === queue[0]));
+  let cards = $derived(deck?.cards ?? []);
   let learned = $derived(cards.filter((c) => c.progress.learned).length);
   let goal = $derived(deck?.goal ?? 3);
-  let allRight = $derived(Object.values(marks).every(Boolean));
-  let streakAfter = $derived(card ? (allRight ? card.progress.streak + 1 : 0) : 0);
-  let current = $derived(question === "reading" ? marks.reading : marks.meaning);
+  let list = $derived(shownCards(cards, filter));
+  let card = $derived(cardId === undefined ? undefined : cards.find((c) => c.id === cardId));
+  // A card opened from outside the list shown, such as a learned one by its link, steps through every card.
+  let steps = $derived(card && placeOf(list, card.id).index < 0 ? cards : list);
+  let place = $derived(card ? placeOf(steps, card.id) : { index: -1 });
 
   $effect(() => {
     Study.Deck(songId)
       .then((d) => {
+        filter = startFilter(d.cards ?? []);
         deck = d;
-        begin(false);
       })
       .catch((err: unknown) => (failure = toAppError(err)));
   });
 
-  // The one answer field stays focused for the whole session, even while an answer shows, so the phone's keyboard
-  // stays up from card to card: iOS only raises it again for a focus inside a tap.
   $effect(() => {
-    void card?.id;
-    input?.focus();
+    if (cardId !== undefined) {
+      lastCard = cardId;
+      return;
+    }
+    if (deck && lastCard !== undefined) {
+      const id = lastCard;
+      void tick().then(() => {
+        const row = document.getElementById(`card-${id}`);
+        row?.scrollIntoView({ block: "center" });
+        row?.focus({ preventScroll: true });
+      });
+    }
   });
 
-  function questionsOf(c: Card): Question[] {
-    const asked: Question[] = [];
-    if (c.askReading) {
-      asked.push("reading");
+  // Stepping replaces the card in the history, so Back goes to the list, not through every card seen.
+  function step(id: number | undefined) {
+    if (id !== undefined) {
+      window.location.replace(studyHref(songId, id));
     }
-    if ((c.meanings ?? []).length > 0) {
-      asked.push("meaning");
-    }
-    return asked;
   }
 
-  function begin(all: boolean) {
-    queue = startQueue(
-      cards.map((c) => ({ id: c.id, learned: c.progress.learned })),
-      all,
-    );
-    startCard();
-  }
-
-  function startCard() {
-    const first = queue[0] !== undefined ? cards.find((c) => c.id === queue[0]) : undefined;
-    question = first ? (questionsOf(first)[0] ?? "meaning") : "reading";
-    marks = {};
-    answer = "";
-    checked = false;
-    done = false;
-  }
-
-  function type(event: Event & { currentTarget: HTMLInputElement }) {
-    if (checked || done) {
-      // An answer is showing: typing changes nothing, and Enter goes on.
-      event.currentTarget.value = answer;
+  function onkeydown(event: KeyboardEvent) {
+    if (!card || event.altKey || event.ctrlKey || event.metaKey) {
       return;
     }
-    const value = event.currentTarget.value;
-    // WanaKana's kana input: romaji turns into hiragana as it's typed, and a lone n waits for the next letter.
-    answer = question === "reading" ? toHiragana(value, { IMEMode: true }) : value;
+    if (event.key === "ArrowLeft") {
+      step(place.previous);
+    } else if (event.key === "ArrowRight") {
+      step(place.next);
+    }
   }
 
-  function submit(event: SubmitEvent) {
-    event.preventDefault();
-    if (!card || saving) {
+  let touch: { x: number; y: number } | null = null;
+
+  function ontouchstart(event: TouchEvent) {
+    const t = event.touches[0];
+    touch = event.touches.length === 1 && t ? { x: t.clientX, y: t.clientY } : null;
+  }
+
+  function ontouchend(event: TouchEvent) {
+    const t = event.changedTouches[0];
+    if (!touch || !t) {
       return;
     }
-    if (done) {
-      void next(card);
-      return;
-    }
-    if (checked) {
-      nextQuestion(card);
-      return;
-    }
-    if (answer.trim() === "") {
-      return;
-    }
-    if (question === "reading") {
-      answer = typedReading(answer);
-      marks.reading = readingIsRight(answer, card.readings ?? []);
-    } else {
-      marks.meaning = meaningIsRight(answer, card.meanings ?? []);
-    }
-    checked = true;
-    if (current) {
-      nextQuestion(card);
+    const dx = t.clientX - touch.x;
+    const dy = t.clientY - touch.y;
+    touch = null;
+    // A sideways swipe, not a scroll or a tap.
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) {
+      step(dx < 0 ? place.next : place.previous);
     }
   }
 
-  function nextQuestion(c: Card) {
-    const asked = questionsOf(c);
-    const following = asked[asked.indexOf(question) + 1];
-    if (following) {
-      question = following;
-      answer = "";
-      checked = false;
-    } else {
-      done = true;
+  function streakText(c: Card): string {
+    if (c.progress.learned) {
+      return "Learned";
     }
-  }
-
-  // For a typo or an answer the check didn't know: counts the current question as right.
-  function countAsRight() {
-    marks[question] = true;
-  }
-
-  async function next(c: Card) {
-    saving = true;
-    try {
-      const progress = await Study.Answer(c.id, allRight);
-      c.progress = progress;
-      queue = afterAnswer(queue, allRight, progress.learned);
-      startCard();
-    } catch (err) {
-      failure = toAppError(err);
-    } finally {
-      saving = false;
+    if (c.progress.right + c.progress.wrong === 0) {
+      return "Not quizzed yet";
     }
-  }
-
-  function lineParts(c: Card): [string, string, string] {
-    const chars = Array.from(c.line);
-    const end = c.wordStart + Array.from(c.wordText).length;
-    return [chars.slice(0, c.wordStart).join(""), chars.slice(c.wordStart, end).join(""), chars.slice(end).join("")];
+    return `${c.progress.streak} of ${goal} in a row`;
   }
 </script>
 
-<div class="screen">
-  <header class="topbar">
-    <a class="icon-button" href={songHref(songId)} aria-label="Back to the song">
-      <svg
-        width="22"
-        height="22"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg
-      >
-    </a>
-    <div class="topbar-title">
-      <h1>Study</h1>
-      {#if deck}<p>{deck.title}</p>{/if}
-    </div>
-    {#if cards.length > 0}
-      <p class="count" aria-label="{learned} of {cards.length} words learned">{learned}/{cards.length}</p>
-    {/if}
-  </header>
+<svelte:window {onkeydown} />
 
-  {#if cards.length > 0}
-    <div class="bar" aria-hidden="true"><span style:width="{(learned / cards.length) * 100}%"></span></div>
+{#snippet back(href: string, label: string)}
+  <a class="icon-button" {href} aria-label={label}>
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg
+    >
+  </a>
+{/snippet}
+
+{#snippet dots(c: Card, size: string)}
+  <span class="dots" style:--dot={size} aria-hidden="true">
+    {#each Array.from({ length: goal }, (_, i) => i) as i (i)}
+      <span class:on={c.progress.learned || i < c.progress.streak}></span>
+    {/each}
+  </span>
+{/snippet}
+
+<!-- The To learn / All choice. The skeleton draws it too, without its counts. -->
+{#snippet filterBar(live: boolean, toLearn: number, all: number)}
+  <fieldset class="filter">
+    <legend class="visually-hidden">Show</legend>
+    <label class:chosen={filter === "learn"}>
+      <input type="radio" name="filter" value="learn" bind:group={filter} disabled={!live} />
+      To learn <span class="n" class:ph={!live}>{live ? toLearn : "00"}</span>
+    </label>
+    <label class:chosen={filter === "all"}>
+      <input type="radio" name="filter" value="all" bind:group={filter} disabled={!live} />
+      All <span class="n" class:ph={!live}>{live ? all : "00"}</span>
+    </label>
+  </fieldset>
+{/snippet}
+
+<!-- A word's row in the list. A stand-in is a skeleton row, its text drawn as bars. -->
+{#snippet wordRow(c: Card, stand: boolean)}
+  <svelte:element
+    this={stand ? "div" : "a"}
+    id={stand ? undefined : `card-${c.id}`}
+    class="word-row"
+    href={stand ? undefined : studyHref(songId, c.id)}
+  >
+    <span class="ja">
+      <span class="label" lang="ja"><span class:ph={stand}>{c.label}</span></span>
+      {#if c.askReading}<span class="kana" lang="ja"><span class:ph={stand}>{c.reading}</span></span>{/if}
+    </span>
+    <span class="gloss"><span class:ph={stand}>{c.meaning}</span></span>
+    {@render dots(c, "7px")}
+    {#if !stand}<span class="visually-hidden">, {streakText(c)}</span>{/if}
+  </svelte:element>
+{/snippet}
+
+<div class="screen">
+  {#if cardId !== undefined}
+    <header class="topbar">
+      {@render back(studyHref(songId), "Back to the word list")}
+      <div class="topbar-title">
+        <h1>{place.index >= 0 ? `Word ${place.index + 1} of ${steps.length}` : "Word"}</h1>
+        {#if deck}<p>{deck.title}</p>{/if}
+      </div>
+    </header>
+  {:else}
+    <header class="topbar">
+      {@render back(songHref(songId), "Back to the song")}
+      <div class="topbar-title">
+        <h1>Study</h1>
+        {#if deck}<p>{deck.title}</p>{:else if !failure}<p aria-hidden="true">
+            <span class="ph">Song title</span>
+          </p>{/if}
+      </div>
+      {#if cards.length > 0}
+        <p class="count" aria-label="{learned} of {cards.length} words learned">{learned}/{cards.length}</p>
+      {:else if deck === null && !failure}
+        <p class="count" aria-hidden="true"><span class="ph">0/00</span></p>
+      {/if}
+    </header>
+    {#if cards.length > 0 || (deck === null && !failure)}
+      <div class="bar" aria-hidden="true">
+        <span style:width="{cards.length > 0 ? (learned / cards.length) * 100 : 0}%"></span>
+      </div>
+    {/if}
   {/if}
 
   {#if failure?.code === "not_found"}
-    <main class="center">
-      <p class="empty-title">This song isn't in your library</p>
-    </main>
+    <main class="center"><p class="empty-title">This song isn't in your library</p></main>
   {:else if failure}
     <main class="center"><p class="alert" role="alert">{failure.message}</p></main>
   {:else if deck === null}
-    <main class="center"><p class="muted">Loading…</p></main>
+    <main>
+      <p class="visually-hidden" role="status">Loading the words</p>
+      <!-- Stand-in words, drawn as rows like the real ones, as a skeleton in the list's shape. -->
+      <div class="skeleton-wait" aria-hidden="true" inert>
+        {@render filterBar(false, 0, 0)}
+        <ul class="words">
+          {#each placeholderCards() as c (c.id)}
+            <li>{@render wordRow(c, true)}</li>
+          {/each}
+        </ul>
+      </div>
+    </main>
+    <div class="actions skeleton-wait" aria-hidden="true" inert>
+      <button type="button" class="button" disabled>Flip through</button>
+      <button type="button" class="button primary" disabled>Quiz me</button>
+    </div>
   {:else if cards.length === 0}
     <main class="center">
       <div class="empty">
@@ -202,109 +223,71 @@
         <p class="muted">
           {deck.installed
             ? "None of this song's words are in the dictionary."
-            : "Flashcards need the dictionary of word meanings, which isn't installed."}
+            : "Studying needs the dictionary of word meanings, which isn't installed."}
         </p>
       </div>
       <a class="button" href={songHref(songId)}>Back to the song</a>
     </main>
-  {:else if !card}
+  {:else if cardId !== undefined && !card}
     <main class="center">
-      <div class="empty">
-        <p class="empty-title">All {cards.length} words learned</p>
-        <p class="muted">Each one was right {goal} times in a row. Go round them all again to keep them fresh.</p>
-      </div>
-      <button type="button" class="button primary" onclick={() => begin(true)}>Review all again</button>
-      <a class="button" href={songHref(songId)}>Back to the song</a>
+      <p class="empty-title">This word isn't in this song</p>
+      <a class="button" href={studyHref(songId)}>Back to the word list</a>
     </main>
-  {:else}
+  {:else if card}
     {@const [before, word, after] = lineParts(card)}
-    <main>
+    {@const others = otherMeanings(card.meaning, card.meanings ?? [])}
+    <main class="lesson" {ontouchstart} {ontouchend}>
       <section class="card" aria-live="polite">
+        {#if card.askReading}
+          <p class="reading" lang="ja">{card.reading}</p>
+        {/if}
         <p class="word" lang="ja">{card.label}</p>
+        <p class="meaning">{card.meaning || "No meaning in the dictionary"}</p>
+        {#if others.length > 0}
+          <p class="others"><span>Also</span> {others.slice(0, 6).join(", ")}</p>
+        {/if}
         {#if card.line}
           <p class="line" lang="ja">{before}<mark>{word}</mark>{after}</p>
         {/if}
-
-        {#if done}
-          <div class="back">
-            <p class="reading" lang="ja">{card.reading}</p>
-            <p class="meaning">{card.meaning}</p>
-            <p class="verdict" class:right={allRight} class:wrong={!allRight}>
-              {allRight ? "Right" : "Wrong"} · {Math.min(streakAfter, goal)} of {goal} in a row{streakAfter >= goal
-                ? ", learned"
-                : ""}
-            </p>
-            <div class="dots" aria-hidden="true">
-              {#each Array.from({ length: goal }, (_, i) => i) as i (i)}
-                <span class:on={i < streakAfter}></span>
-              {/each}
-            </div>
-          </div>
-        {/if}
-      </section>
-
-      <form class="answer" onsubmit={submit}>
-        <label class="ask" class:meaning={question === "meaning" || done} for="answer">
-          {#if done}
-            {allRight ? "Right" : "Not this time"}
-            <span>press Enter or tap Next card</span>
-          {:else}
-            {question === "reading" ? "Reading" : "Meaning"}
-            <span>{question === "reading" ? "type it in kana or romaji" : "in English"}</span>
-          {/if}
-        </label>
-        <div class="field" class:right={(checked && current) || (done && allRight)} class:wrong={checked && !current}>
-          <input
-            id="answer"
-            bind:this={input}
-            value={answer}
-            oninput={type}
-            lang={question === "reading" ? "ja" : "en"}
-            autocomplete="off"
-            autocapitalize="off"
-            spellcheck="false"
-            enterkeyhint={checked || done ? "next" : "go"}
-            placeholder={question === "reading" ? "かな" : "meaning"}
-          />
-          <button
-            type="submit"
-            class="go"
-            disabled={saving}
-            aria-label={done ? "Next card" : checked ? "Go on" : "Check"}
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg
-            >
-          </button>
+        <div class="progress">
+          {@render dots(card, "10px")}
+          <p class:learned={card.progress.learned}>{streakText(card)}</p>
         </div>
-        {#if checked && !current && !done}
-          <div class="feedback" role="status">
-            <p>
-              The answer is
-              <strong lang={question === "reading" ? "ja" : "en"}
-                >{question === "reading"
-                  ? (card.readings ?? []).join("、")
-                  : (card.meanings ?? []).slice(0, 3).join(", ")}</strong
-              >
-            </p>
-            <button type="button" class="link" onclick={countAsRight}>I was right</button>
-          </div>
-        {/if}
-        {#if done}
-          <button type="submit" class="button primary next" disabled={saving}>
-            {saving ? "Saving…" : "Next card"}
-          </button>
-        {/if}
-      </form>
+      </section>
     </main>
+    <div class="actions">
+      <button type="button" class="button" disabled={place.previous === undefined} onclick={() => step(place.previous)}>
+        Previous
+      </button>
+      {#if place.next !== undefined}
+        <button type="button" class="button primary" onclick={() => step(place.next)}>Next</button>
+      {:else}
+        <a class="button primary" href={quizHref(songId)}>Quiz me</a>
+      {/if}
+    </div>
+  {:else}
+    <main>
+      {@render filterBar(true, cards.length - learned, cards.length)}
+
+      {#if list.length === 0}
+        <div class="empty">
+          <p class="empty-title">Every word is learned</p>
+          <p class="muted">Each one was right {goal} times in a row. Choose All to go over them again.</p>
+        </div>
+      {:else}
+        <ul class="words">
+          {#each list as c (c.id)}
+            <li>{@render wordRow(c, false)}</li>
+          {/each}
+        </ul>
+      {/if}
+    </main>
+    <div class="actions">
+      {#if list[0]}
+        <a class="button" href={studyHref(songId, list[0].id)}>Flip through</a>
+      {/if}
+      <a class="button primary" href={quizHref(songId)}>Quiz me</a>
+    </div>
   {/if}
 </div>
 
@@ -330,51 +313,207 @@
     display: block;
     height: 100%;
     background: var(--success);
-    transition: width 0.3s;
   }
 
   main {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    gap: 12px;
   }
 
   .center {
+    flex: 1;
     justify-content: center;
-    align-items: stretch;
     gap: 12px;
     text-align: center;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
   }
 
   .center .button {
     flex: none;
   }
 
+  .filter {
+    display: flex;
+    gap: 4px;
+    margin: 0;
+    padding: 4px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--surface);
+  }
+
+  .filter label {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: var(--tap);
+    border-radius: 10px;
+    color: var(--muted);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .filter label.chosen {
+    background: var(--surface-strong);
+    color: var(--fg);
+  }
+
+  .filter label:has(:focus-visible) {
+    outline: 3px solid var(--link);
+    outline-offset: 2px;
+  }
+
+  .filter input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .n {
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  .words {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-radius: 16px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .words li + li {
+    border-top: 1px solid var(--surface-strong);
+  }
+
+  .word-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 60px;
+    padding: 8px 14px 8px 16px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  .word-row:hover {
+    color: var(--fg);
+    background: var(--surface-strong);
+  }
+
+  .word-row:focus-visible {
+    outline-offset: -3px;
+  }
+
+  .ja {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .label {
+    font-size: 1.25rem;
+    font-weight: 650;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  .kana {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  .gloss {
+    font-size: 0.9375rem;
+    color: var(--muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .dots {
+    display: flex;
+    gap: calc(var(--dot) * 0.6);
+  }
+
+  .dots span {
+    width: var(--dot);
+    height: var(--dot);
+    border-radius: 50%;
+    background: var(--surface-strong);
+  }
+
+  .dots span.on {
+    background: var(--success);
+  }
+
+  .lesson {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 0;
+  }
+
   .card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 28px 16px 24px;
+    gap: 6px;
+    padding: 32px 20px 24px;
     border-radius: 20px;
     background: var(--surface);
     text-align: center;
   }
 
-  .word {
+  .card p {
     margin: 0;
-    font-size: 2.75rem;
+  }
+
+  .reading {
+    font-size: 1.375rem;
+    font-weight: 600;
+    color: var(--link);
+  }
+
+  .word {
+    font-size: 3rem;
     font-weight: 750;
     line-height: 1.2;
     overflow-wrap: anywhere;
   }
 
-  .line {
-    margin: 0;
+  .meaning {
+    margin-top: 8px !important;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .others {
     color: var(--muted);
-    font-size: 1rem;
+    font-size: 0.9375rem;
+  }
+
+  .others span {
+    font-size: 0.75rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .line {
+    margin-top: 16px !important;
+    padding-top: 16px;
+    border-top: 1px solid var(--surface-strong);
+    width: 100%;
+    color: var(--muted);
   }
 
   mark {
@@ -386,170 +525,18 @@
     text-underline-offset: 5px;
   }
 
-  .back {
+  .progress {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     margin-top: 12px;
-    padding-top: 16px;
-    border-top: 1px solid var(--surface-strong);
-    width: 100%;
-  }
-
-  .back p {
-    margin: 0;
-  }
-
-  .reading {
-    font-size: 1.375rem;
-    font-weight: 650;
-  }
-
-  .meaning {
+    font-size: 0.875rem;
     color: var(--muted);
   }
 
-  .verdict {
-    margin-top: 8px !important;
-    font-weight: 650;
-  }
-
-  .verdict.right {
+  .progress .learned {
     color: var(--success);
-  }
-
-  .verdict.wrong {
-    color: var(--danger);
-  }
-
-  .dots {
-    display: flex;
-    gap: 6px;
-    margin-top: 4px;
-  }
-
-  .dots span {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--surface-strong);
-  }
-
-  .dots span.on {
-    background: var(--success);
-  }
-
-  .answer {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .ask {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-weight: 700;
-    color: var(--link);
-  }
-
-  .ask.meaning {
-    color: var(--fg);
-  }
-
-  .ask span {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--muted);
-  }
-
-  .field {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 4px 4px 16px;
-    border: 2px solid var(--surface-strong);
-    border-radius: 16px;
-    background: var(--surface);
-  }
-
-  .field:focus-within {
-    border-color: var(--link);
-  }
-
-  .field.right {
-    border-color: var(--success);
-  }
-
-  .field.wrong {
-    border-color: var(--danger);
-  }
-
-  input {
-    flex: 1;
-    min-width: 0;
-    min-height: 48px;
-    border: 0;
-    background: transparent;
-    color: var(--fg);
-    font-size: 1.25rem;
-    outline: none;
-  }
-
-  input::placeholder {
-    color: var(--dim);
-  }
-
-  .go {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    border: 0;
-    border-radius: 12px;
-    background: var(--accent);
-    color: var(--on-accent);
-    cursor: pointer;
-  }
-
-  .feedback {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px 12px;
-    color: var(--danger);
-  }
-
-  .feedback p {
-    margin: 0;
-  }
-
-  .feedback strong {
-    color: var(--fg);
-  }
-
-  .link {
-    min-height: var(--tap);
-    padding: 0 4px;
-    border: 0;
-    background: transparent;
-    color: var(--link);
-    font-weight: 600;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .next {
-    flex: none;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .bar span {
-      transition: none;
-    }
+    font-weight: 650;
   }
 </style>

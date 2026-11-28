@@ -3,8 +3,10 @@
 package store_test
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 	"github.com/JasonPKnoll/utanabi/internal/store"
@@ -39,6 +41,12 @@ INSERT INTO cards (id, kind, entry_id, sense_index, context_line_id, label, labe
 INSERT INTO cards (id, kind, grammar_point_id, context_line_id, label, created_at)
     VALUES (1001, 'grammar', 'teiru', 10, '〜ている', 1);
 INSERT INTO cards (id, kind, line_id, label, created_at) VALUES (1002, 'line', 11, '夜の空に星が光る', 1);
+INSERT INTO users (id, handle, name, created_at) VALUES (5, randomblob(32), 'kaze', 1);
+INSERT INTO passkeys (id, user_id, public_key, attestation_type, transports, sign_count, backup_eligible, backup_state, created_at)
+    VALUES (randomblob(16), 5, x'01', 'none', '["internal"]', 0, 1, 1, 1);
+INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (randomblob(32), 5, 1, 2);
+INSERT INTO library_songs (owner, song_id, added_at) VALUES (0, 1, 1), (0, 2, 1), (5, 2, 1);
+INSERT INTO invites (id, code_hash, created_by, created_at, expires_at) VALUES (1, randomblob(32), 5, 1, 2);
 `
 
 func newSchemaDB(t *testing.T) *store.DB {
@@ -83,8 +91,40 @@ func TestSchemaAcceptsGoodRows(t *testing.T) {
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading) VALUES (11, 0, 'ラーメン', 'らーめんゞ')`},
 		{name: "a token without a reading",
 			sql: `INSERT INTO line_tokens (line_id, position, surface) VALUES (11, 0, '、')`},
+		{name: "a user's own word card for a meaning the device has a card for too",
+			sql: `INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 5, 3, 0, '探す', 1)`},
+		{name: "a user adding a song the device has",
+			sql: `INSERT INTO library_songs (owner, song_id, added_at) VALUES (5, 1, 1)`},
+		{name: "an admin",
+			sql: `UPDATE users SET admin = 1 WHERE id = 5`},
+		{name: "a used invite",
+			sql: `INSERT INTO invites (code_hash, created_by, created_at, expires_at, used_by, used_at) VALUES (randomblob(32), 5, 1, 9, 5, 3)`},
 		{name: "a card's progress",
 			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (1000, 2, 5, 1, 1)`},
+		{name: "a Spotify link for a user",
+			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (5, 'a', 'r', 2, 1)`},
+		{name: "a song's Spotify track",
+			sql: `INSERT INTO spotify_tracks (song_id, track_id, matched_at) VALUES (2, '3sY7Sdc9a5xP0M2YbS0Xx7', 1)`},
+		{name: "a Spotify track with its length",
+			sql: `INSERT INTO spotify_tracks (song_id, track_id, duration_ms, matched_at) VALUES (2, '3sY7Sdc9a5xP0M2YbS0Xx7', 185500, 1)`},
+		{name: "a lyric offset for a user",
+			sql: `INSERT INTO lyric_offsets (owner, song_id, offset_ms) VALUES (5, 2, -5500)`},
+		{name: "a lyric offset on the device",
+			sql: `INSERT INTO lyric_offsets (owner, song_id, offset_ms) VALUES (0, 2, 60000)`},
+		{name: "a YouTube video found by search",
+			sql: `INSERT INTO youtube_videos (owner, song_id, video_id, title, channel, duration_ms, matched_at) VALUES (5, 2, 'dQw4w9WgXcQ', 'Matsuri', 'Fujii Kaze', 249000, 1)`},
+		{name: "a YouTube video pasted on the device, with an offset",
+			sql: `INSERT INTO youtube_videos (owner, song_id, video_id, offset_ms, chosen, matched_at) VALUES (0, 2, 'a-b_c1234XY', -900, 1, 1)`},
+		{name: "a sealed server secret",
+			sql: `INSERT INTO server_secrets (name, sealed, updated_at) VALUES ('youtube_api_key', randomblob(67), 1)`},
+		{name: "a sung reading in katakana",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (5, 10, 2, 2, '声', 'ボイス')`},
+		{name: "a sung reading in hiragana over several tokens",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 4, 6, '探している', 'さがしてる')`},
+		{name: "a word time you tapped",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (5, 10, 0, 1500, 'user')`},
+		{name: "word times found in the timing database, at a line's first and last characters",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, 0, 'amll'), (0, 10, 499, 3600000, 'amll')`},
 		{name: "a token with its part of speech",
 			sql: `INSERT INTO line_tokens (line_id, position, surface, reading, pos) VALUES (11, 0, '夜', 'よる', 'noun')`},
 		{name: "a token without a part of speech",
@@ -127,6 +167,40 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 		args    []any
 		wantErr string
 	}{
+		{name: "a username with capitals", wantErr: "CHECK",
+			sql: `INSERT INTO users (handle, name, created_at) VALUES (randomblob(32), 'Kaze', 1)`},
+		{name: "a username too short", wantErr: "CHECK",
+			sql: `INSERT INTO users (handle, name, created_at) VALUES (randomblob(32), 'kz', 1)`},
+		{name: "a taken username", wantErr: "UNIQUE",
+			sql: `INSERT INTO users (handle, name, created_at) VALUES (randomblob(32), 'kaze', 1)`},
+		{name: "a user handle that isn't 32 bytes", wantErr: "CHECK",
+			sql: `INSERT INTO users (handle, name, created_at) VALUES (randomblob(16), 'hana', 1)`},
+		{name: "a passkey for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO passkeys (id, user_id, public_key, attestation_type, transports, sign_count, backup_eligible, backup_state, created_at) VALUES (randomblob(16), 99, x'01', 'none', '[]', 0, 0, 0, 1)`},
+		{name: "a passkey whose transports aren't a list", wantErr: "CHECK",
+			sql: `INSERT INTO passkeys (id, user_id, public_key, attestation_type, transports, sign_count, backup_eligible, backup_state, created_at) VALUES (randomblob(16), 5, x'01', 'none', 'usb', 0, 0, 0, 1)`},
+		{name: "a session that ends before it starts", wantErr: "CHECK",
+			sql: `INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (randomblob(32), 5, 10, 10)`},
+		{name: "a session token stored whole, not hashed", wantErr: "CHECK",
+			sql: `INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (randomblob(43), 5, 1, 2)`},
+		{name: "a song in the library of no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO library_songs (owner, song_id, added_at) VALUES (99, 1, 1)`},
+		{name: "a song added twice to one library", wantErr: "UNIQUE",
+			sql: `INSERT INTO library_songs (owner, song_id, added_at) VALUES (5, 2, 1)`},
+		{name: "a card for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 99, 3, 0, '探す', 1)`},
+		{name: "a second card for one meaning in one owner's cards", wantErr: "UNIQUE",
+			sql: `INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 0, 3, 0, '探す', 1)`},
+		{name: "admin that isn't 0 or 1", wantErr: "CHECK",
+			sql: `UPDATE users SET admin = 2 WHERE id = 5`},
+		{name: "an invite stored whole, not hashed", wantErr: "CHECK",
+			sql: `INSERT INTO invites (code_hash, created_at, expires_at) VALUES (CAST('sszt-x59r-5rx2-emm7' AS BLOB), 1, 2)`},
+		{name: "an invite that runs out before it's made", wantErr: "CHECK",
+			sql: `INSERT INTO invites (code_hash, created_at, expires_at) VALUES (randomblob(32), 5, 5)`},
+		{name: "an invite used by someone with no time", wantErr: "CHECK",
+			sql: `INSERT INTO invites (code_hash, created_at, expires_at, used_by) VALUES (randomblob(32), 1, 2, 5)`},
+		{name: "the same invite twice", wantErr: "UNIQUE",
+			sql: `INSERT INTO invites (code_hash, created_at, expires_at) SELECT code_hash, 1, 2 FROM invites WHERE id = 1`},
 		{name: "progress for a card that doesn't exist", wantErr: "FOREIGN KEY",
 			sql: `INSERT INTO card_progress (card_id, streak, right_count, wrong_count, reviewed_at) VALUES (9999, 0, 0, 0, 1)`},
 		{name: "a negative streak", wantErr: "CHECK",
@@ -227,6 +301,63 @@ func TestSchemaRejectsBadRows(t *testing.T) {
 			sql: `INSERT INTO cards (kind, entry_id, sense_index, label, created_at) VALUES ('word', 3, 0, '探す', 1)`},
 		{name: "a second card for the same grammar point", wantErr: "UNIQUE",
 			sql: `INSERT INTO cards (kind, grammar_point_id, label, created_at) VALUES ('grammar', 'teiru', 'x', 1)`},
+		{name: "a Spotify link for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (99, 'a', 'r', 2, 1)`},
+		{name: "a Spotify link with too long a list of scopes", wantErr: "CHECK",
+			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at, scopes) VALUES (5, 'a', 'r', 2, 1, printf('%.1001c', 'x'))`},
+		{name: "a Spotify link with no token", wantErr: "CHECK",
+			sql: `INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (5, '', 'r', 2, 1)`},
+		{name: "a Spotify track ID that isn't one", wantErr: "CHECK",
+			sql: `INSERT INTO spotify_tracks (song_id, track_id, matched_at) VALUES (2, 'spotify:track:3sY7Sdc9a', 1)`},
+		{name: "a Spotify track for no song", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO spotify_tracks (song_id, track_id, matched_at) VALUES (99, '3sY7Sdc9a5xP0M2YbS0Xx7', 1)`},
+		{name: "a Spotify track with no length", wantErr: "CHECK",
+			sql: `INSERT INTO spotify_tracks (song_id, track_id, duration_ms, matched_at) VALUES (2, '3sY7Sdc9a5xP0M2YbS0Xx7', 0, 1)`},
+		{name: "a lyric offset of more than a minute", wantErr: "CHECK",
+			sql: `INSERT INTO lyric_offsets (owner, song_id, offset_ms) VALUES (5, 2, -60001)`},
+		{name: "a lyric offset for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO lyric_offsets (owner, song_id, offset_ms) VALUES (99, 2, 1000)`},
+		{name: "a lyric offset for no song", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO lyric_offsets (owner, song_id, offset_ms) VALUES (5, 99, 1000)`},
+		{name: "a YouTube video ID that isn't one", wantErr: "CHECK",
+			sql: `INSERT INTO youtube_videos (owner, song_id, video_id, matched_at) VALUES (5, 2, 'watch?v=dQw4', 1)`},
+		{name: "a YouTube video with an offset of more than a minute", wantErr: "CHECK",
+			sql: `INSERT INTO youtube_videos (owner, song_id, video_id, offset_ms, matched_at) VALUES (5, 2, 'dQw4w9WgXcQ', 60001, 1)`},
+		{name: "a YouTube video for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO youtube_videos (owner, song_id, video_id, matched_at) VALUES (99, 2, 'dQw4w9WgXcQ', 1)`},
+		{name: "a YouTube video for no song", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO youtube_videos (owner, song_id, video_id, matched_at) VALUES (5, 99, 'dQw4w9WgXcQ', 1)`},
+		{name: "a server secret too short to be sealed", wantErr: "CHECK",
+			sql: `INSERT INTO server_secrets (name, sealed, updated_at) VALUES ('youtube_api_key', x'00', 1)`},
+		{name: "a server secret with a name that isn't one", wantErr: "CHECK",
+			sql: `INSERT INTO server_secrets (name, sealed, updated_at) VALUES ('YouTube Key', randomblob(67), 1)`},
+		{name: "a sung reading in kanji", wantErr: "CHECK",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', '歌')`},
+		{name: "a sung reading in Latin letters", wantErr: "CHECK",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'voice')`},
+		{name: "a sung reading that ends before it starts", wantErr: "CHECK",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 4, 3, '声', 'うた')`},
+		{name: "a sung reading for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (99, 10, 2, 2, '声', 'うた')`},
+		{name: "a second sung reading for one word in one owner's readings", wantErr: "UNIQUE",
+			sql: `INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'うた');
+			      INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'こえ')`},
+		{name: "a word time before the line's first character", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, -1, 1000, 'user')`},
+		{name: "a word time past the longest line", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 500, 1000, 'user')`},
+		{name: "a negative word time", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, -1, 'user')`},
+		{name: "a word time past an hour", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, 3600001, 'user')`},
+		{name: "a word time from an unknown source", wantErr: "CHECK",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, 1000, 'musixmatch')`},
+		{name: "a word time for no user", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (99, 10, 0, 1000, 'user')`},
+		{name: "a word time for no line", wantErr: "FOREIGN KEY",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 999, 0, 1000, 'user')`},
+		{name: "two word times at one character in one owner's times", wantErr: "UNIQUE",
+			sql: `INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 2, 1000, 'user'), (0, 10, 2, 1200, 'user')`},
 		{name: "a second card for the same line", wantErr: "UNIQUE",
 			sql: `INSERT INTO cards (kind, line_id, label, created_at) VALUES ('line', 11, 'x', 1)`},
 	}
@@ -262,6 +393,12 @@ func TestSchemaDeletingASongRemovesEverythingFromIt(t *testing.T) {
 	t.Parallel()
 
 	db := newSchemaDB(t)
+	_, err := db.Querier().ExecContext(t.Context(),
+		`INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (0, 10, 2, 2, '声', 'うた');
+		 INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (0, 10, 0, 1000, 'user')`)
+	if err != nil {
+		t.Fatalf("insert sung reading and word time: %v", err)
+	}
 	if _, err := db.Querier().ExecContext(t.Context(), `DELETE FROM songs WHERE id = 1`); err != nil {
 		t.Fatalf("delete song: %v", err)
 	}
@@ -272,7 +409,9 @@ func TestSchemaDeletingASongRemovesEverythingFromIt(t *testing.T) {
 		"words":           `SELECT count(*) FROM line_words WHERE line_id IN (10, 11)`,
 		"inflections":     `SELECT count(*) FROM word_inflections WHERE word_id = 104`,
 		"translations":    `SELECT count(*) FROM line_translations WHERE line_id IN (10, 11)`,
+		"word times":      `SELECT count(*) FROM word_times WHERE line_id IN (10, 11)`,
 		"line card":       `SELECT count(*) FROM cards WHERE id = 1002`,
+		"sung readings":   `SELECT count(*) FROM sung_readings WHERE line_id IN (10, 11)`,
 	}
 	for what, query := range gone {
 		if got := count(t, db, query); got != 0 {
@@ -285,5 +424,84 @@ func TestSchemaDeletingASongRemovesEverythingFromIt(t *testing.T) {
 	}
 	if got := count(t, db, `SELECT count(*) FROM songs WHERE id = 2`); got != 1 {
 		t.Errorf("the other song was deleted too")
+	}
+}
+
+func TestSchemaLibrariesAndAccounts(t *testing.T) {
+	t.Parallel()
+
+	db := newSchemaDB(t)
+	q := db.Querier()
+	exec := func(query string) {
+		t.Helper()
+		if _, err := q.ExecContext(t.Context(), query); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+	}
+
+	// Song 2 is in two libraries: letting one go keeps it for the other.
+	exec(`DELETE FROM library_songs WHERE owner = 0 AND song_id = 2`)
+	if got := count(t, db, `SELECT count(*) FROM songs WHERE id = 2`); got != 1 {
+		t.Errorf("song 2 after one library let it go = %d rows, want 1", got)
+	}
+
+	// Removing the user removes their passkeys, sessions, cards, and library, and the songs only they had.
+	exec(`INSERT INTO cards (kind, owner, entry_id, sense_index, label, created_at) VALUES ('word', 5, 3, 0, '探す', 1)`)
+	exec(`INSERT INTO sung_readings (owner, line_id, first_token, last_token, surface, reading) VALUES (5, 10, 2, 2, '声', 'うた')`)
+	exec(`INSERT INTO spotify_links (owner, access_token, refresh_token, expires_at, connected_at) VALUES (5, 'a', 'r', 2, 1)`)
+	exec(`INSERT INTO word_times (owner, line_id, at, start_ms, source) VALUES (5, 10, 0, 1000, 'user')`)
+	exec(`DELETE FROM users WHERE id = 5`)
+	for name, query := range map[string]string{
+		"their keys":     `SELECT count(*) FROM passkeys WHERE user_id = 5`,
+		"their sign-ins": `SELECT count(*) FROM sessions WHERE user_id = 5`,
+		"their cards":    `SELECT count(*) FROM cards WHERE owner = 5`,
+		"their readings": `SELECT count(*) FROM sung_readings WHERE owner = 5`,
+		"their timings":  `SELECT count(*) FROM word_times WHERE owner = 5`,
+		"their Spotify":  `SELECT count(*) FROM spotify_links WHERE owner = 5`,
+		"their library":  `SELECT count(*) FROM library_songs WHERE owner = 5`,
+		"song 2":         `SELECT count(*) FROM songs WHERE id = 2`,
+	} {
+		if got := count(t, db, query); got != 0 {
+			t.Errorf("%s left after removing the user = %d, want 0", name, got)
+		}
+	}
+	if got := count(t, db, `SELECT count(*) FROM songs WHERE id = 1`); got != 1 {
+		t.Errorf("the device's song 1 after removing the user = %d rows, want 1", got)
+	}
+}
+
+func TestSchemaGivesEarlierSongsToTheDevice(t *testing.T) {
+	t.Parallel()
+
+	db := storetest.New(t)
+	migrations := store.Migrations()
+	// The migrations up to 005, before accounts.
+	before := fstest.MapFS{}
+	entries, err := fs.ReadDir(migrations, ".")
+	if err != nil {
+		t.Fatalf("read migrations: %v", err)
+	}
+	for _, e := range entries {
+		if e.Name() >= "006" {
+			continue
+		}
+		data, err := fs.ReadFile(migrations, e.Name())
+		if err != nil {
+			t.Fatalf("read %s: %v", e.Name(), err)
+		}
+		before[e.Name()] = &fstest.MapFile{Data: data}
+	}
+	if err := db.Migrate(t.Context(), before); err != nil {
+		t.Fatalf("Migrate to 005: %v", err)
+	}
+	if _, err := db.Querier().ExecContext(t.Context(),
+		`INSERT INTO songs (id, title, source, created_at, updated_at) VALUES (1, '星の歌', 'user', 7, 7)`); err != nil {
+		t.Fatalf("insert song: %v", err)
+	}
+	if err := db.Migrate(t.Context(), migrations); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if got := count(t, db, `SELECT count(*) FROM library_songs WHERE owner = 0 AND song_id = 1 AND added_at = 7`); got != 1 {
+		t.Errorf("library rows for the earlier song = %d, want the device's", got)
 	}
 }

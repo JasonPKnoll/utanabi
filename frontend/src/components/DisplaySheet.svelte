@@ -1,33 +1,42 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
+  import type { Player } from "../lib/players";
   import type { ReadingAids } from "../lib/readingAids";
+  import ReadingAidSwitches from "./ReadingAidSwitches.svelte";
   import Sheet from "./Sheet.svelte";
   import ThemePicker from "./ThemePicker.svelte";
 
-  // The song's display options in one place: the reading aids as switches, the app's theme, where the lyrics came
-  // from, and deleting the song, so none of them take room from the lyrics.
+  // The song's display options in one place: the reading aids as switches, what the lyrics play along with (Spotify
+  // or the song's YouTube video, when both are there), its word timing, the app's theme, where the lyrics came from,
+  // and deleting the song, so none of them take room from the lyrics.
   let {
     aids,
     source,
     deleting,
+    players = [],
+    player = null,
+    onplayer,
     ontoggle,
     ondelete,
     onclose,
+    timing,
   }: {
     aids: ReadingAids;
     source: string;
     deleting: boolean;
+    players?: Player[];
+    player?: Player | null;
+    onplayer?: (player: Player) => void;
     ontoggle: (aid: keyof ReadingAids) => void;
     ondelete: () => void;
     onclose: () => void;
+    // The song's word timing, given the sheet's close, for actions that leave the sheet.
+    timing?: Snippet<[() => void]>;
   } = $props();
 
-  let confirmDelete = $state(false);
+  const playerNames: Record<Player, string> = { spotify: "Spotify", youtube: "YouTube" };
 
-  const options: { aid: keyof ReadingAids; label: string; hint: string }[] = [
-    { aid: "furigana", label: "Furigana", hint: "Readings over the kanji" },
-    { aid: "romaji", label: "Romaji", hint: "Each line in Latin letters" },
-    { aid: "words", label: "Words", hint: "English under each word" },
-  ];
+  let confirmDelete = $state(false);
 </script>
 
 <Sheet labelledby="display-title" {onclose}>
@@ -48,27 +57,25 @@
       </button>
     </header>
 
-    <ul class="group">
-      {#each options as option (option.aid)}
-        <li>
-          <button
-            type="button"
-            class="row"
-            role="switch"
-            aria-checked={aids[option.aid]}
-            aria-labelledby={`aid-${option.aid}`}
-            aria-describedby={`aid-${option.aid}-hint`}
-            onclick={() => ontoggle(option.aid)}
-          >
-            <span class="text">
-              <span class="label" id={`aid-${option.aid}`}>{option.label}</span>
-              <span class="hint" id={`aid-${option.aid}-hint`}>{option.hint}</span>
-            </span>
-            <span class="switch" aria-hidden="true"><span class="knob"></span></span>
-          </button>
-        </li>
-      {/each}
-    </ul>
+    <div class="aids"><ReadingAidSwitches {aids} {ontoggle} /></div>
+
+    {#if players.length > 1}
+      <h3 class="section">Play along with</h3>
+      <fieldset class="players">
+        <legend class="visually-hidden">Play along with</legend>
+        {#each players as p (p)}
+          <label class="player" class:chosen={player === p}>
+            <input type="radio" name="player" value={p} checked={player === p} onchange={() => onplayer?.(p)} />
+            {playerNames[p]}
+          </label>
+        {/each}
+      </fieldset>
+    {/if}
+
+    {#if timing}
+      <h3 class="section">Word timing</h3>
+      {@render timing(close)}
+    {/if}
 
     <h3 class="section">Theme</h3>
     <ThemePicker />
@@ -109,19 +116,6 @@
     font-weight: 650;
   }
 
-  .group {
-    margin: 8px 0 0;
-    padding: 0;
-    list-style: none;
-    border-radius: 16px;
-    background: var(--bg);
-    overflow: hidden;
-  }
-
-  .group li + li {
-    border-top: 1px solid var(--surface-strong);
-  }
-
   .row {
     display: flex;
     align-items: center;
@@ -136,50 +130,47 @@
     cursor: pointer;
   }
 
-  .text {
+  .aids {
+    margin-top: 8px;
+  }
+
+  .players {
+    display: flex;
+    gap: 4px;
+    margin: 0;
+    padding: 4px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--bg);
+  }
+
+  .player {
+    position: relative;
     flex: 1;
     display: flex;
-    flex-direction: column;
-  }
-
-  .label {
-    font-weight: 600;
-  }
-
-  .hint {
-    font-size: 0.8125rem;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap);
+    border-radius: 10px;
     color: var(--muted);
+    font-weight: 600;
+    cursor: pointer;
   }
 
-  /* An on/off switch drawn from the button's aria-checked, so its look always matches what screen readers hear. */
-  .switch {
-    flex: none;
-    position: relative;
-    width: 46px;
-    height: 28px;
-    border-radius: 14px;
+  .player.chosen {
     background: var(--surface-strong);
-    transition: background 0.15s;
+    color: var(--fg);
   }
 
-  .knob {
+  .player input {
     position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: var(--fg);
-    transition: transform 0.15s;
+    opacity: 0;
+    pointer-events: none;
   }
 
-  .row[aria-checked="true"] .switch {
-    background: var(--accent);
-  }
-
-  .row[aria-checked="true"] .knob {
-    transform: translateX(18px);
-    background: var(--on-accent);
+  .player:has(input:focus-visible) {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
   }
 
   .section {
@@ -218,12 +209,5 @@
   .confirm-actions {
     display: flex;
     gap: 12px;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .switch,
-    .knob {
-      transition: none;
-    }
   }
 </style>

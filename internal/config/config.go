@@ -11,10 +11,13 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/JasonPKnoll/utanabi/internal/common/redact"
 )
 
 // AppName is the product name used for folders and the window title.
@@ -30,11 +33,12 @@ var version = "dev"
 // defaultLyricsSources is the comma-separated list of online lyrics sources a build turns on when the user hasn't
 // chosen, or "none". A build can ship with them off:
 // -ldflags "-X github.com/JasonPKnoll/utanabi/internal/config.defaultLyricsSources=none".
-var defaultLyricsSources = "lrclib"
+var defaultLyricsSources = "lrclib,amll"
 
-// LyricsSources returns the online lyrics sources this build has an adapter for, in the order search asks them.
+// LyricsSources returns the online lyrics sources this build has an adapter for: lrclib, which song search asks for
+// lyrics, and amll, a database of songs timed word by word, which a song's word times are looked up in.
 func LyricsSources() []string {
-	return []string{"lrclib"}
+	return []string{"lrclib", "amll"}
 }
 
 // Dirs are the OS folders the app writes to. An empty Log means log to stderr.
@@ -42,6 +46,9 @@ type Dirs struct {
 	Config string
 	Data   string
 	Log    string
+	// Bundled is the folder of read-only files that ship with the app, such as the dictionary inside a Mac app's
+	// Resources. Empty when the app has none.
+	Bundled string
 }
 
 // Platform describes where the app runs. internal/app builds it per build target.
@@ -62,8 +69,13 @@ type Config struct {
 	DBPath        string
 	DBBusyTimeout time.Duration
 	// DictionaryPath is the read-only reference dictionary, dictionary.db. The app runs without it, with word meanings
-	// unavailable.
-	DictionaryPath string
+	// unavailable. BundledDictionaryPath is the copy that ships with the app, used when there's none at
+	// DictionaryPath and no dictionary_path is set; empty when there's no such copy to look for.
+	DictionaryPath        string
+	BundledDictionaryPath string
+	// DictionaryPathSet is whether dictionary_path names the dictionary. When it doesn't, a dictionary built into the
+	// app may be written to DictionaryPath.
+	DictionaryPathSet bool
 	// LyricsSources are the online lyrics sources that are on, in order. Empty means online search is off and
 	// nothing is sent to any lyrics service.
 	LyricsSources []string
@@ -74,8 +86,22 @@ type Config struct {
 
 // Server holds the settings only server mode uses.
 type Server struct {
-	// AllowedOrigins become Wails's WebSocketOriginPatterns, for a reverse proxy's public origin.
+	// AllowedOrigins become Wails's WebSocketOriginPatterns, for a reverse proxy's public origin. The exact hosts
+	// among them are also the sites passkeys are made for, as well as localhost.
 	AllowedOrigins []string
+	// Port is the port the server listens on, which a passkey made on localhost is tied to.
+	Port int
+	// SignupCode is the code that creating an account asks for. Empty means sign-up is closed: no new accounts.
+	SignupCode redact.Secret
+	// SpotifyClientID is the app's client ID on Spotify's developer dashboard, for following along with Spotify.
+	// Empty means Spotify is off. It isn't a secret: the app signs in with PKCE and has no client secret.
+	SpotifyClientID string
+	// YouTubeAPIKey is a YouTube Data API key, for finding a song's video by searching. Empty means search is off:
+	// videos are pasted as links. It's a secret: it spends the key's quota, so it stays on the server.
+	YouTubeAPIKey redact.Secret
+	// SongTools turns on the admins' song tools, for testing: finding songs with word times, and building a song again
+	// as if just added. Off unless UTANABI_SONG_TOOLS is on.
+	SongTools bool
 }
 
 // settings mirrors the user settings file. Every field is optional.
@@ -88,6 +114,9 @@ type settings struct {
 	LyricsSources *[]string `json:"lyrics_sources"`
 	StudyStreak   *int      `json:"study_streak"`
 }
+
+// minSignupCode is the shortest sign-up code accepted, so it can't be guessed in a few tries.
+const minSignupCode = 12
 
 // Study streaks the settings accept, and the one that applies when none is set.
 const (
@@ -135,6 +164,10 @@ func Load(p Platform) (Config, error) {
 	}
 
 	cfg.DictionaryPath, err = dictionaryPath(p.Dirs.Data, s.DictionaryPath)
+	cfg.DictionaryPathSet = s.DictionaryPath != ""
+	if s.DictionaryPath == "" && p.Dirs.Bundled != "" {
+		cfg.BundledDictionaryPath = filepath.Join(p.Dirs.Bundled, "dictionary.db")
+	}
 	if err != nil {
 		return Config{}, err
 	}
@@ -276,16 +309,54 @@ func splitList(s string) []string {
 	return list
 }
 
+// youtubeAPIKey is the shape of a Google API key.
+var youtubeAPIKey = regexp.MustCompile(`^[0-9A-Za-z_-]{30,100}$`)
+
+// spotifyClientID is the shape of a client ID on Spotify's developer dashboard.
+var spotifyClientID = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
+
 func loadServer(getenv func(string) string) (Server, error) {
+	srv := Server{Port: 8080}
 	// Wails reads WAILS_SERVER_PORT itself but silently ignores a bad value, so check it here.
 	if v := getenv("WAILS_SERVER_PORT"); v != "" {
 		port, err := strconv.Atoi(v)
 		if err != nil || port < 1 || port > 65535 {
 			return Server{}, fmt.Errorf("config: invalid WAILS_SERVER_PORT (%q is not a port number)", v)
 		}
+		srv.Port = port
+	}
+	if code := getenv("UTANABI_SIGNUP_CODE"); code != "" {
+		if len(code) < minSignupCode {
+			return Server{}, fmt.Errorf("config: invalid UTANABI_SIGNUP_CODE (it must be at least %d characters)",
+				minSignupCode)
+		}
+		srv.SignupCode = redact.New(code)
 	}
 
-	var srv Server
+	if id := getenv("UTANABI_SPOTIFY_CLIENT_ID"); id != "" {
+		if !spotifyClientID.MatchString(id) {
+			return Server{}, errors.New("config: invalid UTANABI_SPOTIFY_CLIENT_ID (it must be the 32-character " +
+				"client ID from Spotify's developer dashboard)")
+		}
+		srv.SpotifyClientID = id
+	}
+
+	if key := getenv("UTANABI_YOUTUBE_API_KEY"); key != "" {
+		if !youtubeAPIKey.MatchString(key) {
+			return Server{}, errors.New("config: invalid UTANABI_YOUTUBE_API_KEY (it must be an API key from " +
+				"Google Cloud's credentials page)")
+		}
+		srv.YouTubeAPIKey = redact.New(key)
+	}
+
+	switch v := strings.ToLower(strings.TrimSpace(getenv("UTANABI_SONG_TOOLS"))); v {
+	case "", "off", "false", "0":
+	case "on", "true", "1":
+		srv.SongTools = true
+	default:
+		return Server{}, fmt.Errorf("config: invalid UTANABI_SONG_TOOLS (%q is not on or off)", v)
+	}
+
 	for _, origin := range splitList(getenv("UTANABI_ALLOWED_ORIGINS")) {
 		if origin == "*" {
 			return Server{}, errors.New("config: invalid UTANABI_ALLOWED_ORIGINS (a bare * allows every origin)")

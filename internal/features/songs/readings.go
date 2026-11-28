@@ -26,6 +26,9 @@ func analyzeLine(ctx context.Context, analyzer Analyzer, m *meanings, line *Line
 	if err != nil {
 		return err
 	}
+	if tokens, err = m.recut(ctx, tokens); err != nil {
+		return err
+	}
 	line.Tokens, line.Analysis = nil, nil
 	if !fits(tokens, line.Text) {
 		return nil
@@ -106,6 +109,9 @@ func reanalyze(ctx context.Context, analyzer Analyzer, m *meanings, line *Line) 
 	if err != nil {
 		return err
 	}
+	if fresh, err = m.recut(ctx, fresh); err != nil {
+		return err
+	}
 	if len(fresh) != len(line.Tokens) {
 		return nil
 	}
@@ -151,15 +157,27 @@ func fillMeanings(ctx context.Context, repo Repository, m *meanings, lines []Lin
 }
 
 // rubyOf gives the furigana for each token, and joins the pieces that have none, so 君の声 is 君 (きみ), の, 声 (こえ).
+// A word with a sung reading gets that reading over it instead (see markSung).
 func rubyOf(tokens []Token) []RubyPart {
 	var parts []RubyPart
-	for _, t := range tokens {
-		for _, p := range jtext.Ruby(t.Surface, t.Reading) {
+	for i := 0; i < len(tokens); i++ {
+		t := tokens[i]
+		var pieces []RubyPart
+		if t.sung != "" {
+			end := min(t.sungEnd, len(tokens)-1)
+			pieces = sungRuby(surfaceOf(tokens[i:end+1]), t.sung)
+			i = end
+		} else {
+			for _, p := range jtext.Ruby(t.Surface, t.Reading) {
+				pieces = append(pieces, RubyPart{Text: p.Text, Reading: p.Reading})
+			}
+		}
+		for _, p := range pieces {
 			if n := len(parts); n > 0 && p.Reading == "" && parts[n-1].Reading == "" {
 				parts[n-1].Text += p.Text
 				continue
 			}
-			parts = append(parts, RubyPart{Text: p.Text, Reading: p.Reading})
+			parts = append(parts, p)
 		}
 	}
 	return parts
@@ -177,10 +195,19 @@ func romaji(tokens []Token) string {
 	if len(tokens) == 0 {
 		return ""
 	}
-	in := make([]jtext.RomajiToken, len(tokens))
-	for i, t := range tokens {
-		in[i] = jtext.RomajiToken{Surface: t.Surface, Reading: t.Reading, Particle: t.POS == morph.Particle,
-			Attach: attaches(tokens, i)}
+	in := make([]jtext.RomajiToken, 0, len(tokens))
+	for i := 0; i < len(tokens); i++ {
+		t := tokens[i]
+		if t.sung != "" {
+			// A word with a sung reading is written as it's sung, as one word: 羅針盤 sung コンパス is konpasu.
+			end := min(t.sungEnd, len(tokens)-1)
+			in = append(in, jtext.RomajiToken{Surface: surfaceOf(tokens[i : end+1]), Reading: jtext.ToHiragana(t.sung),
+				Attach: attaches(tokens, i)})
+			i = end
+			continue
+		}
+		in = append(in, jtext.RomajiToken{Surface: t.Surface, Reading: t.Reading, Particle: t.POS == morph.Particle,
+			Attach: attaches(tokens, i)})
 	}
 	return jtext.RomajiLine(in)
 }

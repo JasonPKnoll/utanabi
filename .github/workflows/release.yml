@@ -1,0 +1,395 @@
+name: Release
+
+# Builds Utanabi for every platform, and starts each build on its own platform to prove it works, with the
+# dictionary in it:
+#
+#   Utanabi-<version>-windows-x64-setup.exe  Windows installer: installed silently, then started
+#   Utanabi-<version>-macos.zip              Mac app, Apple silicon and Intel (the Homebrew cask and install.sh use it)
+#   Utanabi-<version>-linux-x86_64.AppImage  Linux, started under a virtual display; plus .deb and .rpm
+#   Utanabi-<version>-android.apk            Android app (experimental in Wails): installed and started on an emulator
+#   utanabi-server-<version>-linux-*.tar.gz  The server, for using Utanabi in any browser
+#   ghcr.io/<owner>/utanabi:<version>        The server image, started and asked for /health
+#
+# Run by hand (Actions, Release, Run workflow), it's a dry run: everything is built and tested, and the files are kept
+# with the run for a week, but nothing is published. A tag v<version>, pushed for the version in build/config.yml,
+# also publishes the release and the image.
+#
+# Signing, all optional: MACOS_SIGN_IDENTITY needs a Developer ID in the runner's keychain (see
+# scripts/package-macos.sh); ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and
+# ANDROID_KEY_PASSWORD sign the APK with your own key, so each release installs over the last. Without them the APK is
+# signed with a throwaway key, and updating it means uninstalling first.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  LINUX_DEPS: libgtk-4-dev libwebkitgtk-6.0-dev
+  RELEASING: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/^  version: "\([^"]*\)".*/\1/p' build/config.yml | head -n 1)
+          if [ "$RELEASING" = true ] && [ "$TAG" != "v$version" ]; then
+            echo "The tag is $TAG, but build/config.yml says $version. Tag v$version, or bump info.version." >&2
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+  macos:
+    name: Mac app
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: go install tool
+      - run: wails3 task dictionary
+      - run: scripts/package-macos.sh
+      - name: Start it
+        run: |
+          # A home of its own, so the app has no dictionary but the one in its bundle.
+          home=$(mktemp -d)
+          log="$home/Library/Logs/Utanabi/utanabi.log"
+          HOME="$home" bin/release/Utanabi.app/Contents/MacOS/utanabi &
+          pid=$!
+          for _ in $(seq 1 60); do grep -q '"msg":"starting"' "$log" 2>/dev/null && break; sleep 1; done
+          kill "$pid" 2>/dev/null || true
+          cat "$log" | head -n 20
+          grep '"msg":"starting"' "$log" | grep -q '"dictionary":true'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos
+          path: |
+            bin/release/*.zip
+            bin/release/*.zip.sha256
+          retention-days: 7
+
+  windows:
+    name: Windows installer
+    needs: version
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: NSIS, for the installer
+        run: |
+          if ! command -v makensis >/dev/null; then choco install nsis -y --no-progress; fi
+          echo "C:/Program Files (x86)/NSIS" >>"$GITHUB_PATH"
+      - run: go install tool
+      - run: wails3 task dictionary
+      - run: cp data/dictionary.db internal/dictionary/bundled/dictionary.db
+      - run: wails3 task windows:package EXTRA_TAGS=bundled_dictionary
+      - name: Name it
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          mkdir -p out
+          mv bin/utanabi-amd64-installer.exe "out/Utanabi-$VERSION-windows-x64-setup.exe"
+          for f in out/*; do sha256sum "$f" | awk '{print $1}' >"$f.sha256"; done
+      - name: Install it, and start it
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          "out/Utanabi-$VERSION-windows-x64-setup.exe" //S
+          exe=$(find "/c/Program Files" -iname utanabi.exe 2>/dev/null | head -n 1)
+          echo "installed at $exe"
+          test -n "$exe"
+          log="$LOCALAPPDATA/Utanabi/logs/utanabi.log"
+          "$exe" &
+          for _ in $(seq 1 60); do grep -q '"msg":"starting"' "$log" 2>/dev/null && break; sleep 1; done
+          taskkill //IM utanabi.exe //F || true
+          head -n 20 "$log"
+          grep '"msg":"starting"' "$log" | grep -q '"dictionary":true'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows
+          path: out/*
+          retention-days: 7
+
+  linux:
+    name: Linux packages
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install -y $LINUX_DEPS xvfb
+      - run: go install tool
+      - run: wails3 task dictionary
+      - run: cp data/dictionary.db internal/dictionary/bundled/dictionary.db
+      - run: wails3 task linux:package EXTRA_TAGS=bundled_dictionary
+      - name: Name them
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          ls -la bin
+          mkdir -p out
+          mv bin/*.AppImage "out/Utanabi-$VERSION-linux-x86_64.AppImage"
+          mv bin/*.deb "out/utanabi_${VERSION}_amd64.deb"
+          mv bin/*.rpm "out/utanabi-$VERSION.x86_64.rpm"
+          for f in out/*; do sha256sum "$f" | awk '{print $1}' >"$f.sha256"; done
+      - name: Start the AppImage
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          app="out/Utanabi-$VERSION-linux-x86_64.AppImage"
+          chmod +x "$app"
+          log="$HOME/.local/state/utanabi/logs/utanabi.log"
+          xvfb-run -a "$app" --appimage-extract-and-run &
+          for _ in $(seq 1 60); do grep -q '"msg":"starting"' "$log" 2>/dev/null && break; sleep 1; done
+          pkill -f appimage-extract-and-run || true
+          head -n 20 "$log"
+          grep '"msg":"starting"' "$log" | grep -q '"dictionary":true'
+      - name: Install the .deb, and start it
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          sudo apt-get install -y "./out/utanabi_${VERSION}_amd64.deb"
+          rm -rf "$HOME/.local/state/utanabi" "$HOME/.local/share/utanabi"
+          log="$HOME/.local/state/utanabi/logs/utanabi.log"
+          xvfb-run -a utanabi &
+          for _ in $(seq 1 60); do grep -q '"msg":"starting"' "$log" 2>/dev/null && break; sleep 1; done
+          pkill -x utanabi || true
+          grep '"msg":"starting"' "$log" | grep -q '"dictionary":true'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux
+          path: out/*
+          retention-days: 7
+
+  android:
+    name: Android app
+    needs: version
+    runs-on: ubuntu-latest
+    # Mobile is experimental in Wails: an Android build that fails leaves the release to go out without it.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install webview headers
+        # Building the wails3 CLI on Linux needs them, even for an Android build.
+        run: sudo apt-get update && sudo apt-get install -y $LINUX_DEPS
+      - run: go install tool
+      - run: wails3 task dictionary
+      - run: cp data/dictionary.db internal/dictionary/bundled/dictionary.db
+      - name: The signing key, when there is one
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            printf '%s' "$KEYSTORE" | base64 -d >"$RUNNER_TEMP/release.keystore"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >>"$GITHUB_ENV"
+          fi
+      - name: Build, for phones and for the emulator
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          mkdir -p out
+          # The emulator here is x86-64, so the same build for it proves the app; the release is for phones, arm64.
+          wails3 task android:package EXTRA_TAGS=bundled_dictionary ARCH=amd64
+          mv bin/utanabi.apk "$RUNNER_TEMP/utanabi-emulator.apk"
+          wails3 task android:package EXTRA_TAGS=bundled_dictionary
+          mv bin/utanabi.apk "out/Utanabi-$VERSION-android.apk"
+          for f in out/*; do sha256sum "$f" | awk '{print $1}' >"$f.sha256"; done
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install it on an emulator, and start it
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r "$RUNNER_TEMP/utanabi-emulator.apk"
+            adb shell monkey -p com.jasonpknoll.utanabi -c android.intent.category.LAUNCHER 1
+            sleep 45
+            adb logcat -d | grep -iE "utanabi|wails|AndroidRuntime" | tail -n 60 || true
+            adb shell pidof com.jasonpknoll.utanabi
+            ! adb logcat -d | grep -q "FATAL EXCEPTION"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android
+          path: out/*
+          retention-days: 7
+
+  server:
+    name: Server, for any browser
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: cd frontend && npm ci && npm run build
+      - run: go run ./internal/dictionary/cmd/dictbuild -out internal/dictionary/bundled/dictionary.db
+      - name: Server binaries
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          mkdir -p out
+          for arch in amd64 arm64; do
+            name="utanabi-server-$VERSION-linux-$arch"
+            mkdir -p "dist/$name"
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -tags server,production,bundled_dictionary -trimpath \
+              -buildvcs=false -ldflags="-s -w -X github.com/JasonPKnoll/utanabi/internal/config.version=$VERSION" \
+              -o "dist/$name/utanabi-server" .
+            cp .env.example README.md "dist/$name/"
+            tar -C dist -czf "out/$name.tar.gz" "$name"
+            sha256sum "out/$name.tar.gz" | awk '{print $1}' >"out/$name.tar.gz.sha256"
+          done
+      - name: Start the binary
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          data=$(mktemp -d)
+          UTANABI_DATA_DIR="$data" WAILS_SERVER_PORT=18080 "dist/utanabi-server-$VERSION-linux-amd64/utanabi-server" \
+            >"$RUNNER_TEMP/server.log" 2>&1 &
+          pid=$!
+          for _ in $(seq 1 60); do curl -sf localhost:18080/health >/dev/null && break; sleep 1; done
+          kill "$pid" 2>/dev/null || true
+          head -n 20 "$RUNNER_TEMP/server.log"
+          grep '"msg":"starting"' "$RUNNER_TEMP/server.log" | grep -q '"dictionary":true'
+      - name: Build the image, and start it
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          docker buildx create --use --name utanabi
+          docker buildx build -f build/docker/Dockerfile.release --platform linux/amd64 --build-arg VERSION="$VERSION" \
+            --load -t utanabi:test .
+          docker run -d --name utanabi -p 18081:8080 -e UTANABI_SIGNUP_CODE=a-dry-run-signup-code utanabi:test
+          for _ in $(seq 1 60); do curl -sf localhost:18081/health >/dev/null && break; sleep 1; done
+          docker logs utanabi 2>&1 | head -n 20
+          curl -sf localhost:18081/health
+          docker logs utanabi 2>&1 | grep '"msg":"starting"' | grep -q '"dictionary":true'
+          docker rm -f utanabi
+      - name: Publish the image
+        if: env.RELEASING == 'true'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          image="ghcr.io/$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')/utanabi"
+          printf '%s' "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker buildx build -f build/docker/Dockerfile.release --platform linux/amd64,linux/arm64 \
+            --build-arg VERSION="$VERSION" -t "$image:$VERSION" -t "$image:latest" \
+            --label org.opencontainers.image.source="https://github.com/$GITHUB_REPOSITORY" --push .
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: server
+          path: out/*
+          retention-days: 7
+
+  publish:
+    name: Publish the release
+    needs: [version, macos, windows, linux, android, server]
+    # Only for a tag. Android may fail without holding the rest back; the others must all have worked.
+    if: >-
+      always() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') &&
+      needs.macos.result == 'success' && needs.windows.result == 'success' &&
+      needs.linux.result == 'success' && needs.server.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: files
+          merge-multiple: true
+      - name: Publish it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cat >notes.md <<EOF
+          Utanabi $VERSION: learn Japanese through the songs you love.
+
+          - **Windows:** Utanabi-$VERSION-windows-x64-setup.exe
+          - **Mac:** \`brew install --cask jasonpknoll/utanabi/utanabi\`, or Utanabi-$VERSION-macos.zip
+          - **Linux:** the AppImage, or the .deb or .rpm package
+          - **Android:** Utanabi-$VERSION-android.apk
+          - **Any browser:** run the server, \`docker run -p 8080:8080 -v utanabi:/data ghcr.io/jasonpknoll/utanabi:$VERSION\`
+
+          Each file's SHA-256 is beside it.
+          EOF
+          ls -la files
+          gh release create "$TAG" files/* --repo "$GITHUB_REPOSITORY" --title "Utanabi $VERSION" --notes-file notes.md --latest

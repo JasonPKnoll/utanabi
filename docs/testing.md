@@ -44,6 +44,7 @@ func TestThingByID(t *testing.T) {
 
 - Vitest runs `frontend/src/**/*.test.ts`.
 - Keep logic in plain TypeScript modules under `frontend/src/lib` so it can be tested without a webview.
+- `sweep.real.test.ts` scores the lyrics sweep against real singing: 38 Japanese songs timed character by character by hand, from the AMLL TTML DB (CC0) at a pinned commit. The sweep is given only each line's start, as line-synced lyrics give it, and the test bounds how far its character starts land from the real ones, how often a line's sweep ends over a second off the singing, and checks it beats an even split to the next line. The data holds only times and beat counts, never lyrics. Rebuild it with `cd frontend && node --experimental-strip-types scripts/real-timings.ts`. When you change the sweep's settings, score them here, and tune on songs outside this set so the test stays a fair check.
 
 ## Smoke test
 

@@ -84,3 +84,17 @@ func TestDesktopDirsWindowsNeedsEnv(t *testing.T) {
 		t.Error("desktopDirs() error = nil, want an error")
 	}
 }
+
+func TestBundledDir(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct{ goos, exe, want string }{
+		{goos: "darwin", exe: "/Applications/Utanabi.app/Contents/MacOS/Utanabi", want: "/Applications/Utanabi.app/Contents/Resources"},
+		{goos: "linux", exe: "/opt/utanabi/utanabi", want: "/opt/utanabi"},
+	}
+	for _, tt := range tests {
+		if got := bundledDir(tt.goos, tt.exe); got != tt.want {
+			t.Errorf("bundledDir(%q, %q) = %q, want %q", tt.goos, tt.exe, got, tt.want)
+		}
+	}
+}

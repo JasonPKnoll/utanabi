@@ -7,13 +7,24 @@
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import DisplaySheet from "../components/DisplaySheet.svelte";
   import Interlinear from "../components/Interlinear.svelte";
+  import SpotifyBar from "../components/SpotifyBar.svelte";
+  import YouTubePanel from "../components/YouTubePanel.svelte";
+  import { Service as Spotify } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/spotify";
+  import { Service as YouTube } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/youtube";
+  import { loadPlayer, playerFor, savePlayer, type Player } from "../lib/players";
+  import Firework from "../components/Firework.svelte";
   import WordSheet from "../components/WordSheet.svelte";
   import { toAppError, type AppError } from "../lib/errors";
   import { startsStanza } from "../lib/lyrics";
   import { meaningsCache } from "../lib/meaningsCache";
+  import { placeholderLines } from "../lib/placeholders";
   import { hasRomaji, loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
   import { aboutHref, homeHref, studyHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
+  import { lineSweep, songPace } from "../lib/sweep";
+  import { tapAt, tappedAll, tapStops, type Tapping } from "../lib/taps";
+  import { searchFor } from "../lib/versions";
+  import WordTiming from "../components/WordTiming.svelte";
 
   let { id }: { id: number } = $props();
 
@@ -23,9 +34,62 @@
   let deleting = $state(false);
   let aids = $state(loadReadingAids());
   let displayOpen = $state(false);
-  let open = $state<{ word: Word; ruby: RubyPart[] } | null>(null);
+  let open = $state<{ word: Word; ruby: RubyPart[]; line: number } | null>(null);
+  // While the lyrics follow the player, Spotify or YouTube, the sung line moves with the song, and a tapped line jumps
+  // the song there.
+  let following = $state(false);
+  let bar: SpotifyBar | YouTubePanel | undefined = $state();
+
+  // The players there are to follow: Spotify once you've connected it, and YouTube on a server. Your choice between
+  // them is remembered on this device.
+  let available = $state<Player[]>([]);
+  let youtubeSearch = $state(false);
+  let chosen = $state<Player>(loadPlayer());
+  let player = $derived(playerFor(chosen, available));
+
+  Promise.all([Spotify.Status().catch(() => null), YouTube.Status().catch(() => null)]).then(([spotify, youtube]) => {
+    const there: Player[] = [];
+    if (spotify?.enabled && spotify.connected) {
+      there.push("spotify");
+    }
+    if (youtube?.enabled) {
+      there.push("youtube");
+      youtubeSearch = youtube.searchable;
+    }
+    available = there;
+  });
+
+  function choosePlayer(p: Player) {
+    chosen = p;
+    following = false;
+    // When storage refuses, the choice still holds until the screen closes.
+    savePlayer(p);
+  }
 
   let lines = $derived(song?.lines ?? []);
+  // While the song loads, stand-in lines go through the same markup, as a skeleton in the song's shape.
+  let loading = $derived(song === null && failure === null);
+  let shown = $derived(loading ? placeholderLines() : lines);
+  // The lyric time, read from the Spotify bar every frame while the lyrics follow it, and how far through each piece
+  // of the current line the singing is, for the sweep across it.
+  let clock = $state<number | null>(null);
+  // How fast the song is sung, measured once from its lines, so each line's sweep ends when its words are sung, not
+  // when the next line starts after a pause.
+  let pace = $derived(songPace(lines));
+  let sung = $derived(lineSweep(lines, current, clock, pace));
+  $effect(() => {
+    if (!following) {
+      clock = null;
+      return;
+    }
+    let frame = 0;
+    const tick = () => {
+      clock = bar?.lyricsNow() ?? null;
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  });
   // JMdict's licence asks for a credit wherever its meanings show, so the footnote appears only when they do.
   let hasDefinitions = $derived(lines.some((l) => (l.words ?? []).some((w) => w.entryId > 0)));
   let source = $derived.by(() => {
@@ -50,6 +114,127 @@
       })
       .catch((err: unknown) => (failure = toAppError(err)));
   });
+
+  // Picks a line: a tap, or the song moving on while the lyrics follow Spotify.
+  function select(i: number) {
+    current = i;
+    const startMs = lines[i]?.startMs;
+    if (following && startMs !== null && startMs !== undefined) {
+      bar?.seek(startMs);
+    }
+  }
+
+  function follow(i: number) {
+    if (i === current) {
+      return;
+    }
+    current = i;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    document.getElementById(`line-${i}`)?.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+  }
+
+  // Saves how a word is sung, then shows the song and the open word as they are now. A failure is the sheet's to show.
+  async function setSung(line: number, firstToken: number, reading: string) {
+    const updated = await Songs.SetSungReading({ songId: id, line, firstToken, reading });
+    song = updated;
+    const shown = updated.lines?.find((l) => l.position === line);
+    const index = shown?.words?.findIndex((w) => w.firstToken === firstToken) ?? -1;
+    const piece = shown?.pieces?.find((p) => p.word === index);
+    const word = shown?.words?.[index];
+    if (word && piece) {
+      open = { word, ruby: piece.ruby ?? [], line };
+    }
+  }
+
+  // The timing databases word times can be looked up in, when they're on.
+  let timingSources = $state<string[]>([]);
+  Songs.TimingSources()
+    .then((names) => (timingSources = names ?? []))
+    .catch(() => (timingSources = []));
+
+  let synced = $derived(lines.filter((l) => l.startMs !== null).length);
+  let timed = $derived(lines.filter((l) => (l.times ?? []).length > 0).length);
+  let timedByYou = $derived(lines.filter((l) => (l.times ?? []).length > 0 && l.timesBy === "user").length);
+
+  // Tapping along: while it's on, each tap times the next word of the line being sung. A line is saved once all its
+  // words are tapped, or when the song moves on from it.
+  let tappingOn = $state(false);
+  let tapping = $state<Tapping | null>(null);
+  let tapNote = $state("");
+
+  function showTimes(index: number, times: { at: number; ms: number }[], by: string) {
+    if (!song) {
+      return;
+    }
+    song = {
+      ...song,
+      lines: lines.map((l, i) => (i === index ? { ...l, times, timesBy: times.length > 0 ? by : "" } : l)),
+    };
+  }
+
+  async function saveTapped(t: Tapping) {
+    const line = lines[t.line];
+    if (!line || t.times.length === 0) {
+      return;
+    }
+    try {
+      const saved = await Songs.SetLineTimes({ songId: id, line: line.position, times: t.times });
+      showTimes(t.line, saved ?? [], "user");
+      tapNote = "";
+    } catch (err) {
+      tapNote = toAppError(err).message;
+    }
+  }
+
+  function tap() {
+    const ms = bar?.lyricsNow() ?? null;
+    if (ms === null) {
+      tapNote = "Play the song to tap along.";
+      return;
+    }
+    const next = tapAt(lines, tapping, ms);
+    if (!next) {
+      return;
+    }
+    if (tapping && tapping.line !== next.line && !tappedAll(lines, tapping)) {
+      void saveTapped(tapping);
+    }
+    tapping = next;
+    showTimes(next.line, next.times, "user");
+    if (tappedAll(lines, next)) {
+      void saveTapped(next);
+    }
+  }
+
+  function stopTapping() {
+    if (tapping && !tappedAll(lines, tapping)) {
+      void saveTapped(tapping);
+    }
+    tapping = null;
+    tappingOn = false;
+  }
+
+  let tapLine = $derived(tapping ? lines[tapping.line] : undefined);
+  let tapProgress = $derived(
+    tapping && tapLine
+      ? `Line ${tapping.line + 1}: ${tapping.times.length} of ${tapStops(tapLine).length} words`
+      : "Tap as each word starts",
+  );
+
+  async function reload() {
+    song = await Songs.Get(id);
+  }
+
+  async function findTimes() {
+    const found = await Songs.FindWordTimes(id);
+    await reload();
+    return found;
+  }
+
+  async function clearTimes() {
+    await Songs.ClearWordTimes(id);
+    await reload();
+  }
 
   async function remove() {
     deleting = true;
@@ -86,6 +271,12 @@
       {#if song}
         <h1>{song.title}</h1>
         <p>{song.artist || "Unknown artist"}</p>
+      {:else if loading}
+        <h1>
+          <span class="skeleton-wait" aria-hidden="true"><span class="ph">A song title</span></span>
+          <span class="visually-hidden">Loading the song</span>
+        </h1>
+        <p class="skeleton-wait" aria-hidden="true"><span class="ph">Artist name</span></p>
       {/if}
     </div>
     {#if song}
@@ -123,19 +314,41 @@
     <main class="center">
       <p class="alert" role="alert">{failure.message}</p>
     </main>
-  {:else if song === null}
-    <main class="center"><p class="muted">Loading…</p></main>
   {:else}
     <main>
-      <ol class="lyrics" class:furigana={aids.furigana} class:words={aids.words} lang="ja">
-        {#each lines as line, i (line.position)}
-          <li class:stanza-start={startsStanza(lines, i)}>
+      {#if loading}
+        <p class="visually-hidden" role="status">Opening the song</p>
+        <!-- An older song is built the first time it's opened. When the open runs that long, the firework takes over
+             from the skeleton. -->
+        <div class="opening" aria-hidden="true">
+          <Firework size={160} />
+          <p class="muted">Building this song…</p>
+        </div>
+      {/if}
+      <ol
+        class="lyrics"
+        class:furigana={aids.furigana}
+        class:words={aids.words}
+        class:skeleton-wait={loading}
+        class:placeholder={loading}
+        inert={loading}
+        aria-hidden={loading ? "true" : undefined}
+        lang="ja"
+      >
+        {#each shown as line, i (line.position)}
+          <li id={loading ? undefined : `line-${i}`} class:stanza-start={startsStanza(shown, i)}>
             {#if aids.words && (line.words ?? []).length > 0}
               {#if i === current}
                 <div class="line current card" role="group" aria-label={line.text} aria-current="true">
-                  <Interlinear {line} furigana={aids.furigana} onword={(word, ruby) => (open = { word, ruby })} />
+                  <Interlinear
+                    {line}
+                    furigana={aids.furigana}
+                    placeholder={loading}
+                    sweep={loading ? null : sung}
+                    onword={(word, ruby) => (open = { word, ruby, line: line.position })}
+                  />
                   {#if aids.romaji && hasRomaji(line)}
-                    <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                    <span class="romaji" lang="ja-Latn"><span class:ph={loading}>{line.romaji}</span></span>
                   {/if}
                 </div>
               {:else}
@@ -144,20 +357,20 @@
                   class="line card"
                   aria-current={false}
                   aria-label={line.text}
-                  onclick={() => (current = i)}
+                  onclick={() => select(i)}
                 >
-                  <Interlinear {line} furigana={aids.furigana} />
+                  <Interlinear {line} furigana={aids.furigana} placeholder={loading} />
                   {#if aids.romaji && hasRomaji(line)}
-                    <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                    <span class="romaji" lang="ja-Latn"><span class:ph={loading}>{line.romaji}</span></span>
                   {/if}
                 </button>
               {/if}
             {:else if i === current && (line.words ?? []).length > 0}
               <div class="line current" role="group" aria-label={line.text} aria-current="true">
                 <!-- prettier-ignore -->
-                <span class="sung">{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [] })}>{@render rubyText(piece.ruby ?? [])}</button>{:else}{@render rubyText(piece.ruby ?? [])}{/if}{/each}</span>
+                <span class="sung"><span class:ph={loading}>{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{@const p = loading ? undefined : sung?.[j]}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [], line: line.position })}><span class:sweep={p !== undefined} style:--sung={p === undefined ? undefined : `${p * 100}%`}>{@render rubyText(piece.ruby ?? [])}</span></button>{:else}<span class:sweep={p !== undefined} style:--sung={p === undefined ? undefined : `${p * 100}%`}>{@render rubyText(piece.ruby ?? [])}</span>{/if}{/each}</span></span>
                 {#if aids.romaji && hasRomaji(line)}
-                  <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                  <span class="romaji" lang="ja-Latn"><span class:ph={loading}>{line.romaji}</span></span>
                 {/if}
               </div>
             {:else}
@@ -167,12 +380,12 @@
                 class:current={i === current}
                 aria-current={i === current}
                 aria-label={line.text}
-                onclick={() => (current = i)}
+                onclick={() => select(i)}
               >
                 <!-- prettier-ignore -->
-                <span class="sung">{@render rubyText(line.ruby ?? [{ text: line.text, reading: "" }])}</span>
+                <span class="sung"><span class:ph={loading}>{@render rubyText(line.ruby ?? [{ text: line.text, reading: "" }])}</span></span>
                 {#if aids.romaji && hasRomaji(line)}
-                  <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                  <span class="romaji" lang="ja-Latn"><span class:ph={loading}>{line.romaji}</span></span>
                 {/if}
               </button>
             {/if}
@@ -184,8 +397,65 @@
       {/if}
     </main>
 
+    <div class="dock">
+      {#if tappingOn}
+        <section class="tapper" aria-label="Tap along">
+          <div class="tapper-head">
+            <p class="tapper-note" role="status">{tapNote || tapProgress}</p>
+            <button type="button" class="button" onclick={stopTapping}>Done</button>
+          </div>
+          <!-- A tap lands on press, not on release, so it's as close to the word as a finger can be. -->
+          <button
+            type="button"
+            class="button primary tap"
+            onpointerdown={(event) => {
+              event.preventDefault();
+              tap();
+            }}
+            onclick={(event) => {
+              if (event.detail === 0) {
+                tap();
+              }
+            }}>Tap</button
+          >
+        </section>
+      {/if}
+      {#if song && player === "spotify"}
+        <SpotifyBar
+          bind:this={bar}
+          bind:following
+          songId={id}
+          {lines}
+          startMs={lines[current]?.startMs ?? 0}
+          oncurrent={follow}
+          switchTo={available.includes("youtube") ? "YouTube" : ""}
+          lyricsMs={song.durationMs ?? 0}
+          query={searchFor(song.title, song.artist)}
+          onswitch={() => choosePlayer("youtube")}
+        />
+      {:else if song && player === "youtube"}
+        <YouTubePanel
+          bind:this={bar}
+          bind:following
+          songId={id}
+          {lines}
+          startMs={lines[current]?.startMs ?? 0}
+          searchable={youtubeSearch}
+          query={searchFor(song.title, song.artist)}
+          oncurrent={follow}
+          switchTo={available.includes("spotify") ? "Spotify" : ""}
+          onswitch={() => choosePlayer("spotify")}
+        />
+      {/if}
+    </div>
+
     {#if open}
-      <WordSheet word={open.word} ruby={open.ruby} onclose={() => (open = null)} />
+      <WordSheet
+        word={open.word}
+        ruby={open.ruby}
+        onclose={() => (open = null)}
+        onsung={(reading) => setSung(open?.line ?? 0, open?.word.firstToken ?? 0, reading)}
+      />
     {/if}
 
     {#if displayOpen}
@@ -193,15 +463,97 @@
         {aids}
         {source}
         {deleting}
+        players={available}
+        {player}
+        onplayer={choosePlayer}
         ontoggle={toggle}
         ondelete={remove}
         onclose={() => (displayOpen = false)}
-      />
+      >
+        {#snippet timing(close)}
+          <WordTiming
+            {timed}
+            {synced}
+            byYou={timedByYou}
+            sources={timingSources}
+            canTap={following && synced > 0}
+            ontap={() => {
+              tappingOn = true;
+              tapping = null;
+              tapNote = "";
+              close();
+            }}
+            onfind={findTimes}
+            onclear={clearTimes}
+          />
+        {/snippet}
+      </DisplaySheet>
     {/if}
   {/if}
 </div>
 
 <style>
+  /* The tap panel and the player, together at the bottom of the screen within thumb reach. */
+  .dock {
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+  }
+
+  .tapper {
+    padding: 12px 12px 4px;
+    border-radius: 18px 18px 0 0;
+    background: var(--surface);
+  }
+
+  .tapper-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .tapper-head .button {
+    flex: none;
+    padding: 0 22px;
+  }
+
+  .tapper-note {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+
+  .tap {
+    width: 100%;
+    min-height: 72px;
+    font-size: 1.25rem;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  /* Over the whole screen, as the song-building overlay is: the skeleton under it fades in, and that puts it in a layer
+     of its own, which an overlay without a z-index sits beneath. */
+  .opening {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: var(--bg);
+    animation: appear 0.3s ease-out 1.25s both;
+  }
+
+  @keyframes appear {
+    from {
+      opacity: 0;
+    }
+  }
+
   .display {
     font-size: 1.0625rem;
     font-weight: 700;
@@ -340,6 +692,18 @@
 
   .word:hover {
     background: var(--surface);
+  }
+
+  /* A skeleton has the current line's shape, but nothing in it to tap. */
+  .placeholder .word,
+  .placeholder :global(.word .ja) {
+    text-decoration: none;
+  }
+
+  .placeholder :global(.current.card) {
+    box-shadow: none;
+    outline: none;
+    border-color: transparent;
   }
 
   @media (prefers-reduced-motion: reduce) {

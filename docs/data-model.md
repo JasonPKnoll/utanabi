@@ -118,6 +118,34 @@ The learnable units of a line. Each covers a run of tokens.
 
 How the songs slice fills it is under "Finding words" below.
 
+### `sung_readings`
+
+The reading a song's lyrics give a word in place of its dictionary one. This is gikun (義訓), a way of writing lyrics: the lyricist writes a word in kanji chosen for its meaning and gives it a reading of their own, printed as furigana over it in the official lyrics, such as 羅針盤 ("compass") read コンパス, or 地球 read ほし. Plain-text lyrics, such as LRCLIB's, drop that furigana, so you add it back, in the word sheet. Each owner's own, since a song from a lyrics source is shared: your reading never changes the song for anyone else.
+
+| Column | Type | Rules |
+| --- | --- | --- |
+| `owner` | INTEGER | Whose reading it is (see "Accounts and owners"). |
+| `line_id` | INTEGER, references `lyric_lines`, cascade | |
+| `first_token`, `last_token` | INTEGER | The word's tokens. `first_token <= last_token`. Primary key `(owner, line_id, first_token)`. |
+| `surface` | TEXT | The word as written. The reading is used only while the line's tokens there still spell it, so a line analysed again never puts it over another word. |
+| `reading` | TEXT | Hiragana or katakana, as it should show over the word, with ー and the iteration marks. 1 to 100 characters. |
+
+It changes what's sung, not what the word is: the word's furigana, its romaji, and the word sheet's "Sung as" follow it, while its dictionary form and reading, its meaning, and its card stay the written word's. A katakana reading goes over the whole word; a hiragana one is lined up with the word's kana, like any furigana.
+
+### `word_times`
+
+When the words of a line are sung. Lyrics sources give a time per line only, so without these the sweep across a line spreads its words by their beats, a guess that misses by about half a second on average. Each row is the time one word starts, by the character of the line's text it starts at. They come from the AMLL TTML DB, a CC0 database of songs timed word by word by hand (source `amll`), looked up when a synced song is added from LRCLIB or when you press Find word times, or from tapping along with the song (source `user`). Each owner's own, as offsets and sung readings are, since the song is shared.
+
+| Column | Type | Rules |
+| --- | --- | --- |
+| `owner` | INTEGER | Whose timing it is (see "Accounts and owners"). |
+| `line_id` | INTEGER, references `lyric_lines`, cascade | |
+| `at` | INTEGER | The character of the line's text the word starts at, in Unicode code points, 0 to 499. Primary key `(owner, line_id, at)`. Characters, not tokens or pieces, so a line analysed again keeps its timing. |
+| `start_ms` | INTEGER | When the word starts, in the lyrics' own time, before the owner's offset onto the track. 0 to an hour. |
+| `source` | TEXT | `amll` or `user`. A line's times are all from one source: setting a line replaces all of its times, and found times never replace a line you tapped. |
+
+A database sheet is timed for its own recording, so its times are moved onto the lyrics' by the middle difference between the two's line starts, over the lines whose letters and digits match exactly. A sheet is used only when it matches at least 6 lines, and 60% of the song's.
+
 ### `word_inflections`
 
 How a word got from its dictionary form to the form in the line. The steps are ordered, because Japanese stacks conjugations.
@@ -213,6 +241,35 @@ How far you've got with each card, one row per card once it's been answered. Rev
 
 **Studying a song** makes a `word` card for each word meaning in it that doesn't have one (from `line_words` with an entry and sense, `context_line_id` the first line it's sung in), so a word in five songs is still one card, and its progress carries from song to song.
 
+### Spotify
+
+Only in server mode, with `UTANABI_SPOTIFY_CLIENT_ID` set (`internal/features/spotify`). Added in 009.
+
+| Table | What it holds |
+| --- | --- |
+| `spotify_links` | One per owner who connected Spotify: `owner` (primary key), `access_token`, `refresh_token`, `expires_at`, `display_name`, `connected_at`, and `scopes` (the permissions Spotify gave, space-separated, from 011; the page can play a song itself only with `streaming`, so a connection made before has to be made again). The tokens are Spotify's, to call its API for the owner, and never leave the server. Removing a user removes theirs. |
+| `spotify_tracks` | The Spotify track each song is: `song_id` (primary key, cascade), `track_id` (22 letters and digits), and `duration_ms` (the track's length, from 010; empty for a track matched before it, until it plays), found once by the song's title, artist, and length, and shared, like the song. |
+| `lyric_offsets` | How far an owner has shifted a song's lyrics to line up with its track: `owner`, `song_id` (cascade), and `offset_ms`, within a minute either way; a line timed at t is sung at t + `offset_ms`. Each owner's own, since the song is shared. Without one, the lyrics play as timed, and when they're timed for a length more than a second off the track's, the bar suggests setting the timing. The app doesn't guess the offset from the lengths: a difference in length doesn't say where in the song it is (Shinunoga E-Wa's lyrics are 5.4 seconds longer than its track, yet start only 0.9 seconds late). Added in 010. |
+| `youtube_videos` | Each owner's YouTube video for a song: `owner`, `song_id` (cascade; primary key with `owner`), `video_id` (YouTube's 11 characters), `title`, `channel`, `duration_ms` (empty for a pasted video with no search to read it), `offset_ms` (within a minute either way, as for `lyric_offsets`), `chosen` (1 when pasted, 0 when search found it), and `matched_at`. Each owner's own, since the song is shared. Removing a user removes theirs. Added in 012. |
+| `server_secrets` | Secrets the server keeps for everyone, each sealed under the server's own key (`secret.key` in the data folder, never in the database): `name` (primary key, such as `youtube_api_key`), `sealed` (the nonce, then the sealed value and its tag), and `updated_at`. Not scoped to an owner, since they're the server's; only admins and the admin command change them. Added in 013. |
+
+### Accounts and owners
+
+Server mode has accounts, signed in with passkeys (see [security](security.md#identity)). Everything that is one person's has an **owner**: a user's ID, or `0` for the device. The desktop and phone apps have no accounts, so everything they save is the device's, and so is whatever a server saved before it had accounts. SQLite can't add a foreign key with `ALTER TABLE`, and `0` is no user, so triggers check that any other owner is a user, and removing a user removes everything that was theirs.
+
+| Table | What it holds |
+| --- | --- |
+| `users` | `id`, `handle` (32 random bytes, the user handle passkeys are made for, never shown), `name` (3 to 32 of `a-z 0-9 _ -`, unique), `created_at`, and `admin` (0 or 1, set only by the admin command). |
+| `invites` | An invite that makes one account: `code_hash` (SHA-256 of the code, never the code), `created_by`, `created_at`, `expires_at` (a week on), and `used_by` and `used_at` once it's used. A used invite stays as the record of who joined with it; an unused one can be revoked (deleted). |
+| `passkeys` | One per passkey: `id` (the credential ID), `user_id` (cascade), `public_key`, `attestation_type`, `transports` (JSON list), `aaguid`, `sign_count`, `backup_eligible`, `backup_state`, `created_at`, `last_used_at`. Never a private key. |
+| `sessions` | `token_hash` (SHA-256 of the cookie's token, never the token), `user_id` (cascade), `created_at`, `expires_at`. |
+| `library_songs` | Each owner's library: `(owner, song_id)` with `added_at`. A song from a lyrics source is saved once however many people add it, so its analysis is shared; a song with your own lyrics is only in its owner's library. A trigger deletes a song when the last library holding it lets it go. |
+| `sung_readings.owner` | Whose sung reading it is. |
+| `word_times.owner` | Whose word timing it is. |
+| `cards.owner` | Whose card it is. There is one card per meaning, grammar point, and line **for each owner**, and `card_progress` belongs to its card. |
+
+Migration `006_accounts.sql` gave every song saved before it to the device's library, and every card to the device. `007_admins_and_invites.sql` added `users.admin` and `invites`, and `008_sung_readings.sql` added `sung_readings`.
+
 ## Reference data: `dictionary.db`
 
 Built from JMdict and our own grammar list, and replaced whole on update. The app opens it read-only and never writes to it. `internal/dictionary` reads it; `internal/dictionary/dictbuild` builds it.
@@ -250,7 +307,7 @@ JMdict is the property of the Electronic Dictionary Research and Development Gro
 - link to the JMdict project page (https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) and the licence (https://www.edrdg.org/edrdg/licence.html);
 - never claim copyright over JMdict material, and share any changed copy of the data under the same licence.
 
-`dictionary.Attribution()` returns the credit text. The app shows it in full on the About screen, reached from the home screen's info button (from `AboutService.Info`, in every build, server mode included). The song view, while it shows meanings, and the word sheet each carry a one-line footnote, "Definitions from JMdict · Sources", that links there. `internal/dictionary/testdata/jmdict-eng-common-fixture.json` holds 15 JMdict entries, under the same licence, for tests.
+`dictionary.Attribution()` returns the credit text. The app shows it in full on the About screen, reached from Settings, the home screen's gear button (from `AboutService.Info`, in every build, server mode included). The song view, while it shows meanings, and the word sheet each carry a one-line footnote, "Definitions from JMdict · Sources", that links there. `internal/dictionary/testdata/jmdict-eng-common-fixture.json` holds 15 JMdict entries, under the same licence, for tests.
 
 ### `grammar_points`
 
@@ -261,7 +318,7 @@ JMdict is the property of the Electronic Dictionary Research and Development Gro
 | `pattern` | How it's written: が, に, 〜ている, 〜た. |
 | `title` | Short: "Subject marker", "Place", "Ongoing action". |
 | `meaning` | One plain sentence for a card. |
-| `explanation` | A longer explanation for the grammar screen. |
+| `explanation` | A longer explanation for the grammar screen. Write examples inline, Japanese then English, after a colon and split by semicolons (`After a question word it means "any": いつでも, any time; 何度でも, as many times as it takes.`) or in brackets (`(聞いて, listen)`), so the word sheet can set each rule and its examples apart (`frontend/src/lib/explanation.ts`; its test checks every point). |
 | `formation` | For conjugations: how it's formed from each conjugation class, in words. The code that does it lives in Go. |
 | `standard_id` | For spoken, short, or old forms: the standard form it stands for. `teru` points to `teiru`, `chau` to `te-shimau`. |
 
@@ -315,6 +372,13 @@ The songs slice fills `line_words` and `word_inflections` from kagome's tokens a
 | 002 | `lyric_sources` (with its four rows), `songs`, `lyric_lines` | Built. The songs slice uses it. |
 | 003 | `line_translations`, `line_tokens`, `line_words`, `word_inflections`, `cards` | Built. The tables are ready, with their rules tested. The songs slice fills `line_tokens` (#8), `line_words`, and `word_inflections` (#9); the code for the rest comes with #11 and #12. |
 | 004 | `line_tokens.pos` | Built, with #8. The songs slice saves each token's part of speech for romaji. |
+| 008 | `sung_readings` | Built. The songs slice reads each owner's with the song and sets them from the word sheet. |
+| 009 | `spotify_links`, `spotify_tracks` | Built. The spotify slice keeps each owner's connection and each song's track. |
+| 010 | `spotify_tracks.duration_ms`, `lyric_offsets` | Built. The spotify slice lines each song's lyrics up with its track. |
+| 011 | `spotify_links.scopes` | Built. The spotify slice knows whether a connection lets the page play. |
+| 012 | `youtube_videos` | Built. The youtube slice keeps each owner's video for their songs, and its offset. |
+| 013 | `server_secrets` | Built. The youtube slice keeps the YouTube API key an admin enters, sealed. |
+| 014 | `word_times` | Built. The songs slice reads each owner's with the song, finds them in the AMLL TTML DB, and saves the ones you tap. |
 | `dictionary.db` | `meta`, `tags`, `entries`, `entry_forms`, `senses`, `grammar_points` | Built (#9): `task dictionary` and the `internal/dictionary` lookup package, which the songs slice uses for word meanings and the word sheet. Packaging with the apps is a follow-up. |
 
 New columns or tables only come in a new migration file. A merged migration is never edited. `dictionary.db` has its own version number (`dictionary.SchemaVersion`, stored in `meta`), checked at startup.

@@ -24,6 +24,9 @@ func present(ctx context.Context, dict Dictionary, song Song) (Song, error) {
 	}
 	lines := make([]Line, len(song.Lines))
 	for i, line := range song.Lines {
+		// The sung readings are marked on a copy, so the stored tokens stay as stored.
+		line.Tokens = slices.Clone(line.Tokens)
+		markSung(&line)
 		line.Ruby, line.Romaji = ruby(line), romaji(line.Tokens)
 		line.Words, line.Pieces, line.Gloss = explainLine(dict, entries, line)
 		lines[i] = line
@@ -80,6 +83,10 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 		if a.FirstToken > 0 {
 			c.prev = line.Tokens[a.FirstToken-1]
 		}
+		if a.FirstToken > 1 {
+			c.afterKu = kuForm(line.Tokens[a.FirstToken-2]) && c.prev.POS == morph.Particle &&
+				(c.prev.base() == "も" || c.prev.base() == "は")
+		}
 		if a.LastToken+1 < len(line.Tokens) {
 			c.next = line.Tokens[a.LastToken+1]
 		}
@@ -107,6 +114,9 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 type glossContext struct {
 	prev, next    Token
 	negativeLater bool
+	// afterKu: the word comes after a く form and も or は, as ない does in 感じたくもない and 遅くはない, where it
+	// makes the word before it negative.
+	afterKu bool
 }
 
 func isNegative(w Word) bool {
@@ -135,6 +145,9 @@ func explainWord(dict Dictionary, entries map[int64]Entry, tokens []Token, a Wor
 	}
 	if a.LemmaReading != "" {
 		w.LemmaRomaji = jtext.Romaji(a.LemmaReading)
+	}
+	if head := tokens[a.FirstToken]; head.sung != "" && head.sungEnd == a.LastToken {
+		w.Sung, w.SungRomaji = head.sung, jtext.Romaji(head.sung)
 	}
 	if a.EntryID != 0 {
 		w.EntryID = a.EntryID
@@ -198,6 +211,9 @@ func shortGloss(gloss string) string {
 // the dictionary doesn't explain shows its dictionary form, or nothing when that is the word itself. A negative
 // content word says so ("not need"), and a few words read differently before a negative (beforeNegative).
 func wordGloss(w Word, c glossContext) string {
+	if c.afterKu && w.Kind == WordContent && (w.Lemma == "ない" || w.Lemma == "無い") {
+		return "not"
+	}
 	g := glossOf(w, c.prev, c.next)
 	if alt, ok := beforeNegative[w.Lemma]; ok && w.Kind == WordContent && c.negativeLater {
 		g = alt
@@ -206,9 +222,22 @@ func wordGloss(w Word, c glossContext) string {
 	if g == w.Text {
 		return ""
 	}
-	if w.Kind == WordContent && w.Gloss != "" && slices.ContainsFunc(w.Steps, func(s GrammarPoint) bool {
-		return s.ID == "negative"
-	}) {
+	if w.Kind != WordContent || w.Gloss == "" {
+		return g
+	}
+	has := func(id string) bool {
+		return slices.ContainsFunc(w.Steps, func(s GrammarPoint) bool { return s.ID == id })
+	}
+	switch {
+	case has("potential") && has("negative"):
+		// 気づけん, can't notice.
+		return "can't " + g
+	case has("potential") && has("past"):
+		// そこへ行けた, could go there.
+		return "could " + g
+	case has("potential"):
+		return "can " + g
+	case has("negative"):
 		return "not " + g
 	}
 	return g
@@ -230,11 +259,21 @@ func glossOf(w Word, prev, next Token) string {
 		}
 		return w.Lemma
 	}
-	if w.Gloss != "" {
+	if g, ok := contentGlosses[w.Lemma]; ok && w.Kind == WordContent {
+		return g
+	}
+	if w.Gloss != "" && strings.HasPrefix(w.ConjClass, "v") {
 		return strings.TrimPrefix(w.Gloss, "to ")
+	}
+	if w.Gloss != "" {
+		return w.Gloss
 	}
 	return w.Lemma
 }
+
+// contentGlosses are words whose first meaning in the dictionary reads badly in a line's gloss. ない is "nonexistent"
+// first: なんもねえ reads "anything · not there".
+var contentGlosses = map[string]string{"ない": "not there", "無い": "not there"}
 
 // contextGloss is the English for a grammar word whose use reads differently by what is around it, or "".
 func contextGloss(id, text string, prev, next Token) string {
@@ -277,7 +316,7 @@ var grammarGlosses = map[string]string{
 	"nagara": "while",
 }
 
-var auxiliaryGlosses = map[string]string{"だ": "is", "です": "is"}
+var auxiliaryGlosses = map[string]string{"だ": "is", "です": "is", "ない": "not"}
 
 // stepLabels name conjugation steps for the sentence under a word.
 var stepLabels = map[string]string{ //nolint:gosec // G101: the key "passive" is a grammar term, not a password.

@@ -21,6 +21,7 @@
   --d-link-strong: #ffd27f;
   --d-danger: #ff8a80;
   --d-success: #6fdc8c;
+  --d-spark: #ff8fb8;
 
   --l-bg: #f5f6f9;
   --l-surface: #ffffff;
@@ -36,6 +37,7 @@
   --l-link-strong: #6b3f00;
   --l-danger: #b42318;
   --l-success: #166b2f;
+  --l-spark: #c2185b;
 }
 
 /* Tokyo Night: its Night colours, and Day for light. */
@@ -54,6 +56,7 @@
   --d-link-strong: #a8deff;
   --d-danger: #f7768e;
   --d-success: #9ece6a;
+  --d-spark: #f7768e;
 
   --l-bg: #e1e2e7;
   --l-surface: #eef0f5;
@@ -69,6 +72,7 @@
   --l-link-strong: #004a64;
   --l-danger: #a01c47;
   --l-success: #33652a;
+  --l-spark: #a3324d;
 }
 
 /* Nord: Polar Night, and Snow Storm for light. */
@@ -87,6 +91,7 @@
   --d-link-strong: #f3dcae;
   --d-danger: #f2b8bd;
   --d-success: #b7d1a1;
+  --d-spark: #b48ead;
 
   --l-bg: #eceff4;
   --l-surface: #f8f9fb;
@@ -102,6 +107,7 @@
   --l-link-strong: #2f4a6b;
   --l-danger: #9b2f3a;
   --l-success: #41612e;
+  --l-spark: #855c7e;
 }
 
 /* Catppuccin: Mocha, and Latte for light. */
@@ -120,6 +126,7 @@
   --d-link-strong: #fcc9a7;
   --d-danger: #f5a3ba;
   --d-success: #a6e3a1;
+  --d-spark: #f5c2e7;
 
   --l-bg: #eff1f5;
   --l-surface: #e6e9ef;
@@ -135,6 +142,7 @@
   --l-link-strong: #732a00;
   --l-danger: #b00d30;
   --l-success: #215c15;
+  --l-spark: #b8338e;
 }
 
 /* Solarized: dark and light. */
@@ -153,6 +161,7 @@
   --d-link-strong: #6fd6ce;
   --d-danger: #f58d8a;
   --d-success: #a3b800;
+  --d-spark: #e0559a;
 
   --l-bg: #fdf6e3;
   --l-surface: #eee8d5;
@@ -168,6 +177,7 @@
   --l-link-strong: #164f78;
   --l-danger: #ad231f;
   --l-success: #4f5c00;
+  --l-spark: #c0306f;
 }
 
 /* Vivid: hot pink and cyan. */
@@ -186,6 +196,7 @@
   --d-link-strong: #7af0f2;
   --d-danger: #ff7b7b;
   --d-success: #4ade80;
+  --d-spark: #ffe14d;
 
   --l-bg: #fff7fb;
   --l-surface: #ffffff;
@@ -201,4 +212,5 @@
   --l-link-strong: #0a4f61;
   --l-danger: #b81b1b;
   --l-success: #12703a;
+  --l-spark: #7a6100;
 }

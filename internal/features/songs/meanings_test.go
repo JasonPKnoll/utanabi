@@ -64,6 +64,59 @@ func newFakeDictionary(t *testing.T) *fakeDictionary {
 			entry(1188490, "何", "なん", sense(0, "what", "pn")),
 			entry(1165970, "一番", "いちばん", sense(0, "number one", "n", "adv")),
 			entry(1482660, "二人", "ふたり", sense(0, "two people", "n")),
+			{ID: 1188500, Forms: []Form{{Text: "何も", Reading: "なにも"}, {Text: "なにも", Reading: "なにも"},
+				{Text: "なんも", Reading: "なんも"}}, Senses: []Sense{sense(0, "(not) anything", "exp")}},
+			entry(1529520, "無い", "ない", sense(0, "nonexistent", "adj-i")),
+			entry(1532800, "迷惑", "めいわく", sense(0, "trouble", "n", "adj-na")),
+			entry(1207610, "掛ける", "かける", sense(0, "to hang up", "v1", "vt")),
+			{ID: 1911730, Forms: []Form{{Text: "迷惑をかける", Reading: "めいわくをかける"}},
+				Senses: []Sense{sense(0, "to cause trouble", "exp", "v1")}},
+			entry(2100160, "ググる", "ぐぐる", sense(0, "to google", "v5r", "vt")),
+			entry(2746990, "はんぱない", "はんぱない", sense(0, "to a great extent", "adj-i")),
+			entry(1599780, "臭う", "におう", sense(0, "to be fragrant", "v5u", "vi")),
+			entry(1333150, "臭い", "くさい", sense(0, "stinking", "adj-i")),
+			{ID: 1268570, Forms: []Form{{Text: "五日", Reading: "いつか"}, {Text: "いつか", Reading: "いつか", Common: true}},
+				Senses: []Sense{sense(0, "5th day of the month", "n")}},
+			{ID: 1188790, Forms: []Form{{Text: "何時か", Reading: "いつか"}, {Text: "いつか", Reading: "いつか"}},
+				Senses: []Sense{{Index: 0, Glosses: []string{"sometime"}, PartsOfSpeech: []string{"adv"}, Misc: []string{"uk"}}}},
+			entry(1595730, "全て", "すべて", sense(0, "everything", "n"), sense(1, "entirely", "adv")),
+			entry(1058210, "サン", "さん", sense(0, "Sun", "n")),
+			entry(2747950, "サン", "さん", sense(0, "three", "num")),
+			entry(1579470, "ヨン", "よん", sense(0, "four", "num")),
+			{ID: 2839962, Forms: []Form{{Text: "ゼロ", Reading: "ぜろ"}},
+				Senses: []Sense{{Index: 0, Glosses: []string{"zero", "0"}, PartsOfSpeech: []string{"n"}}}},
+			entry(1149130, "ワン", "わん", sense(0, "one", "num")),
+			entry(1217700, "頑張る", "がんばる", sense(0, "to persevere", "v5r", "vi")),
+			entry(1386560, "仕方ない", "しかたない", sense(0, "it can't be helped", "adj-i")),
+			entry(1601440, "分け隔て", "わけへだて", sense(0, "discrimination", "n", "vs")),
+			entry(1499960, "分ける", "わける", sense(0, "to divide", "v1", "vt")),
+			entry(1489590, "隔て", "へだて", sense(0, "partition", "n")),
+			entry(1527980, "分け", "わけ", sense(0, "division", "n")),
+			entry(1600820, "訳", "わけ", sense(0, "conclusion from reasoning", "n")),
+			entry(1525360, "まとめて", "まとめて", sense(0, "all together", "exp", "adv")),
+			entry(1525350, "纏める", "まとめる", sense(0, "to collect", "v1", "vt")),
+			entry(1207590, "掛かる", "かかる", sense(0, "to take (time)", "v5r", "vi")),
+			entry(2084130, "かかってこい", "かかってこい", sense(0, "bring it on!", "int")),
+			entry(1323170, "知る", "しる", sense(0, "to know", "v5r", "vt")),
+			entry(2137720, "知ったこっちゃない", "しったこっちゃない", sense(0, "I don't give a damn", "exp", "adj-i")),
+			entry(1313580, "こと", "こと", sense(0, "thing", "n")),
+			entry(1303980, "肩", "かた", sense(0, "shoulder", "n")),
+			entry(1374630, "落とす", "おとす", sense(0, "to drop", "v5s", "vt")),
+			entry(1578860, "行ける", "いける", sense(0, "to be good at", "v1", "vi")),
+			entry(1591930, "気づく", "きづく", sense(0, "to notice", "v5k", "vi")),
+			entry(1509930, "選ぶ", "えらぶ", sense(0, "to choose", "v5b", "vt")),
+			entry(1185200, "遅い", "おそい", sense(0, "slow", "adj-i")),
+			entry(1593180, "連れる", "つれる", sense(0, "to take (someone) with one", "v1", "vt")),
+			entry(1315720, "持つ", "もつ", sense(0, "to hold", "v5t", "vt")),
+			entry(1294490, "感じる", "かんじる", sense(0, "to feel", "v1", "vt")),
+			entry(2847957, "うっせぇ", "うっせぇ", sense(0, "shut up!", "int")),
+			entry(2069620, "はぁ", "はぁ", sense(0, "yes", "int"), sense(1, "ha!", "int"), sense(2, "what?", "int")),
+			entry(1275640, "口", "くち", sense(0, "mouth", "n")),
+			entry(1609420, "塞げる", "ふさげる", sense(0, "to close up", "v1", "vt")),
+			entry(1214920, "詰まる", "つまる", sense(0, "to be packed", "v5r", "vi")),
+			entry(1214980, "つまらない", "つまらない", sense(0, "dull", "adj-i")),
+			entry(1595900, "変わる", "かわる", sense(0, "to change", "v5r", "vi")),
+			entry(1595910, "変わらない", "かわらない", sense(0, "constant", "adj-i")),
 		},
 		tags: map[string]string{"v5s": "Godan verb with 'su' ending", "vt": "transitive verb", "uk": "usually kana"},
 	}
@@ -147,6 +200,17 @@ func TestWordsTakeTheirMeaningFromTheDictionary(t *testing.T) {
 		{text: "気が付いた", want: []string{"気が付く 1591050/0 v5k"}},
 		{text: "なんだ", want: []string{"なん 1188490/0 ", "だ 0/0 "}},
 		{text: "1番", want: []string{"一番 1165970/0 "}},
+		{text: "迷惑かけた", want: []string{"迷惑をかける 1911730/0 v1"}},
+		{text: "なんもねえ", want: []string{"なんも 1188500/0 ", "ない 1529520/0 adj-i"}},
+		{text: "はんぱねえよ", want: []string{"はんぱない 2746990/0 adj-i"}},
+		{text: "いつかきっと", want: []string{"いつか 1188790/0 ", "きっと 0/0 "}},
+		{text: "全てが", want: []string{"全て 1595730/0 ", "が 0/0 "}},
+		{text: "全て忘れて", want: []string{"全て 1595730/1 ", "忘れる 0/0 v1"}},
+		{text: "サン！ヨン！ゼロワン！", want: []string{
+			"サン 2747950/0 ", "ヨン 1579470/0 ", "ゼロ 2839962/0 ", "ワン 1149130/0 ",
+		}},
+		{text: "サン！サン！ゼロ", want: []string{"サン 2747950/0 ", "サン 2747950/0 ", "ゼロ 2839962/0 "}},
+		{text: "サンが昇る", want: []string{"サン 1058210/0 ", "が 0/0 ", "昇る 0/0 v5r"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.text, func(t *testing.T) {
@@ -175,6 +239,12 @@ func TestPotentialVerbsBecomeTheirGodanVerb(t *testing.T) {
 		{text: "見れる", want: []string{"見れる 見る/みる content v1 [ra-nuki]"}},
 		{text: "来れる", want: []string{"来れる 来る/くる content vk [ra-nuki]"}},
 		{text: "消えない", want: []string{"消えない 消える/きえる content v1 [negative]"}},
+		{text: "がんばれ がんばれ", want: []string{
+			"がんばれ がんばる/がんばる content v5r [imperative]", "がんばれ がんばる/がんばる content v5r [imperative]",
+		}},
+		{text: "がんばれよ 俺ら", want: []string{
+			"がんばれよ がんばる/がんばる content v5r [imperative]", "俺ら 俺ら/おれら content",
+		}},
 		{text: "食べさせられなかった", want: []string{
 			"食べさせられなかった 食べる/たべる content v1 [causative passive negative past]",
 		}},
@@ -437,6 +507,186 @@ func TestLookupEntriesRejectsBadInput(t *testing.T) {
 			var invalid *fault.InvalidError
 			if !errors.As(err, &invalid) || invalid.Field != "ids" {
 				t.Errorf("LookupEntries(%s) error = %v, want invalid ids", tt.name, err)
+			}
+		})
+	}
+}
+
+func TestSpokenFormsBecomeTheWordsTheyStandFor(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text       string
+		want       []string
+		wantRomaji string
+	}{
+		{text: "ググってる", want: []string{"ググってる ググる/ぐぐる content v5r [te-form teru]"}, wantRomaji: "gugutteru"},
+		{text: "ググった", want: []string{"ググった ググる/ぐぐる content v5r [past]"}, wantRomaji: "gugutta"},
+		{text: "テヘペロって", want: []string{"テヘペロ テヘペロ/てへぺろ content", "って って/って particle tte-quote"},
+			wantRomaji: "tehepero tte"},
+		{text: "指が臭え", want: []string{
+			"指 指/ゆび content", "が が/が particle ga-subject", "臭え 臭い/くさい content adj-i",
+		}, wantRomaji: "yubi ga kusee"},
+		{text: "仕方ねえ", want: []string{"仕方ねえ 仕方ない/しかたない content adj-i"}, wantRomaji: "shikata nee"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := analyzedLine(t, dict, tt.text)
+			if got := describeWords(line.Tokens, line.Analysis); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("words of %q\n got  %q\n want %q", tt.text, got, tt.want)
+			}
+			if got := romaji(line.Tokens); got != tt.wantRomaji {
+				t.Errorf("romaji of %q = %q, want %q", tt.text, got, tt.wantRomaji)
+			}
+		})
+	}
+}
+
+func TestLyricPatternsReadAsTheyAreMeant(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text string
+		want []string
+	}{
+		{text: "何の分け隔てもない", want: []string{
+			"何 何/なに content 1188490", "の の/の particle no-possession 0", "分け隔て 分け隔て/わけへだて content 1601440",
+			"も も/も particle mo-also 0", "ない ない/ない content adj-i 1529520",
+		}},
+		{text: "まとめてかかってきなさい", want: []string{
+			"まとめて まとめて/まとめて content 1525360",
+			"かかってきなさい かかる/かかる content v5r [te-form te-kuru imperative] 2084130",
+		}},
+		{text: "かかってこい", want: []string{
+			"かかってこい かかる/かかる content v5r [te-form te-kuru imperative] 2084130",
+		}},
+		{text: "そういうわけで", want: []string{
+			"そういう そういう/そういう content 0", "わけ 訳/わけ content 1600820", "で だ/だ auxiliary 0",
+		}},
+		{text: "選びな", want: []string{"選びな 選ぶ/えらぶ content v5b [imperative] 1509930"}},
+		{text: "遅くはねーから", want: []string{
+			"遅く 遅い/おそい content adj-i [adverbial] 1185200", "は は/は particle wa-topic 0",
+			"ねー ない/ない content adj-i 1529520", "から から/から particle kara-because 0",
+		}},
+		{text: "知ったこっちゃない", want: []string{
+			"知ったこっちゃない 知ったこっちゃない/しったこっちゃない content 2137720",
+		}},
+		{text: "肩落とすこたない", want: []string{
+			"肩 肩/かた content 1303980", "落とす 落とす/おとす content v5s 1374630", "こた こと/こと content 1313580",
+			"ない ない/ない content adj-i 1529520",
+		}},
+		{text: "そこへ行けた", want: []string{
+			"そこ そこ/そこ content 0", "へ へ/へ particle he-direction 0",
+			"行けた 行く/いく content v5k-s [potential past] 1578850",
+		}},
+		{text: "気づけん", want: []string{"気づけん 気づく/きづく content v5k [potential negative] 1591930"}},
+		{text: "連れてって", want: []string{
+			"連れてって 連れる/つれる content v1 [te-form te-iku te-form] 1593180",
+		}},
+		{text: "持っていける", want: []string{"持っていける 持つ/もつ content v5t [te-form] 1315720"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := analyzedLine(t, dict, tt.text)
+			got := describeWords(line.Tokens, line.Analysis)
+			for i, w := range line.Analysis {
+				got[i] += " " + strconv.FormatInt(w.EntryID, 10)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("words of %q\n got  %q\n want %q", tt.text, got, tt.want)
+			}
+		})
+	}
+}
+
+// recutLine analyses text as a song's line is: kagome's tokens, cut again where it couldn't read the kana, then words.
+func recutLine(t *testing.T, dict Dictionary, text string) Line {
+	t.Helper()
+	m := newMeanings(dict)
+	tokens, err := m.recut(t.Context(), analyzeText(t, morph.New(), text))
+	if err != nil {
+		t.Fatalf("recut(%q): %v", text, err)
+	}
+	line := Line{Text: text, Tokens: tokens}
+	if err := m.analyzeWords(t.Context(), &line); err != nil {
+		t.Fatalf("analyzeWords(%q): %v", text, err)
+	}
+	return line
+}
+
+func TestKanaKagomeCantReadIsCutAgain(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text       string
+		want       []string
+		wantRomaji string
+	}{
+		{text: "はぁ？うっせぇうっせぇうっせぇわ", want: []string{
+			"はぁ はぁ/はぁ content 2069620/2", "うっせぇ うっせぇ/うっせぇ content 2847957/0",
+			"うっせぇ うっせぇ/うっせぇ content 2847957/0", "うっせぇ うっせぇ/うっせぇ content 2847957/0",
+			"わ わ/わ particle wa-feeling 0/0",
+		}, wantRomaji: "haa? ussee ussee ussee wa"},
+		{text: "くせぇ口塞げや", want: []string{
+			"くせぇ くさい/くさい content adj-i 1333150/0", "口 口/くち content 1275640/0",
+			"塞げ 塞げる/ふさげる content v1 [continuative] 1609420/0", "や や/や auxiliary 0/0",
+		}, wantRomaji: "kusee kuchi fusageya"},
+		{text: "知ったこっちゃない", want: []string{
+			"知ったこっちゃない 知ったこっちゃない/しったこっちゃない content 2137720/0",
+		}, wantRomaji: "shitta kotchi yanai"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := recutLine(t, dict, tt.text)
+			got := describeWords(line.Tokens, line.Analysis)
+			for i, w := range line.Analysis {
+				got[i] += " " + strconv.FormatInt(w.EntryID, 10) + "/" + strconv.Itoa(w.SenseIndex)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("words of %q\n got  %q\n want %q", tt.text, got, tt.want)
+			}
+			if got := romaji(line.Tokens); got != tt.wantRomaji {
+				t.Errorf("romaji of %q = %q, want %q", tt.text, got, tt.wantRomaji)
+			}
+		})
+	}
+}
+
+func TestKatakanaKagomeCantReadIsLeftAlone(t *testing.T) {
+	t.Parallel()
+
+	m := newMeanings(newFakeDictionary(t))
+	tokens := []Token{{Surface: "エイデイ", Reading: "えいでい", POS: morph.Noun}}
+	got, err := m.recut(t.Context(), tokens)
+	if err != nil || !reflect.DeepEqual(got, tokens) {
+		t.Errorf("recut = %+v, %v; want katakana left as kagome read it", got, err)
+	}
+}
+
+func TestSpokenNegativesReadAsTheirAdjective(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text string
+		want []string
+	}{
+		{text: "つまらねぇ", want: []string{"つまらねぇ つまらない/つまらない content adj-i"}},
+		// A plain negative stays the verb's: 変わらない is "not change", though the dictionary has "constant".
+		{text: "変わらない", want: []string{"変わらない 変わる/かわる content v5r [negative]"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := recutLine(t, dict, tt.text)
+			if got := describeWords(line.Tokens, line.Analysis); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("words of %q\n got  %q\n want %q", tt.text, got, tt.want)
 			}
 		})
 	}

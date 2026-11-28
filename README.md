@@ -4,6 +4,22 @@
 
 A Wails v3 app with a Go backend and a Svelte frontend. It builds for desktop (Windows, macOS, Linux), the web (Wails server mode), and iOS and Android (experimental).
 
+## Install
+
+Every release on the [releases page](https://github.com/JasonPKnoll/utanabi/releases/latest) has Utanabi for each platform, with the dictionary built in.
+
+- **Windows:** run `Utanabi-<version>-windows-x64-setup.exe`.
+- **Mac:** `brew install --cask jasonpknoll/utanabi/utanabi`, or `curl -fsSL https://raw.githubusercontent.com/JasonPKnoll/utanabi/main/scripts/install.sh | sh`, or the zip.
+- **Linux:** the AppImage, or the `.deb` or `.rpm` package.
+- **Android:** install `Utanabi-<version>-android.apk` (experimental).
+- **Any browser, phone included:** run the server, which is also where playing along with Spotify and YouTube lives:
+
+  ```bash
+  docker run -p 8080:8080 -v utanabi:/data -e UTANABI_SIGNUP_CODE=choose-a-long-code ghcr.io/jasonpknoll/utanabi
+  ```
+
+  or the `utanabi-server` binary from the release. Every setting is in `.env.example`.
+
 ## Quick start
 
 Install Go (the version in `go.mod`), Node 26.13.0, and on Linux `libgtk-4-dev` and `libwebkitgtk-6.0-dev`. Then:

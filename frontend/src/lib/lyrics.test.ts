@@ -14,6 +14,8 @@ describe("startsStanza", () => {
       words: null,
       pieces: null,
       gloss: "",
+      times: null,
+      timesBy: "",
     },
     {
       position: 1,
@@ -25,6 +27,8 @@ describe("startsStanza", () => {
       words: null,
       pieces: null,
       gloss: "",
+      times: null,
+      timesBy: "",
     },
     {
       position: 2,
@@ -36,6 +40,8 @@ describe("startsStanza", () => {
       words: null,
       pieces: null,
       gloss: "",
+      times: null,
+      timesBy: "",
     },
   ];
 

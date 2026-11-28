@@ -69,7 +69,17 @@ describe("saveReadingAids", () => {
 });
 
 describe("hasRomaji", () => {
-  const line = { position: 0, stanza: 0, startMs: null, ruby: null, words: null, pieces: null, gloss: "" };
+  const line = {
+    position: 0,
+    stanza: 0,
+    startMs: null,
+    ruby: null,
+    words: null,
+    pieces: null,
+    gloss: "",
+    times: [],
+    timesBy: "",
+  };
 
   it.each([
     ["夜の空", "yoru no sora", true],

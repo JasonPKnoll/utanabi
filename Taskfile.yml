@@ -118,6 +118,13 @@ tasks:
     cmds:
       - go run ./internal/dictionary/cmd/dictbuild -out "{{.OUT}}"
 
+  youtube-key:
+    summary: >-
+      Makes a YouTube Data API key in a Google Cloud project for Utanabi (signing you in to Google in your browser),
+      and saves it, sealed, in the server's database, so songs find their videos on YouTube. Needs gcloud.
+    cmds:
+      - ./scripts/youtube-key.sh
+
   bindings:
     summary: Regenerates frontend/bindings from the bound Go services. Never edit those files by hand.
     cmds:

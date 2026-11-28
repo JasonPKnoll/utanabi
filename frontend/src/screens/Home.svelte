@@ -1,12 +1,14 @@
 <script lang="ts">
+  import Wordmark from "../components/Wordmark.svelte";
   import {
     Service as Songs,
     type Summary,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
+  import { holdKeyboard } from "../lib/keyboard";
   import { initial } from "../lib/lyrics";
-  import { aboutHref, addHref, searchHref, songHref } from "../lib/route";
-  import { sourceLabel } from "../lib/sources";
+  import { placeholderSongs } from "../lib/placeholders";
+  import { addHref, searchHref, settingsHref, songHref } from "../lib/route";
 
   let songs = $state<Summary[] | null>(null);
   let failure = $state<AppError | null>(null);
@@ -23,10 +25,24 @@
     .catch(() => (searchOn = true));
 </script>
 
+<!-- A song's row. Without an id it's a stand-in for the skeleton, its text drawn as bars. -->
+{#snippet row(title: string, sub: string, id?: number, synced = false)}
+  <svelte:element this={id === undefined ? "div" : "a"} class="row" href={id === undefined ? undefined : songHref(id)}>
+    <span class="tile" aria-hidden="true">{id === undefined ? "" : initial(title)}</span>
+    <span class="text">
+      <span class="title"><span class:ph={id === undefined}>{title}</span></span>
+      <span class="sub"
+        ><span class:ph={id === undefined}>{sub}</span>{#if synced}&nbsp;·&nbsp;<span class="synced">Synced</span
+          >{/if}</span
+      >
+    </span>
+  </svelte:element>
+{/snippet}
+
 <div class="screen">
   <header class="topbar">
-    <p class="mark"><span lang="ja">うたなび</span></p>
-    <a class="icon-button" href={aboutHref} aria-label="About Utanabi">
+    <p class="mark"><Wordmark size="1.5rem" /></p>
+    <a class="icon-button" href={settingsHref} aria-label="Settings">
       <svg
         width="22"
         height="22"
@@ -37,11 +53,8 @@
         stroke-linecap="round"
         stroke-linejoin="round"
         aria-hidden="true"
-        ><circle cx="12" cy="12" r="9" /><line x1="12" y1="11" x2="12" y2="16" /><circle
-          cx="12"
-          cy="7.75"
-          r="0.6"
-          fill="currentColor"
+        ><circle cx="12" cy="12" r="3" /><path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
         /></svg
       >
     </a>
@@ -56,7 +69,13 @@
     {#if failure}
       <p class="alert" role="alert">{failure.message}</p>
     {:else if songs === null}
-      <p class="muted">Loading…</p>
+      <p class="visually-hidden" role="status">Loading your songs</p>
+      <!-- Stand-in songs, drawn as rows like the real ones, as a skeleton in the library's shape. -->
+      <ul class="songs skeleton-wait" aria-hidden="true" inert>
+        {#each placeholderSongs as stand, i (i)}
+          <li>{@render row(stand.title, stand.artist)}</li>
+        {/each}
+      </ul>
     {:else if songs.length === 0}
       <div class="empty">
         <p class="empty-title">No songs yet</p>
@@ -70,13 +89,7 @@
       <ul class="songs">
         {#each songs as song (song.id)}
           <li>
-            <a class="row" href={songHref(song.id)}>
-              <span class="tile" aria-hidden="true">{initial(song.title)}</span>
-              <span class="text">
-                <span class="title">{song.title}</span>
-                <span class="sub">{song.artist || "Unknown artist"} · {sourceLabel(song.source)}</span>
-              </span>
-            </a>
+            {@render row(song.title, song.artist || "Unknown artist", song.id, song.synced)}
           </li>
         {/each}
       </ul>
@@ -85,7 +98,8 @@
 
   <div class="dock">
     {#if searchOn}
-      <a class="search" href={searchHref}>
+      <!-- The search screen's field focuses itself; holding the keyboard during the tap lets iOS raise it. -->
+      <a class="search" href={searchHref} onclick={() => holdKeyboard()}>
         <svg
           width="18"
           height="18"
@@ -121,9 +135,7 @@
     flex: 1;
     margin: 0;
     padding: 0 8px;
-    font-size: 1.25rem;
-    font-weight: 800;
-    letter-spacing: 0.02em;
+    line-height: 1;
   }
 
   main {
@@ -199,6 +211,11 @@
   .sub {
     font-size: 0.8125rem;
     color: var(--muted);
+  }
+
+  .synced {
+    color: var(--link);
+    font-weight: 600;
   }
 
   /* Search and add, together in a slim bar within thumb reach. */

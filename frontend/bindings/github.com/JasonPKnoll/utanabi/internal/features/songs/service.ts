@@ -22,10 +22,19 @@ export function Add(song: $models.NewSong): $CancellablePromise<$models.Song> {
 }
 
 /**
- * AddFromSource saves a song found by Search to the library, or returns it if it's already there.
+ * AddFromSource saves a song found by Search to the library, or returns it if it's already there. When its lyrics
+ * are synced, it looks its word times up too; a song the timing sources don't have, or can't be reached for, is
+ * saved all the same.
  */
 export function AddFromSource(source: string, ref: string): $CancellablePromise<$models.Song> {
     return $Call.ByID(1411050786, source, ref);
+}
+
+/**
+ * ClearWordTimes removes every word time of a song, yours and found ones.
+ */
+export function ClearWordTimes(songID: number): $CancellablePromise<void> {
+    return $Call.ByID(4211964365, songID);
 }
 
 /**
@@ -33,6 +42,14 @@ export function AddFromSource(source: string, ref: string): $CancellablePromise<
  */
 export function Delete(id: number): $CancellablePromise<void> {
     return $Call.ByID(2776229619, id);
+}
+
+/**
+ * FindWordTimes looks the song's word times up in the timing databases and saves them, for the lines you haven't
+ * timed yourself. It says how many lines got times, and from where; none when no database has the song.
+ */
+export function FindWordTimes(songID: number): $CancellablePromise<$models.FoundTimes> {
+    return $Call.ByID(1433752199, songID);
 }
 
 /**
@@ -78,4 +95,28 @@ export function Search(query: string): $CancellablePromise<$models.SearchResult>
  */
 export function SearchSources(): $CancellablePromise<string[] | null> {
     return $Call.ByID(4198490630);
+}
+
+/**
+ * SetLineTimes saves when the words of one line start, as you tapped them along with the song, or removes the
+ * line's word times when there are none. It returns the times as saved.
+ */
+export function SetLineTimes(change: $models.LineTimesChange): $CancellablePromise<$models.WordTime[] | null> {
+    return $Call.ByID(2281784000, change);
+}
+
+/**
+ * SetSungReading sets how a word of a song is sung when that isn't how it's written, such as 羅針盤 sung コンパス, or
+ * removes it when the reading is empty. It returns the song as it shows now.
+ */
+export function SetSungReading(change: $models.SungReadingChange): $CancellablePromise<$models.Song> {
+    return $Call.ByID(3095227105, change);
+}
+
+/**
+ * TimingSources returns the names of the word timing databases that are on, in the order they're asked. Empty means
+ * word times are only ever yours.
+ */
+export function TimingSources(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(4228771220);
 }

@@ -73,9 +73,10 @@ linters:
             - "!**/internal/features/*/service.go"
             - "!**/internal/features/*/sqlite.go"
             - "!**/internal/features/*/*_api.go"
+            - "!**/internal/features/*/http.go"
           deny:
             - pkg: net/http
-              desc: HTTP clients live in a slice's <source>_api.go adapter, never in the use case.
+              desc: HTTP lives in a slice's <source>_api.go client or its http.go handlers, never in the use case.
             - pkg: github.com/JasonPKnoll/utanabi/internal/store
               desc: The use case declares a port. Only the slice's sqlite.go talks to the store.
         no-slice-imports-another-slice:

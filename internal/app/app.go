@@ -13,14 +13,19 @@ import (
 	"github.com/JasonPKnoll/utanabi/internal/logger"
 )
 
-// New builds the Wails application and its main window. assets is the built frontend (frontend/dist).
-func New(cfg config.Config, log *slog.Logger, assets fs.FS, services ...application.Service) *application.App {
+// New builds the Wails application and its main window. assets is the built frontend (frontend/dist). middleware,
+// when not nil, wraps every request the app serves, calls to bound services included: server mode signs users in
+// with it. Every response also says how long a browser may keep it (cacheHeaders).
+func New(cfg config.Config, log *slog.Logger, assets fs.FS, middleware application.Middleware,
+	services ...application.Service,
+) *application.App {
 	opts := application.Options{
 		Name:        cfg.AppName,
 		Description: "Learn Japanese through song lyrics",
 		Services:    services,
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
+			Handler:    application.AssetFileServerFS(assets),
+			Middleware: withCacheHeaders(middleware),
 		},
 		Logger:       log.With(slog.String("component", "wails")),
 		LogLevel:     cfg.LogLevel,

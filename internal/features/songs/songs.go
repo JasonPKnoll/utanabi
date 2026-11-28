@@ -44,6 +44,12 @@ type Line struct {
 	Tokens []Token `json:"-"`
 	// Analysis is the line's stored words. Nil means its words haven't been found yet.
 	Analysis []WordAnalysis `json:"-"`
+	// Sung are the readings you set for words of the line that aren't sung as written.
+	Sung []SungReading `json:"-"`
+	// Times are when the line's words start, yours or found, in order; empty when only the line's start is known.
+	// TimesBy says whose: TimesByUser, a timing source's code, or empty.
+	Times   []WordTime `json:"times"`
+	TimesBy string     `json:"timesBy"`
 }
 
 // LinePiece is a run of a line: one word, or text that belongs to no word, such as punctuation. Word is the index of
@@ -74,6 +80,10 @@ type Word struct {
 	Grammar      *GrammarPoint  `json:"grammar"`
 	Steps        []GrammarPoint `json:"steps"`
 	Form         string         `json:"form"`
+	// Sung is how you said the word is sung, when that isn't how it's written (羅針盤 sung コンパス), in kana, with
+	// SungRomaji its romaji. Empty otherwise. The furigana over the word shows it.
+	Sung       string `json:"sung"`
+	SungRomaji string `json:"sungRomaji"`
 }
 
 // GrammarPoint is one use of a particle, one conjugation, or one pattern, from the app's grammar list.
@@ -108,6 +118,10 @@ type Token struct {
 	BaseForm string
 	ConjType string
 	ConjForm string
+	// sung and sungEnd are set while a song is shown, on the first token of a word with a sung reading: the reading,
+	// and the word's last token.
+	sung    string
+	sungEnd int
 }
 
 // Analyzer splits a line into tokens with their readings, parts of speech, and IPA fields.
@@ -175,7 +189,8 @@ type Summary struct {
 	ID     int64  `json:"id"`
 	Title  string `json:"title"`
 	Artist string `json:"artist"`
-	Source string `json:"source"`
+	// Synced is true when the lyrics have line times, so they can follow the song.
+	Synced bool `json:"synced"`
 }
 
 // NewSong is a song the user adds with their own lyrics, pasted or typed as text: one sung line per line, and a blank
@@ -194,12 +209,28 @@ type Repository interface {
 	DeleteSong(ctx context.Context, id int64) error
 	// SongIDsBySource returns the library's song ID for each of refs that is already saved from source.
 	SongIDsBySource(ctx context.Context, source string, refs []string) (map[string]int64, error)
+	// AddSavedSong adds a song already saved from source, by someone else, to this library and returns its ID; ok is
+	// false when no one has saved it.
+	AddSavedSong(ctx context.Context, source, ref string) (id int64, ok bool, err error)
+	// SetSungReading saves how a word of a line is sung, replacing the one there, or removes it when Reading is empty.
+	// It returns fault.ErrNotFound when the song isn't in the library or has no such line.
+	SetSungReading(ctx context.Context, songID int64, reading SungReading) error
 	// SaveAnalysis stores the tokens and words of a saved song's lines that have none yet, and leaves lines that
 	// already have them as they are.
 	SaveAnalysis(ctx context.Context, songID int64, lines []Line) error
 	// SaveMeanings sets the dictionary entry, meaning, and conjugation class of words found without one. Words that
 	// gained one meanwhile, and words you corrected, are left as they are.
 	SaveMeanings(ctx context.Context, words []WordAnalysis) error
+	// SetWordTimes replaces the word times of each of lines, from source, or removes them for a line with none. Found
+	// times never replace yours: from any source but TimesByUser, a line you timed is left as it is. It returns
+	// fault.ErrNotFound when the song isn't in the library.
+	SetWordTimes(ctx context.Context, songID int64, source string, lines []LineTimes) error
+	// ClearWordTimes removes every word time of the song, yours and found ones.
+	ClearWordTimes(ctx context.Context, songID int64) error
+	// ReplaceLines replaces a song's lines, with their analysis, and everything that belongs to them, keeping the
+	// song and what belongs to it. For the admins' tools only. It returns fault.ErrNotFound when the song isn't in
+	// the caller's library.
+	ReplaceLines(ctx context.Context, songID, durationMS int64, lines []Line) error
 }
 
 // AddSong validates a song the user typed in, splits its lyrics into lines, analyses them, and saves it.
