@@ -6,6 +6,7 @@
     type Word,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { AboutService } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
+  import Interlinear from "../components/Interlinear.svelte";
   import WordSheet from "../components/WordSheet.svelte";
   import { toAppError, type AppError } from "../lib/errors";
   import { startsStanza } from "../lib/lyrics";
@@ -108,18 +109,37 @@
           <br />Lyrics from {sourceLabel(song.source)}{song.lines?.some((l) => l.startMs !== null) ? ", synced" : ""}.
         {/if}
       </p>
-      <ol class="lyrics" class:furigana={aids.furigana} lang="ja">
+      <ol class="lyrics" class:furigana={aids.furigana} class:words={aids.words} lang="ja">
         {#each lines as line, i (line.position)}
           <li class:stanza-start={startsStanza(lines, i)}>
-            {#if i === current && (line.words ?? []).length > 0}
+            {#if aids.words && (line.words ?? []).length > 0}
+              {#if i === current}
+                <div class="line current card" role="group" aria-label={line.text} aria-current="true">
+                  <Interlinear {line} furigana={aids.furigana} onword={(word, ruby) => (open = { word, ruby })} />
+                  {#if aids.romaji && hasRomaji(line)}
+                    <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                  {/if}
+                </div>
+              {:else}
+                <button
+                  type="button"
+                  class="line card"
+                  aria-current={false}
+                  aria-label={line.text}
+                  onclick={() => (current = i)}
+                >
+                  <Interlinear {line} furigana={aids.furigana} />
+                  {#if aids.romaji && hasRomaji(line)}
+                    <span class="romaji" lang="ja-Latn">{line.romaji}</span>
+                  {/if}
+                </button>
+              {/if}
+            {:else if i === current && (line.words ?? []).length > 0}
               <div class="line current" role="group" aria-label={line.text} aria-current="true">
                 <!-- prettier-ignore -->
                 <span class="sung">{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [] })}>{#each piece.ruby ?? [] as part, k (k)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</button>{:else}{#each piece.ruby ?? [] as part, k (k)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}{/if}{/each}</span>
                 {#if aids.romaji && hasRomaji(line)}
                   <span class="romaji" lang="ja-Latn">{line.romaji}</span>
-                {/if}
-                {#if aids.words && line.gloss}
-                  <span class="gloss" lang="en">{line.gloss}</span>
                 {/if}
               </div>
             {:else}
@@ -135,9 +155,6 @@
                 <span class="sung">{#each line.ruby ?? [{ text: line.text, reading: "" }] as part, j (j)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</span>
                 {#if aids.romaji && hasRomaji(line)}
                   <span class="romaji" lang="ja-Latn">{line.romaji}</span>
-                {/if}
-                {#if aids.words && line.gloss}
-                  <span class="gloss" lang="en">{line.gloss}</span>
                 {/if}
               </button>
             {/if}
@@ -333,18 +350,21 @@
     color: var(--muted);
   }
 
-  .gloss {
-    display: block;
-    margin-bottom: 4px;
-    color: var(--dim);
-    font-size: 1rem;
-    font-weight: 400;
-    line-height: 1.4;
-    overflow-wrap: anywhere;
+  /* With Words on, each line is its own card, so it's clear where one line and its English end and the next begin.
+     The current line's card is outlined in amber. */
+  .words .card {
+    margin: 6px 0;
+    padding: 10px 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
   }
 
-  .line.current .gloss {
-    color: var(--muted);
+  .words .card.current {
+    border-color: var(--link);
+  }
+
+  .words .card .romaji {
+    margin-top: 6px;
   }
 
   /* The words of the current line. Each is a real button, at least 44px each way, marked with an amber underline so

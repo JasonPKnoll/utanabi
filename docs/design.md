@@ -39,7 +39,14 @@ Every text colour has at least 4.5:1 contrast on the surfaces it sits on, in bot
 
 The song view has three toggle pills at the top, "Furigana" (on at first), "Romaji" (off at first), and "Words" (off at first). They are `<button aria-pressed>`, 44px tall, and wrap onto a second row if the screen is too narrow; a pressed pill uses the accent. The choice is remembered on the device in `localStorage`, and the defaults stand in when storage is blocked.
 
-"Words" shows each line's word-by-word gloss under it ("night · 's · sky · in · star · (subject) · shine"), at 16px in `--dim` (`--muted` on the current line), like romaji. Without the dictionary, content words show their dictionary form instead of a meaning, and particles still show theirs.
+"Words" turns each line into an interlinear gloss (`frontend/src/components/Interlinear.svelte`), so it's always clear which English belongs to which Japanese word and which line:
+
+- **Each word is a unit:** its Japanese, with furigana, over its own English (`Word.short`: "sky", "'s", "(subject)"). Units wrap like words in a sentence, centred.
+- **The English is set apart from the Japanese:** 14px, weight 500, in the system Latin face and `--muted`. A particle's or grammar word's English is its role, in `--link` amber italics, so grammar never blurs into meaning.
+- **Each line is its own card** (`--surface` with a `--border` outline) with space between cards. The current line's card is outlined in `--link`, and its words are the 44px buttons that open the word sheet, underlined in dotted amber.
+- Punctuation sits close to its neighbours with no English under it.
+
+Without the dictionary, content words show their dictionary form instead of a meaning, and particles still show their role.
 
 ## Tapping a word
 

@@ -141,9 +141,10 @@ export interface Summary {
 
 /**
  * Word is one learnable word of a line, as the song view shows it. It covers the line's tokens FirstToken to
- * LastToken. Lemma is its dictionary form, Gloss the short meaning it has in this line ("to search for"), and Form a
- * plain sentence about how it is conjugated ("探す, in the 〜ている form"). Grammar is what a particle or set phrase
- * does here. EntryID is 0, and SenseIndex null, when the dictionary doesn't have the word or isn't installed.
+ * LastToken. Lemma is its dictionary form, Gloss the short meaning it has in this line ("to search for"), Short its
+ * part of the line's word-by-word gloss, shown under the word ("search for", "'s", "(subject)"), and Form a plain
+ * sentence about how it is conjugated ("探す, in the 〜ている form"). Grammar is what a particle or set phrase does
+ * here. EntryID is 0, and SenseIndex null, when the dictionary doesn't have the word or isn't installed.
  */
 export interface Word {
     "firstToken": number;
@@ -157,6 +158,7 @@ export interface Word {
     "entryId": number;
     "senseIndex": number | null;
     "gloss": string;
+    "short": string;
     "grammar": GrammarPoint | null;
     "steps": GrammarPoint[] | null;
     "form": string;

@@ -75,9 +75,10 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 			pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[next:a.FirstToken]), Word: -1})
 		}
 		w := explainWord(dict, entries, line.Tokens, a)
+		w.Short = wordGloss(w)
 		pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[a.FirstToken : a.LastToken+1]), Word: len(words)})
 		words = append(words, w)
-		glosses = append(glosses, wordGloss(w))
+		glosses = append(glosses, w.Short)
 		next = a.LastToken + 1
 	}
 	if next < len(line.Tokens) {

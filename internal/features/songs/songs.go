@@ -54,9 +54,10 @@ type LinePiece struct {
 }
 
 // Word is one learnable word of a line, as the song view shows it. It covers the line's tokens FirstToken to
-// LastToken. Lemma is its dictionary form, Gloss the short meaning it has in this line ("to search for"), and Form a
-// plain sentence about how it is conjugated ("探す, in the 〜ている form"). Grammar is what a particle or set phrase
-// does here. EntryID is 0, and SenseIndex null, when the dictionary doesn't have the word or isn't installed.
+// LastToken. Lemma is its dictionary form, Gloss the short meaning it has in this line ("to search for"), Short its
+// part of the line's word-by-word gloss, shown under the word ("search for", "'s", "(subject)"), and Form a plain
+// sentence about how it is conjugated ("探す, in the 〜ている form"). Grammar is what a particle or set phrase does
+// here. EntryID is 0, and SenseIndex null, when the dictionary doesn't have the word or isn't installed.
 type Word struct {
 	FirstToken   int            `json:"firstToken"`
 	LastToken    int            `json:"lastToken"`
@@ -69,6 +70,7 @@ type Word struct {
 	EntryID      int64          `json:"entryId"`
 	SenseIndex   *int           `json:"senseIndex"`
 	Gloss        string         `json:"gloss"`
+	Short        string         `json:"short"`
 	Grammar      *GrammarPoint  `json:"grammar"`
 	Steps        []GrammarPoint `json:"steps"`
 	Form         string         `json:"form"`
