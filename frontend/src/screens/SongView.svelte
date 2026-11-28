@@ -223,7 +223,7 @@
       <p class="alert" role="alert">{failure.message}</p>
     </main>
   {:else}
-    <main class:loading>
+    <main>
       {#if loading}
         <p class="visually-hidden" role="status">Opening the song</p>
         <!-- An older song is built the first time it's opened. When the open runs that long, the firework takes over
@@ -359,13 +359,12 @@
 </div>
 
 <style>
-  .loading {
-    position: relative;
-  }
-
+  /* Over the whole screen, as the song-building overlay is: the skeleton under it fades in, and that puts it in a layer
+     of its own, which an overlay without a z-index sits beneath. */
   .opening {
-    position: absolute;
+    position: fixed;
     inset: 0;
+    z-index: 20;
     display: flex;
     flex-direction: column;
     align-items: center;
