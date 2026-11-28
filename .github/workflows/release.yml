@@ -6,7 +6,7 @@ name: Release
 #   Utanabi-<version>-windows-x64-setup.exe  Windows installer: installed silently, then started
 #   Utanabi-<version>-macos.zip              Mac app, Apple silicon and Intel (the Homebrew cask and install.sh use it)
 #   Utanabi-<version>-linux-x86_64.AppImage  Linux, started under a virtual display; plus .deb and .rpm
-#   Utanabi-<version>-android.apk            Android app (experimental in Wails): installed and started on an emulator
+#   Utanabi-<version>-android.apk            Android app (experimental in Wails): its ID, ARM build, and dictionary checked
 #   utanabi-server-<version>-linux-*.tar.gz  The server, for using Utanabi in any browser
 #   ghcr.io/<owner>/utanabi:<version>        The server image, started and asked for /health
 #
@@ -239,40 +239,59 @@ jobs:
             printf '%s' "$KEYSTORE" | base64 -d >"$RUNNER_TEMP/release.keystore"
             echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >>"$GITHUB_ENV"
           fi
-      - name: Build, for phones and for the emulator
+      - name: Build, for phones (arm64)
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME" UTANABI_VERSION="$VERSION"
           mkdir -p out
-          # The emulator here is x86-64, so the same build for it proves the app; the release is for phones, arm64.
-          wails3 task android:package EXTRA_TAGS=bundled_dictionary ARCH=amd64
-          mv bin/utanabi.apk "$RUNNER_TEMP/utanabi-emulator.apk"
           wails3 task android:package EXTRA_TAGS=bundled_dictionary
           mv bin/utanabi.apk "out/Utanabi-$VERSION-android.apk"
           for f in out/*; do sha256sum "$f" | awk '{print $1}' >"$f.sha256"; done
+      # GitHub's runners can't start it: their emulators are x86-64, where Android's seccomp filter refuses the stat
+      # calls the SQLite library makes, and their ARM translation crashes Go programs at start. So this checks the
+      # APK itself: Utanabi's ID and name, built for arm64 phones, with the dictionary inside.
+      - name: Check the APK
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          apk="out/Utanabi-$VERSION-android.apk"
+          aapt=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -n 1)
+          badging=$("$aapt" dump badging "$apk")
+          echo "$badging" | grep -E "^package:|sdkVersion|application-label:|native-code"
+          echo "$badging" | grep -q "package: name='com.jasonpknoll.utanabi'"
+          echo "$badging" | grep -q "versionName='$VERSION'"
+          echo "$badging" | grep -q "application-label:'Utanabi'"
+          echo "$badging" | grep -q "native-code: 'arm64-v8a'"
+          size=$(unzip -l "$apk" | awk '$4 == "lib/arm64-v8a/libwails.so" {print $1}')
+          echo "libwails.so is $size bytes"
+          test "${size:-0}" -gt 100000000
       - name: Let the emulator use KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Install it on an emulator, and start it
+      # A try, not a check: the emulator runs the arm64 app through Android's ARM translation, which can't run every
+      # Go program, so a crash here says little about phones.
+      - name: Try it on an emulator
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         with:
           api-level: 34
           arch: x86_64
           target: google_apis
           disable-animations: true
           script: |
-            adb install -r "$RUNNER_TEMP/utanabi-emulator.apk"
+            adb install -r "out/Utanabi-$VERSION-android.apk"
             adb shell monkey -p com.jasonpknoll.utanabi -c android.intent.category.LAUNCHER 1
-            sleep 45
-            adb logcat -d | grep -iE "utanabi|wails|AndroidRuntime" | tail -n 60 || true
+            sleep 90
+            adb logcat -d | grep -iE "utanabi|wails|Fatal signal" | tail -n 40 || true
             adb shell pidof com.jasonpknoll.utanabi
-            ! adb logcat -d | grep -q "FATAL EXCEPTION"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android
