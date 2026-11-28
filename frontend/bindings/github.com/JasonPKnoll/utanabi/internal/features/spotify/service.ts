@@ -23,6 +23,13 @@ export function BrowserToken(): $CancellablePromise<$models.BrowserToken> {
 }
 
 /**
+ * Devices lists your Spotify devices that are open now, such as your phone and your computer, to choose where to play.
+ */
+export function Devices(): $CancellablePromise<$models.Device[] | null> {
+    return $Call.ByID(4196490787);
+}
+
+/**
  * Disconnect forgets your Spotify tokens. Spotify's own account page can take the app's access away too.
  */
 export function Disconnect(): $CancellablePromise<void> {

@@ -8,6 +8,7 @@ export {
 
 export type {
     BrowserToken,
+    Device,
     PlayResult,
     Playback,
     Status

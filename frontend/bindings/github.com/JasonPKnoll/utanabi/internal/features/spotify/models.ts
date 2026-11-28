@@ -11,6 +11,16 @@ export interface BrowserToken {
 }
 
 /**
+ * Device is one of the owner's Spotify devices, such as the Spotify app on their phone.
+ */
+export interface Device {
+    "id": string;
+    "name": string;
+    "type": string;
+    "active": boolean;
+}
+
+/**
  * PlayResult says whether the song started. When it didn't, no device was there to play on: opening TrackURI opens
  * the song in the Spotify app, which wakes it.
  */

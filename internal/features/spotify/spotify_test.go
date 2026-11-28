@@ -3,6 +3,7 @@ package spotify
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -435,6 +436,25 @@ func TestPlayPrefersTheDevicePlayingNow(t *testing.T) {
 	}
 	if api.played[0] != "speaker "+kazeTrack {
 		t.Errorf("played on %v, want the active speaker", api.played)
+	}
+}
+
+func TestDevicesListsWhereSpotifyIsOpen(t *testing.T) {
+	t.Parallel()
+
+	repo, api := newFakeRepo(), newFakeAPI()
+	api.devices = []Device{{ID: "mac", Name: "MacBook", Type: "Computer", Active: true}, {ID: "phone", Name: "iPhone", Type: "Smartphone"}}
+	got, err := newTestPlayer(repo, api).Devices(t.Context())
+	if err != nil {
+		t.Fatalf("Devices: %v", err)
+	}
+	if !reflect.DeepEqual(got, api.devices) {
+		t.Errorf("Devices = %+v, want %+v", got, api.devices)
+	}
+
+	api.devices = nil
+	if got, err := newTestPlayer(repo, api).Devices(t.Context()); err != nil || got == nil || len(got) != 0 {
+		t.Errorf("no devices = %#v, %v; want an empty list", got, err)
 	}
 }
 

@@ -57,6 +57,15 @@ func (s *Service) Play(ctx context.Context, songID, positionMs int64, deviceID s
 	return result, app.Fail(ctx, err)
 }
 
+// Devices lists your Spotify devices that are open now, such as your phone and your computer, to choose where to play.
+func (s *Service) Devices(ctx context.Context) ([]Device, error) {
+	if !s.enabled {
+		return nil, app.Fail(ctx, errNotSetUp)
+	}
+	devices, err := s.player.Devices(ctx)
+	return devices, app.Fail(ctx, err)
+}
+
 // BrowserToken is an access token for this page's own Spotify player, which plays in the browser.
 func (s *Service) BrowserToken(ctx context.Context) (BrowserToken, error) {
 	if !s.enabled {

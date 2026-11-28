@@ -65,10 +65,10 @@ type Track struct {
 
 // Device is one of the owner's Spotify devices, such as the Spotify app on their phone.
 type Device struct {
-	ID     string
-	Name   string
-	Type   string
-	Active bool
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Type   string `json:"type"`
+	Active bool   `json:"active"`
 }
 
 // State is what's playing on the owner's Spotify. Track is zero for something that isn't a song, such as a podcast.
@@ -377,6 +377,20 @@ func (p *Player) Play(ctx context.Context, songID, positionMS int64, onDevice st
 		return err
 	})
 	return out, err
+}
+
+// Devices lists the owner's Spotify devices that are open now, so they can choose which to play on.
+func (p *Player) Devices(ctx context.Context) ([]Device, error) {
+	var devices []Device
+	err := p.withToken(ctx, func(access redact.Secret) error {
+		var err error
+		devices, err = p.api.Devices(ctx, access)
+		return err
+	})
+	if devices == nil {
+		devices = []Device{}
+	}
+	return devices, err
 }
 
 // playElsewhere plays trackID on whichever of the owner's devices they're most likely listening on, other than

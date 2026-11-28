@@ -3,6 +3,7 @@
 
   import {
     Service as Spotify,
+    type Device,
     type Playback,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/spotify";
   import type { Line } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
@@ -20,9 +21,11 @@
     type Clock,
     type Move,
   } from "../lib/follow";
+  import { chooseDevice, choiceOf, loadDevice, saveDevice } from "../lib/devices";
   import { formatDuration } from "../lib/sources";
   import { activateWebPlayer, startWebPlayer, webPlayer, webPlayerName } from "../lib/webPlayer.svelte";
   import LyricsForTrack from "./LyricsForTrack.svelte";
+  import SpotifyDeviceSheet from "./SpotifyDeviceSheet.svelte";
   import SpotifyOpenSheet from "./SpotifyOpenSheet.svelte";
   import TimingSheet from "./TimingSheet.svelte";
 
@@ -205,18 +208,62 @@
     return () => window.clearInterval(timer);
   });
 
-  // Plays the song from the line you're on, on device, or with none given, where you're most likely listening.
-  async function play(device = "") {
+  // Where Spotify plays: the device you chose, remembered on this device, and while choosing, the sheet. On a phone,
+  // with no choice made, your phone comes first, even when Spotify last played on your computer.
+  let deviceChoice = $state(loadDevice());
+  let choosingDevice = $state(false);
+  const onPhone = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+
+  // The device to play on now, or null when Spotify can't say (it plays where it likes).
+  async function where(): Promise<Device | null> {
+    try {
+      return chooseDevice((await Spotify.Devices()) ?? [], deviceChoice, onPhone, webPlayer.deviceId ?? "");
+    } catch {
+      return null;
+    }
+  }
+
+  function chooseOn(device: Device) {
+    deviceChoice = choiceOf(device, webPlayer.deviceId ?? "");
+    // When storage refuses, the choice still holds until the screen closes.
+    saveDevice(deviceChoice);
+    if (device.id === webPlayer.deviceId) {
+      activateWebPlayer();
+    }
+    if (following) {
+      void play(device.id, trackNow());
+    }
+  }
+
+  // Carries on with the song: on the device it's paused on, or, when you'd rather it played elsewhere (your phone,
+  // when you're on your phone), there, from where it's paused.
+  async function resume() {
+    const device = await where();
+    const there = device && (device.id === webPlayer.deviceId ? webPlayerName : device.name);
+    if (device && there !== playback?.device) {
+      await play(device.id, trackNow());
+      return;
+    }
+    moved(trackNow(), true);
+    await control(() => Spotify.Resume());
+  }
+
+  // Plays the song from fromMs on the track, or the line you're on, on device, or with none given, the device you'd
+  // play on.
+  async function play(device = "", fromMs: number | null = null) {
     busy = true;
     failure = null;
     try {
-      const from = trackTime(Math.max(0, startMs), offset);
+      if (!device) {
+        device = (await where())?.id ?? "";
+      }
+      const from = fromMs ?? trackTime(Math.max(0, startMs), offset);
       const result = await Spotify.Play(songId, from, device);
       if (result.started) {
         moved(from, true);
         await ask();
       } else {
-        if (device) {
+        if (device && device === webPlayer.deviceId) {
           // The page's player couldn't play, and nothing else could either: don't try it again on this visit.
           webPlayer.status = "unavailable";
         }
@@ -239,12 +286,12 @@
       moved(trackNow(), false);
       void control(() => Spotify.Pause());
     } else if (following) {
-      moved(trackNow(), true);
-      void control(() => Spotify.Resume());
-    } else if (webPlayer.status === "ready" && !playback?.active) {
-      // Nothing playing anywhere: play here, in the page, rather than asking you to open the Spotify app.
+      void resume();
+    } else if (webPlayer.status === "ready" && !playback?.active && !deviceChoice) {
+      // Nothing playing anywhere, and no device chosen: play here, in the page, rather than asking you to open the
+      // Spotify app.
       void play(webPlayer.deviceId);
-    } else if (playback && !playback.ready && trackLink(playback.trackUri)) {
+    } else if (playback && !playback.ready && webPlayer.status !== "ready" && trackLink(playback.trackUri)) {
       // No Spotify open anywhere, so the API can't reach one: ask you to open it.
       opening = trackLink(playback.trackUri);
     } else {
@@ -367,6 +414,27 @@
       {/if}
     </button>
     <p class="note" class:alert={failure !== null} role="status">{note()}</p>
+    <button
+      type="button"
+      class="icon-button"
+      aria-label="Choose where Spotify plays"
+      onclick={() => (choosingDevice = true)}
+    >
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        ><rect x="5" y="2" width="14" height="20" rx="2.5" /><circle cx="12" cy="14" r="3.5" /><path
+          d="M12 6.5h.01"
+        /></svg
+      >
+    </button>
     {#if following && synced}
       <button type="button" class="icon-button" aria-label="Lyrics timing" onclick={() => (timing = true)}>
         <svg
@@ -405,6 +473,17 @@
       <LyricsForTrack {songId} {lyricsMs} trackMs={playback?.trackMs ?? 0} {query} />
     {/snippet}
   </TimingSheet>
+{/if}
+
+{#if choosingDevice}
+  <SpotifyDeviceSheet
+    hereId={webPlayer.deviceId ?? ""}
+    chosen={deviceChoice}
+    playingOn={playback?.active ? playback.device : ""}
+    paused={!playback?.playing}
+    onchoose={chooseOn}
+    onclose={() => (choosingDevice = false)}
+  />
 {/if}
 
 {#if opening}
