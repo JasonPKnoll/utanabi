@@ -260,21 +260,9 @@ func SignUp(ctx context.Context, repo Repository, cer Ceremonies, site Site, dra
 	return repo.CreateAccount(ctx, draft.Name, draft.Handle, key, invite, now)
 }
 
-// requireAdmin returns the signed-in user if they're an admin.
-func requireAdmin(ctx context.Context) (identity.User, error) {
-	u, ok := identity.From(ctx)
-	if !ok {
-		return identity.User{}, fault.ErrUnauthorized
-	}
-	if !u.Admin {
-		return identity.User{}, fault.ErrForbidden
-	}
-	return u, nil
-}
-
 // ListInvites returns every invite, for an admin.
 func ListInvites(ctx context.Context, repo Repository) ([]Invite, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := identity.Admin(ctx); err != nil {
 		return nil, err
 	}
 	return repo.Invites(ctx)
@@ -282,7 +270,7 @@ func ListInvites(ctx context.Context, repo Repository) ([]Invite, error) {
 
 // MakeInvite makes an invite, for an admin, and returns its code: the only time the code is ever shown.
 func MakeInvite(ctx context.Context, repo Repository, now time.Time) (NewInvite, error) {
-	u, err := requireAdmin(ctx)
+	u, err := identity.Admin(ctx)
 	if err != nil {
 		return NewInvite{}, err
 	}
@@ -299,7 +287,7 @@ func MakeInvite(ctx context.Context, repo Repository, now time.Time) (NewInvite,
 
 // RevokeInvite removes an unused invite, for an admin, so its code no longer works.
 func RevokeInvite(ctx context.Context, repo Repository, id int64) error {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := identity.Admin(ctx); err != nil {
 		return err
 	}
 	if id <= 0 {

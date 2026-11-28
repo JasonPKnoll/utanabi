@@ -136,6 +136,8 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 			env: map[string]string{"UTANABI_SPOTIFY_CLIENT_ID": "not-a-client-id"}, wantName: "UTANABI_SPOTIFY_CLIENT_ID"},
 		{name: "YouTube API key that isn't one", platform: "server",
 			env: map[string]string{"UTANABI_YOUTUBE_API_KEY": "short key"}, wantName: "UTANABI_YOUTUBE_API_KEY"},
+		{name: "song tools neither on nor off", platform: "server", env: map[string]string{"UTANABI_SONG_TOOLS": "maybe"},
+			wantName: "UTANABI_SONG_TOOLS"},
 		{name: "bad env study streak", platform: "server", env: map[string]string{"UTANABI_STUDY_STREAK": "lots"},
 			wantName: "study_streak"},
 		{
@@ -404,5 +406,22 @@ func TestLoadServerYouTube(t *testing.T) {
 	}
 	if !off.Server.YouTubeAPIKey.IsZero() {
 		t.Error("YouTubeAPIKey is set, want search off")
+	}
+}
+
+func TestLoadServerSongTools(t *testing.T) {
+	t.Parallel()
+
+	for _, v := range []string{"on", "ON", "true", "1"} {
+		cfg, err := config.Load(platform(t, "server", map[string]string{"UTANABI_SONG_TOOLS": v}))
+		if err != nil || !cfg.Server.SongTools {
+			t.Errorf("UTANABI_SONG_TOOLS=%q: SongTools = %v, %v; want on", v, cfg.Server.SongTools, err)
+		}
+	}
+	for _, v := range []string{"", "off", "false", "0"} {
+		cfg, err := config.Load(platform(t, "server", map[string]string{"UTANABI_SONG_TOOLS": v}))
+		if err != nil || cfg.Server.SongTools {
+			t.Errorf("UTANABI_SONG_TOOLS=%q: SongTools = %v, %v; want off", v, cfg.Server.SongTools, err)
+		}
 	}
 }

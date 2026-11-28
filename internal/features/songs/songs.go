@@ -227,6 +227,9 @@ type Repository interface {
 	SetWordTimes(ctx context.Context, songID int64, source string, lines []LineTimes) error
 	// ClearWordTimes removes every word time of the song, yours and found ones.
 	ClearWordTimes(ctx context.Context, songID int64) error
+	// PurgeSong removes a song in the caller's library from every library, with everything that belongs to it. For
+	// the admins' tools only. It returns fault.ErrNotFound when the song isn't in the caller's library.
+	PurgeSong(ctx context.Context, songID int64) error
 }
 
 // AddSong validates a song the user typed in, splits its lyrics into lines, analyses them, and saves it.

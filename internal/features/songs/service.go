@@ -5,6 +5,8 @@ import (
 	"slices"
 
 	"github.com/JasonPKnoll/utanabi/internal/app"
+	"github.com/JasonPKnoll/utanabi/internal/common/fault"
+	"github.com/JasonPKnoll/utanabi/internal/identity"
 )
 
 // Service is the bound Wails service for songs. Every exported method here is callable by the frontend.
@@ -131,4 +133,50 @@ func (s *Service) SetSungReading(ctx context.Context, change SungReadingChange) 
 // Delete removes one song.
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	return app.Fail(ctx, DeleteSong(ctx, s.repo, id))
+}
+
+// Tools is the bound Wails service for the admins' song tools, for testing, on only with UTANABI_SONG_TOOLS on a
+// server. Every method checks the signed-in user is an admin.
+type Tools struct {
+	kit Toolkit
+	on  bool
+}
+
+// NewTools returns the song tools, working with kit, and on only when on is true.
+func NewTools(kit Toolkit, on bool) *Tools {
+	return &Tools{kit: kit, on: on}
+}
+
+// Available says whether the song tools are on and the signed-in user is an admin, so the app can offer them.
+func (t *Tools) Available(ctx context.Context) bool {
+	_, err := identity.Admin(ctx)
+	return t.on && err == nil
+}
+
+// TimedSongs lists the songs the word timing databases have whose title or artist has query in it.
+func (t *Tools) TimedSongs(ctx context.Context, query string) ([]TimedSong, error) {
+	if !t.on {
+		return nil, app.Fail(ctx, fault.ErrNotFound)
+	}
+	songs, err := t.kit.TimedSongs(ctx, query)
+	return songs, app.Fail(ctx, err)
+}
+
+// AddTimedSong adds a song a word timing database has, with LRCLIB's lyrics that its word times fit, and those times.
+func (t *Tools) AddTimedSong(ctx context.Context, sheet string) (ToolResult, error) {
+	if !t.on {
+		return ToolResult{}, app.Fail(ctx, fault.ErrNotFound)
+	}
+	result, err := t.kit.AddTimedSong(ctx, sheet)
+	return result, app.Fail(ctx, err)
+}
+
+// ReaddSong removes one of your songs from every library and adds it again fresh from its lyrics source, with its
+// word times looked up again. The song gets a new ID.
+func (t *Tools) ReaddSong(ctx context.Context, songID int64) (ToolResult, error) {
+	if !t.on {
+		return ToolResult{}, app.Fail(ctx, fault.ErrNotFound)
+	}
+	result, err := t.kit.ReaddSong(ctx, songID)
+	return result, app.Fail(ctx, err)
 }

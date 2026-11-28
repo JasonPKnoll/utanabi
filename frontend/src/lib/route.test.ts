@@ -27,6 +27,7 @@ describe("parseRoute", () => {
     [quizHref(12), { name: "quiz", id: 12 }],
     ["#/song/12/quiz/3", { name: "missing" }],
     ["#/invites", { name: "invites" }],
+    ["#/tools", { name: "tools" }],
     ["#/join/sszt-x59r-5rx2-emm7", { name: "join", code: "sszt-x59r-5rx2-emm7" }],
     ["#/join/", { name: "missing" }],
     ["#/join/<script>", { name: "missing" }],

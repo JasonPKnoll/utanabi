@@ -145,10 +145,12 @@ func run() (err error) {
 			Text: "Word times from the AMLL TTML DB (github.com/amll-dev/amll-ttml-db), timed by hand by its " +
 				"contributors and shared under CC0 1.0."})
 	}
+	songsRepo, songsAnalyzer := songs.NewSQLite(db, owners), songs.NewMorph(analyzer)
 	services := append([]application.Service{
 		application.NewService(app.NewAboutService(cfg, credits...)),
-		application.NewService(songs.NewService(songs.NewSQLite(db, owners), songs.NewMorph(analyzer), meanings,
-			timings, sources...)),
+		application.NewService(songs.NewService(songsRepo, songsAnalyzer, meanings, timings, sources...)),
+		application.NewService(songs.NewTools(songs.Toolkit{Repo: songsRepo, Analyzer: songsAnalyzer, Dict: meanings,
+			Sources: sources, Timings: timings}, cfg.Platform == "server" && cfg.Server.SongTools)),
 		application.NewService(study.NewService(study.NewSQLite(db, owners), study.NewJMdict(dict), cfg.StudyStreak)),
 		application.NewService(spotify.NewService(spotifyRepo, spotifyAPI, spotify.NewMorph(analyzer), spotifyOn)),
 		application.NewService(youtube.NewService(youtubeRepo, youtubeRepo, cfg.Server.YouTubeAPIKey,
@@ -159,7 +161,7 @@ func run() (err error) {
 	log.InfoContext(ctx, "starting", slog.String("version", cfg.Version), slog.String("platform", cfg.Platform),
 		slog.Any("lyrics_sources", cfg.LyricsSources), slog.Bool("dictionary", dict != nil),
 		slog.Bool("accounts", signIn != nil), slog.Bool("signup_open", !cfg.Server.SignupCode.IsZero()),
-		slog.Bool("spotify", spotifyOn), slog.Bool("youtube", youtubeOn))
+		slog.Bool("spotify", spotifyOn), slog.Bool("youtube", youtubeOn), slog.Bool("song_tools", cfg.Server.SongTools))
 	if err := a.Run(); err != nil {
 		return fmt.Errorf("run app: %w", err)
 	}

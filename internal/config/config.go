@@ -91,6 +91,9 @@ type Server struct {
 	// YouTubeAPIKey is a YouTube Data API key, for finding a song's video by searching. Empty means search is off:
 	// videos are pasted as links. It's a secret: it spends the key's quota, so it stays on the server.
 	YouTubeAPIKey redact.Secret
+	// SongTools turns on the admins' song tools, for testing: finding songs with word times, and removing a song from
+	// every library to add it again fresh. Off unless UTANABI_SONG_TOOLS is on.
+	SongTools bool
 }
 
 // settings mirrors the user settings file. Every field is optional.
@@ -332,6 +335,14 @@ func loadServer(getenv func(string) string) (Server, error) {
 				"Google Cloud's credentials page)")
 		}
 		srv.YouTubeAPIKey = redact.New(key)
+	}
+
+	switch v := strings.ToLower(strings.TrimSpace(getenv("UTANABI_SONG_TOOLS"))); v {
+	case "", "off", "false", "0":
+	case "on", "true", "1":
+		srv.SongTools = true
+	default:
+		return Server{}, fmt.Errorf("config: invalid UTANABI_SONG_TOOLS (%q is not on or off)", v)
 	}
 
 	for _, origin := range splitList(getenv("UTANABI_ALLOWED_ORIGINS")) {

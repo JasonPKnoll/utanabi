@@ -181,6 +181,27 @@ export interface SungReadingChange {
 }
 
 /**
+ * TimedSong is a song a timing database has word times for. Sheet is its ID there.
+ */
+export interface TimedSong {
+    "sheet": string;
+    "title": string;
+    "artist": string;
+}
+
+/**
+ * ToolResult is the song a tool added: its ID, title, how many lines it has, and how many have word times, and from
+ * where.
+ */
+export interface ToolResult {
+    "songId": number;
+    "title": string;
+    "lines": number;
+    "timed": number;
+    "source": string;
+}
+
+/**
  * Word is one learnable word of a line, as the song view shows it. It covers the line's tokens FirstToken to
  * LastToken. Lemma is its dictionary form, Gloss the short meaning it has in this line ("to search for"), Short its
  * part of the line's word-by-word gloss, shown under the word ("search for", "'s", "(subject)"), and Form a plain

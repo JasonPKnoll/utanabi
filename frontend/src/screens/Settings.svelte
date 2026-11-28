@@ -13,7 +13,8 @@
   import { addPasskey, rememberAccountHere, signOut } from "../lib/auth";
   import { toAppError } from "../lib/errors";
   import { loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
-  import { aboutHref, homeHref, invitesHref } from "../lib/route";
+  import { aboutHref, homeHref, invitesHref, toolsHref } from "../lib/route";
+  import { Tools } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
 
   // The choices you make about the app, first, where they're quick to reach: the reading aids, the theme, and your
   // account. The version and the credits are a tap away on About, so they never push the settings down.
@@ -113,6 +114,12 @@
       busy = false;
     }
   }
+
+  // The admins' song tools, for testing, when the server has them on.
+  let songTools = $state(false);
+  Tools.Available()
+    .then((on) => (songTools = on))
+    .catch(() => (songTools = false));
 </script>
 
 <div class="screen">
@@ -238,6 +245,9 @@
           </p>
           {#if account.me.admin}
             <a class="button primary" href={invitesHref}>Manage invites</a>
+            {#if songTools}
+              <a class="button" href={toolsHref}>Song tools</a>
+            {/if}
           {/if}
           <p class="muted small">Add a passkey on each device you use, so losing one doesn't lock you out.</p>
           <button type="button" class="button" disabled={busy} onclick={add}>Add a passkey on this device</button>

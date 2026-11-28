@@ -36,3 +36,26 @@ func TestOwners(t *testing.T) {
 		})
 	}
 }
+
+func TestAdmin(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		ctx     context.Context
+		wantErr error
+	}{
+		{name: "an admin", ctx: Into(context.Background(), User{ID: 1, Name: "hana", Admin: true})},
+		{name: "someone else", ctx: Into(context.Background(), User{ID: 2, Name: "kaze"}), wantErr: fault.ErrForbidden},
+		{name: "no one signed in", ctx: context.Background(), wantErr: fault.ErrUnauthorized},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			u, err := Admin(tt.ctx)
+			if !errors.Is(err, tt.wantErr) || (err == nil && u.ID != 1) {
+				t.Errorf("Admin = %+v, %v; want %v", u, err, tt.wantErr)
+			}
+		})
+	}
+}

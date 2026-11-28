@@ -10,6 +10,7 @@
   import Search from "./screens/Search.svelte";
   import Settings from "./screens/Settings.svelte";
   import SignIn from "./screens/SignIn.svelte";
+  import SongTools from "./screens/SongTools.svelte";
   import SongView from "./screens/SongView.svelte";
   import Study from "./screens/Study.svelte";
 
@@ -38,6 +39,8 @@
   <Home />
 {:else if route.name === "invites"}
   <Invites />
+{:else if route.name === "tools"}
+  <SongTools />
 {:else if route.name === "search"}
   <Search />
 {:else if route.name === "settings"}

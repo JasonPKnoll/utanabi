@@ -258,6 +258,29 @@ func (s *SQLite) SetWordTimes(ctx context.Context, songID int64, source string, 
 	})
 }
 
+// PurgeSong deletes the song itself, for every library, when it's in the owner's: its lines, analysis, timings, and
+// everything else that belongs to it go with it.
+func (s *SQLite) PurgeSong(ctx context.Context, songID int64) error {
+	owner, err := s.owners.Of(ctx)
+	if err != nil {
+		return err
+	}
+	res, err := s.db.Querier().ExecContext(ctx,
+		`DELETE FROM songs WHERE id = ? AND EXISTS (SELECT 1 FROM library_songs WHERE owner = ? AND song_id = ?)`,
+		songID, owner, songID)
+	if err != nil {
+		return store.Translate(err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return store.Translate(err)
+	}
+	if n == 0 {
+		return fault.ErrNotFound
+	}
+	return nil
+}
+
 // ClearWordTimes removes the owner's word times for every line of the song. A song outside the owner's library is
 // fault.ErrNotFound.
 func (s *SQLite) ClearWordTimes(ctx context.Context, songID int64) error {

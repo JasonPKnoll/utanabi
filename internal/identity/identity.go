@@ -61,3 +61,17 @@ func (o Owners) Of(ctx context.Context) (int64, error) {
 	}
 	return Device, nil
 }
+
+// Admin returns the signed-in user when they're an admin: fault.ErrUnauthorized when no one is signed in, and
+// fault.ErrForbidden for anyone else. Being an admin comes from the database through the session, never from a
+// call's arguments.
+func Admin(ctx context.Context) (User, error) {
+	u, ok := From(ctx)
+	if !ok {
+		return User{}, fault.ErrUnauthorized
+	}
+	if !u.Admin {
+		return User{}, fault.ErrForbidden
+	}
+	return u, nil
+}

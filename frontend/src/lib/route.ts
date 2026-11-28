@@ -9,6 +9,7 @@ export type Route =
   | { name: "study"; id: number; card?: number }
   | { name: "quiz"; id: number }
   | { name: "invites" }
+  | { name: "tools" }
   | { name: "join"; code: string }
   | { name: "missing" };
 
@@ -18,6 +19,7 @@ export const addHref = "#/add";
 export const settingsHref = "#/settings";
 export const aboutHref = "#/about";
 export const invitesHref = "#/invites";
+export const toolsHref = "#/tools";
 
 // An invite link: the code rides in the hash, so it's never sent to the server or written in its logs.
 export function joinHref(code: string): string {
@@ -56,6 +58,9 @@ export function parseRoute(hash: string): Route {
   }
   if (path === "/invites") {
     return { name: "invites" };
+  }
+  if (path === "/tools") {
+    return { name: "tools" };
   }
   const join = /^\/join\/([A-Za-z0-9-]{1,64})$/.exec(path)?.[1];
   if (join !== undefined) {
