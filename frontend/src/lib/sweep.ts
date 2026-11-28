@@ -22,19 +22,20 @@ const small = new Set("ぁぃぅぇぉゃゅょゎゕゖァィゥェォャュョ
 const defaultBeatMs = 400;
 const fastestBeatMs = 100;
 const slowestBeatMs = 600;
-// The lines a pace is measured by: the fastest 15% of a song's lines, by time per beat from each line's start to the
-// next's. Most lines run into the next, so the fast ones show how fast the song is sung; a line before a pause or an
-// instrumental shows a slower pace than it's sung at. Short lines (a "yeah") say little, so they're left out.
-const paceQuantile = 0.15;
+// The lines a pace is measured by: the middle of a song's lines, by time per beat from each line's start to the next's.
+// Most lines run into the next, so the middle one shows how fast the song is sung, held notes and all; the few before a
+// pause or an instrumental sit far above it. Short lines (a "yeah") say little, so they're left out.
+const paceQuantile = 0.5;
 const paceMinBeats = 3;
 const paceMinLines = 4;
-// How much slower than the song's pace a line may be sung before its sweep is taken to be done. Lean: a sweep that
-// ends a little early stays lit, while one that runs on after the singing reads as out of step.
-const paceSlack = 1.15;
+// How much slower than the song's pace a line may take before the rest of its time is taken to be a pause. Only a line
+// well past it is cut short: cutting every line slower than the fastest raced the sweep ahead of the singing, since a
+// singer holds notes and phrases lines unevenly.
+const pauseFactor = 1.8;
 // A singer breathes before the next line: a line's sweep ends this share of the gap before it starts, at most 0.4 s.
 const breathShare = 0.12;
 const longestBreathMs = 400;
-const shortestLineMs = 1000;
+const shortestLineMs = 1500;
 
 // How many beats text takes to sing: one per kana (ー and っ included), two per kanji with no reading, one per group of
 // vowels in Latin text, and one per digit. Punctuation and spaces take none.
@@ -67,8 +68,8 @@ export function pieceBeats(piece: Piece): number {
   return (piece.ruby ?? []).reduce((n, part) => n + beats(part.reading || part.text), 0);
 }
 
-// When line i is taken to end: when the next timed line starts, but no later than its beats at the slowest pace. null
-// for a line with no time.
+// When line i is taken to end: a breath before the next timed line starts, unless that's well past what its beats take
+// at the song's pace, when the rest is a pause. null for a line with no time.
 export function lineEnd(
   lines: readonly Timed[],
   i: number,
@@ -79,7 +80,7 @@ export function lineEnd(
   if (start === null || start === undefined) {
     return null;
   }
-  const slowest = start + Math.max(shortestLineMs, lineBeats * beatMs * paceSlack);
+  const slowest = start + Math.max(shortestLineMs, lineBeats * beatMs * pauseFactor);
   const next = nextStart(lines, i);
   if (next === null) {
     return slowest;
@@ -97,8 +98,8 @@ function nextStart(lines: readonly Timed[], i: number): number | null {
   return lines.slice(i + 1).find((l) => l.startMs !== null && l.startMs > start)?.startMs ?? null;
 }
 
-// How fast a song is sung, in ms per beat: the time per beat of the fastest 15% of its lines, from each line's start
-// to the next's, between 100 and 600 ms. Usseewa is sung at about 180 ms a beat, Shiseikatsu at about 430.
+// How fast a song is sung, in ms per beat: the middle time per beat of its lines, from each line's start to the next's,
+// between 100 and 600 ms. Usseewa is sung at about 210 ms a beat, Shiseikatsu at about 530.
 // Without enough timed lines to tell, 400.
 export function songPace(lines: readonly (Timed & { pieces: Piece[] | null })[]): number {
   const paces: number[] = [];
