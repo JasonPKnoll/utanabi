@@ -2,6 +2,8 @@ package songs
 
 import (
 	"slices"
+	"strings"
+	"unicode"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 )
@@ -32,7 +34,11 @@ func particleUse(tokens []Token, words []WordAnalysis, k int) string {
 	case "に":
 		return niUse(tokens, w, prev, next)
 	case "で":
-		if t.Detail == "接続助詞" {
+		switch {
+		case w.LastToken > w.FirstToken:
+			// で and も read as one でも.
+			return "demo-even"
+		case t.Detail == "接続助詞":
 			return "te-form"
 		}
 		return "de-place"
@@ -50,6 +56,9 @@ func particleUse(tokens []Token, words []WordAnalysis, k int) string {
 			return ""
 		case t.Detail == "終助詞":
 			return "no-question"
+		case next.POS == morph.Verb || isNai(next) || (next.POS == morph.Adjective && next.base() == "なき"):
+			// A verb or ない after の means の stands for が in a describing phrase: 変わることのない愛.
+			return "no-subject"
 		}
 		return "no-possession"
 	case "も":
@@ -73,6 +82,15 @@ func particleUse(tokens []Token, words []WordAnalysis, k int) string {
 			return "na-prohibition"
 		}
 		return "na-feeling"
+	case "よ":
+		switch {
+		case w.LastToken > w.FirstToken:
+			// よか is spoken より: 死ぬよか, rather than dying.
+			return "yori-than"
+		case (prev.POS == morph.Noun || prev.POS == morph.Pronoun) && callsOut(tokens, w.LastToken+1):
+			return "yo-calling"
+		}
+		return "yo-emphasis"
 	case "でも":
 		if t.Detail == "接続助詞" {
 			return "te-mo"
@@ -87,10 +105,22 @@ func particleUse(tokens []Token, words []WordAnalysis, k int) string {
 	return particleUses[t.base()]
 }
 
+// callsOut reports whether よ after a noun calls out to it (鏡よ鏡よ, 星よ) rather than stressing the sentence: the
+// line goes on after it, past any spaces or commas, with a word that isn't another particle.
+func callsOut(tokens []Token, from int) bool {
+	for _, t := range tokens[from:] {
+		if t.POS == morph.Symbol || strings.TrimFunc(t.Surface, unicode.IsSpace) == "" {
+			continue
+		}
+		return t.POS != morph.Particle && t.POS != morph.Auxiliary
+	}
+	return false
+}
+
 // particleUses are the particles with one use the app knows.
 var particleUses = map[string]string{
 	"まで": "made-until", "より": "yori-than", "や": "ya-and-so-on", "ね": "ne-agreement", "ねえ": "ne-agreement",
-	"ねぇ": "ne-agreement", "よ": "yo-emphasis", "かな": "kana-wonder", "かしら": "kana-wonder", "けど": "kedo-but",
+	"ねぇ": "ne-agreement", "かな": "kana-wonder", "かしら": "kana-wonder", "けど": "kedo-but",
 	"けれど": "kedo-but", "けれども": "kedo-but", "だけ": "dake-only", "しか": "shika-only", "のに": "noni-although",
 	"ので": "node-because", "し": "shi-and", "ても": "te-mo", "さえ": "sae-even", "こそ": "koso-emphasis",
 	"ばかり": "bakari-only", "ばっかり": "bakari-only", "ばっか": "bakari-only", "など": "nado-and-so-on",

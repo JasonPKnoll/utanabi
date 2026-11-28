@@ -172,6 +172,9 @@ func TestLookupFiltersByReading(t *testing.T) {
 		{name: "kana spelling", form: "さがす", want: []int64{1593670}},
 		{name: "second kanji spelling", form: "捜す", reading: "さがす", want: []int64{1593670}},
 		{name: "katakana spelling of a kana word", form: "カラ", want: []int64{1245280}},
+		{name: "a hiragana word written in katakana", form: "サガス", want: []int64{1593670}},
+		{name: "a hiragana word written in both kana", form: "さガす", want: []int64{1593670}},
+		{name: "a word written in katakana for effect", form: "ソラ", want: []int64{1245290}},
 		{name: "spaces around the form", form: " 星 ", want: []int64{1376310}},
 		{name: "not in the dictionary", form: "未知語", want: nil},
 	}

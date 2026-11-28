@@ -65,6 +65,35 @@ func TestFindWords(t *testing.T) {
 			"行こう 行く/いく content v5k-s [volitional]",
 		}},
 		{text: "光った", want: []string{"光った 光る/ひかる content v5r [past]"}},
+		{text: "It doesn't matter if it's Sunday", want: nil},
+		{text: "Monday 星が光る", want: []string{
+			"星 星/ほし content", "が が/が particle ga-subject", "光る 光る/ひかる content v5r",
+		}},
+		{text: "1番", want: []string{"1番 一番/ content"}},
+		{text: "12番", want: []string{"12番 12番/ content"}},
+		{text: "だれでも", want: []string{"だれでも だれでも/だれでも content"}},
+		{text: "針でもなんでも", want: []string{
+			"針 針/はり content", "でも でも/でも particle demo-even", "なんでも なんでも/なんでも content",
+		}},
+		{text: "学校でも", want: []string{
+			"学校 学校/がっこう content", "で で/で particle de-place", "も も/も particle mo-also",
+		}},
+		{text: "このまま", want: []string{"このまま このまま/このまま content"}},
+		{text: "おサラバする", want: []string{"おサラバする おサラバする/おさらばする content vs"}},
+		{text: "鏡よ鏡よ この世", want: []string{
+			"鏡 鏡/かがみ content", "よ よ/よ particle yo-calling", "鏡 鏡/かがみ content", "よ よ/よ particle yo-calling",
+			"この世 この世/このよ content",
+		}},
+		{text: "大丈夫だよ", want: []string{
+			"大丈夫だ 大丈夫/だいじょうぶ content adj-na", "よ よ/よ particle yo-emphasis",
+		}},
+		{text: "変わることのない愛", want: []string{
+			"変わる 変わる/かわる content v5r", "こと こと/こと content", "の の/の particle no-subject",
+			"ない ない/ない content adj-i", "愛 愛/あい content",
+		}},
+		{text: "するよか", want: []string{"する する/する content vs-i", "よか よか/よか particle yori-than"}},
+		{text: "治してみせます", want: []string{"治してみせます 治す/なおす content v5s [te-form te-miseru polite-masu]"}},
+
 		{text: "美しかった", want: []string{"美しかった 美しい/うつくしい content adj-i [past]"}},
 		{text: "行こう", want: []string{"行こう 行く/いく content v5k-s [volitional]"}},
 		{text: "会えない", want: []string{"会えない 会える/あえる content v1 [negative]"}},
@@ -131,7 +160,7 @@ func TestFindWords(t *testing.T) {
 			"田中さん 田中さん/たなかさん content", "に に/に particle ni-target", "会う 会う/あう content v5u",
 		}},
 		{text: "学校で", want: []string{"学校 学校/がっこう content", "で で/で particle de-place"}},
-		{text: "love you 君", want: []string{"love love/ content", "you you/ content", "君 君/きみ content"}},
+		{text: "love you 君", want: []string{"君 君/きみ content"}},
 		{text: "、！", want: nil},
 	}
 	for _, tt := range tests {
@@ -154,7 +183,7 @@ func TestFindWordsCoversEveryTokenButPunctuationOnce(t *testing.T) {
 
 	a := morph.New()
 	for _, text := range []string{
-		"君の声を探している", "「さよなら」、また明日！", "I'm 2人で…", "ラララ　夜空に光る星よ", "♪", "食べさせられなかった",
+		"君の声を探している", "「さよなら」、また明日！", "I'm 2人で…", "No need to ask 'cause it's 君", "ラララ　夜空に光る星よ", "♪", "食べさせられなかった",
 	} {
 		tokens := analyzeText(t, a, text)
 		owner := make([]int, len(tokens))
@@ -173,6 +202,9 @@ func TestFindWordsCoversEveryTokenButPunctuationOnce(t *testing.T) {
 			}
 		}
 		for i, tok := range tokens {
+			if numberBeforeCounter(tokens, i) {
+				continue
+			}
 			if inWord := owner[i] != -1; inWord == outsideWords(tok) {
 				t.Errorf("%q: token %q in a word = %v, want %v", text, tok.Surface, inWord, !outsideWords(tok))
 			}

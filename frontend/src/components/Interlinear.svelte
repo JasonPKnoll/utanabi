@@ -51,12 +51,14 @@
 </span>
 
 <style>
-  /* Units wrap like words in a sentence, centred, with room between them so each pair reads as one. */
+  /* Units wrap like words in a sentence, centred, with room between them so each pair reads as one. They line up on
+     the baseline of their Japanese, so a word with furigana sits level with one without: Safari grows a line for its
+     ruby however much line height there is, which pushed those words, and the English under them, down. */
   .il {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    align-items: flex-start;
+    align-items: baseline;
     gap: 6px 4px;
   }
 
@@ -71,7 +73,13 @@
 
   /* Punctuation and other text that isn't a word sits close to its neighbours. */
   .bare {
+    flex-shrink: 1;
     padding-inline: 0;
+  }
+
+  /* An English phrase in the line is one piece, so it wraps like text instead of running off the screen. */
+  .bare .ja {
+    white-space: normal;
   }
 
   .ja {

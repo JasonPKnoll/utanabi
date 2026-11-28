@@ -3,12 +3,14 @@ package songs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/fault"
 	"github.com/JasonPKnoll/utanabi/internal/common/jtext"
+	"github.com/JasonPKnoll/utanabi/internal/common/morph"
 )
 
 const maxGlossLen = 60
@@ -65,7 +67,7 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 	if len(line.Tokens) == 0 {
 		return words, append(pieces, LinePiece{Ruby: []RubyPart{{Text: line.Text}}, Word: -1}), ""
 	}
-	glosses := []string{}
+	var around []glossContext
 	next := 0
 	for _, a := range line.Analysis {
 		if a.FirstToken < next || a.LastToken < a.FirstToken || a.LastToken >= len(line.Tokens) {
@@ -74,18 +76,47 @@ func explainLine(dict Dictionary, entries map[int64]Entry, line Line) ([]Word, [
 		if a.FirstToken > next {
 			pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[next:a.FirstToken]), Word: -1})
 		}
-		w := explainWord(dict, entries, line.Tokens, a)
-		w.Short = wordGloss(w)
+		var c glossContext
+		if a.FirstToken > 0 {
+			c.prev = line.Tokens[a.FirstToken-1]
+		}
+		if a.LastToken+1 < len(line.Tokens) {
+			c.next = line.Tokens[a.LastToken+1]
+		}
 		pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[a.FirstToken : a.LastToken+1]), Word: len(words)})
-		words = append(words, w)
-		glosses = append(glosses, w.Short)
+		words = append(words, explainWord(dict, entries, line.Tokens, a))
+		around = append(around, c)
 		next = a.LastToken + 1
 	}
 	if next < len(line.Tokens) {
 		pieces = append(pieces, LinePiece{Ruby: rubyOf(line.Tokens[next:]), Word: -1})
 	}
+	glosses := []string{}
+	for k := range words {
+		around[k].negativeLater = slices.ContainsFunc(words[k+1:], isNegative)
+		words[k].Short = wordGloss(words[k], around[k])
+		if words[k].Short != "" {
+			glosses = append(glosses, words[k].Short)
+		}
+	}
 	return words, pieces, strings.Join(glosses, " · ")
 }
+
+// glossContext is what a word's English may depend on: the tokens just before and after it, zero at the line's
+// edges, and whether a negative comes later in the line.
+type glossContext struct {
+	prev, next    Token
+	negativeLater bool
+}
+
+func isNegative(w Word) bool {
+	return (w.Kind == WordContent && w.Lemma == "ない") ||
+		slices.ContainsFunc(w.Steps, func(s GrammarPoint) bool { return s.ID == "negative" })
+}
+
+// beforeNegative are the words whose English changes when a negative follows them in the line: もう要らない is "not
+// needed anymore", not "already"; まだ来ない is "not come yet", not "still".
+var beforeNegative = map[string]string{"もう": "anymore", "まだ": "yet"}
 
 func explainWord(dict Dictionary, entries map[int64]Entry, tokens []Token, a WordAnalysis) Word {
 	var text strings.Builder
@@ -164,9 +195,30 @@ func shortGloss(gloss string) string {
 
 // wordGloss is a word's part of the line's gloss: the meaning of a content word without "to" ("shine"), a short
 // English word for a particle where one fits ("'s", "in"), and otherwise the grammar title in parentheses. A word
-// the dictionary doesn't explain shows its dictionary form.
-func wordGloss(w Word) string {
+// the dictionary doesn't explain shows its dictionary form, or nothing when that is the word itself. A negative
+// content word says so ("not need"), and a few words read differently before a negative (beforeNegative).
+func wordGloss(w Word, c glossContext) string {
+	g := glossOf(w, c.prev, c.next)
+	if alt, ok := beforeNegative[w.Lemma]; ok && w.Kind == WordContent && c.negativeLater {
+		g = alt
+	}
+	// Without a meaning, a word can only show itself again, which adds nothing under it.
+	if g == w.Text {
+		return ""
+	}
+	if w.Kind == WordContent && w.Gloss != "" && slices.ContainsFunc(w.Steps, func(s GrammarPoint) bool {
+		return s.ID == "negative"
+	}) {
+		return "not " + g
+	}
+	return g
+}
+
+func glossOf(w Word, prev, next Token) string {
 	if w.Grammar != nil {
+		if g := contextGloss(w.Grammar.ID, w.Text, prev, next); g != "" {
+			return g
+		}
 		if g, ok := grammarGlosses[w.Grammar.ID]; ok {
 			return g
 		}
@@ -184,6 +236,26 @@ func wordGloss(w Word) string {
 	return w.Lemma
 }
 
+// contextGloss is the English for a grammar word whose use reads differently by what is around it, or "".
+func contextGloss(id, text string, prev, next Token) string {
+	predicate := prev.POS == morph.Verb || prev.POS == morph.Adjective || prev.POS == morph.Auxiliary
+	switch {
+	case id == "no-nominalizer" && prev.POS == morph.Verb:
+		// 死ぬのがいい: the act, dying.
+		return "(-ing)"
+	case id == "no-nominalizer":
+		// ダサいのは: the one, or the thing.
+		return "(one)"
+	case id == "no-question" && (next.base() == "よ" || next.base() == "ね" || next.base() == "さ"):
+		// いいのよ explains; it doesn't ask.
+		return "(it's that)"
+	case id == "nanka-casual" && text == "なんて" && predicate:
+		// 気がつくなんて: surprise at the whole clause.
+		return "(to think…)"
+	}
+	return ""
+}
+
 // grammarGlosses are the short English words particles and set phrases take in a line's gloss. A particle with no
 // English word, such as が, shows its grammar title instead.
 var grammarGlosses = map[string]string{
@@ -192,7 +264,8 @@ var grammarGlosses = map[string]string{
 	"ni-destination": "to", "ni-purpose": "to", "ni-change": "into", "ni-agent": "by", "de-place": "at",
 	"de-means": "with", "he-direction": "toward", "to-and": "and", "to-with": "with", "to-quote": "(quote)",
 	"to-when": "when", "tte-quote": "(quote)", "no-possession": "'s", "no-nominalizer": "(the one that)",
-	"no-question": "(?)", "mo-also": "also", "demo-even": "even", "sae-even": "even", "koso-emphasis": "(indeed)",
+	"no-question": "(?)", "no-subject": "(subject)", "yo-calling": "(calling)", "mo-also": "also",
+	"demo-even": "even", "sae-even": "even", "koso-emphasis": "(indeed)",
 	"kara-from": "from", "kara-because": "because", "node-because": "so", "noni-although": "even though",
 	"shi-and": "and", "made-until": "until", "yori-than": "than", "ya-and-so-on": "and", "toka-like": "or such",
 	"nado-and-so-on": "and so on", "nanka-casual": "(like)", "tari-and": "(and so on)", "ka-question": "(?)",
@@ -214,7 +287,8 @@ var stepLabels = map[string]string{ //nolint:gosec // G101: the key "passive" is
 	"causative-passive": "causative passive", "volitional": "volitional", "conditional-ba": "〜ば",
 	"conditional-tara": "〜たら", "imperative": "command", "tai-want": "〜たい", "te-shimau": "〜てしまう",
 	"chau": "〜ちゃう", "adverbial": "adverb", "na-attributive": "〜な", "te-iku": "〜ていく", "te-kuru": "〜てくる",
-	"te-kureru": "〜てくれる", "sou-looks": "〜そう",
+	"te-kureru": "〜てくれる", "sou-looks": "〜そう", "te-miseru": "〜てみせる", "te-itadaku": "〜ていただく",
+	"te-miru": "〜てみる", "te-morau": "〜てもらう", "te-ageru": "〜てあげる", "te-oku": "〜ておく",
 }
 
 // formSentence says in plain words how a word is conjugated: "探す, in the 〜ている form", or "食べる, in the
@@ -224,7 +298,8 @@ func formSentence(lemma string, steps []string) string {
 	for i, id := range steps {
 		if id == "te-form" && i+1 < len(steps) {
 			switch steps[i+1] {
-			case "teiru", "teru", "te-shimau", "te-iku", "te-kuru", "te-kureru":
+			case "teiru", "teru", "te-shimau", "te-iku", "te-kuru", "te-kureru", "te-miseru", "te-itadaku", "te-miru",
+				"te-morau", "te-ageru", "te-oku":
 				continue
 			}
 		}
@@ -298,17 +373,61 @@ func LookupWord(ctx context.Context, dict Dictionary, lemma, reading string, ent
 		}
 	}
 
+	described, err := describeEntries(ctx, dict, []Entry{entry})
+	if err != nil {
+		return Meanings{}, err
+	}
+	return described[0], nil
+}
+
+// maxLookupEntries caps one LookupEntries call: far above the words of any song.
+const maxLookupEntries = 2000
+
+// LookupEntries returns the meanings of the entries with the given IDs in one go, so the app can have a whole song's
+// meanings ready before a word is tapped. IDs the dictionary doesn't have are left out, and without the dictionary
+// the list is empty.
+func LookupEntries(ctx context.Context, dict Dictionary, ids []int64) ([]Meanings, error) {
+	if len(ids) > maxLookupEntries {
+		return nil, fault.Invalid("ids", fmt.Sprintf("has more than %d entries", maxLookupEntries))
+	}
+	var unique []int64
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, fault.Invalid("ids", "must be positive")
+		}
+		if !slices.Contains(unique, id) {
+			unique = append(unique, id)
+		}
+	}
+	if len(unique) == 0 {
+		return []Meanings{}, nil
+	}
+	entries, err := dict.Entries(ctx, unique)
+	if errors.Is(err, ErrNoMeanings) {
+		return []Meanings{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return describeEntries(ctx, dict, entries)
+}
+
+// describeEntries turns entries into meanings for the word sheet, with their codes put in words, asking the
+// dictionary once for all their codes.
+func describeEntries(ctx context.Context, dict Dictionary, entries []Entry) ([]Meanings, error) {
 	var codes []string
-	for _, s := range entry.Senses {
-		for _, c := range slices.Concat(s.PartsOfSpeech, s.Misc) {
-			if !slices.Contains(codes, c) {
-				codes = append(codes, c)
+	for _, e := range entries {
+		for _, s := range e.Senses {
+			for _, c := range slices.Concat(s.PartsOfSpeech, s.Misc) {
+				if !slices.Contains(codes, c) {
+					codes = append(codes, c)
+				}
 			}
 		}
 	}
 	tags, err := dict.Tags(ctx, codes)
 	if err != nil {
-		return Meanings{}, err
+		return nil, err
 	}
 	describe := func(list []string) []string {
 		out := make([]string, 0, len(list))
@@ -321,15 +440,18 @@ func LookupWord(ctx context.Context, dict Dictionary, lemma, reading string, ent
 		}
 		return out
 	}
-
-	found.EntryID = entry.ID
-	for _, s := range entry.Senses {
-		found.Senses = append(found.Senses, Meaning{
-			Index:         s.Index,
-			Glosses:       append([]string{}, s.Glosses...),
-			PartsOfSpeech: describe(s.PartsOfSpeech),
-			Notes:         describe(s.Misc),
-		})
+	list := make([]Meanings, 0, len(entries))
+	for _, e := range entries {
+		m := Meanings{Installed: true, EntryID: e.ID, Senses: []Meaning{}, Attribution: dict.Attribution()}
+		for _, s := range e.Senses {
+			m.Senses = append(m.Senses, Meaning{
+				Index:         s.Index,
+				Glosses:       append([]string{}, s.Glosses...),
+				PartsOfSpeech: describe(s.PartsOfSpeech),
+				Notes:         describe(s.Misc),
+			})
+		}
+		list = append(list, m)
 	}
-	return found, nil
+	return list, nil
 }

@@ -5,13 +5,14 @@
     type Song,
     type Word,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
-  import { AboutService } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
+  import DisplaySheet from "../components/DisplaySheet.svelte";
   import Interlinear from "../components/Interlinear.svelte";
   import WordSheet from "../components/WordSheet.svelte";
   import { toAppError, type AppError } from "../lib/errors";
   import { startsStanza } from "../lib/lyrics";
+  import { meaningsCache } from "../lib/meaningsCache";
   import { hasRomaji, loadReadingAids, saveReadingAids, type ReadingAids } from "../lib/readingAids";
-  import { homeHref } from "../lib/route";
+  import { aboutHref, homeHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
 
   let { id }: { id: number } = $props();
@@ -19,14 +20,20 @@
   let song = $state<Song | null>(null);
   let failure = $state<AppError | null>(null);
   let current = $state(0);
-  let confirmDelete = $state(false);
   let deleting = $state(false);
   let aids = $state(loadReadingAids());
-  // JMdict's licence asks for its credit on every page that shows its words, so it sits under the glosses.
-  let jmdictCredit = $state("");
+  let displayOpen = $state(false);
   let open = $state<{ word: Word; ruby: RubyPart[] } | null>(null);
 
   let lines = $derived(song?.lines ?? []);
+  // JMdict's licence asks for a credit wherever its meanings show, so the footnote appears only when they do.
+  let hasDefinitions = $derived(lines.some((l) => (l.words ?? []).some((w) => w.entryId > 0)));
+  let source = $derived.by(() => {
+    if (!song || song.source === "user") {
+      return "";
+    }
+    return sourceLabel(song.source) + (lines.some((l) => l.startMs !== null) ? ", synced" : "");
+  });
 
   function toggle(aid: keyof ReadingAids) {
     aids[aid] = !aids[aid];
@@ -35,14 +42,12 @@
   }
 
   $effect(() => {
-    AboutService.Info()
-      .then((about) => (jmdictCredit = about.credits?.find((c) => c.name === "JMdict")?.text ?? ""))
-      .catch(() => (jmdictCredit = ""));
-  });
-
-  $effect(() => {
     Songs.Get(id)
-      .then((found) => (song = found))
+      .then((found) => {
+        song = found;
+        // Fetch every word's meanings now, in one call, so tapping a word opens its sheet at once.
+        void meaningsCache.preload((found.lines ?? []).flatMap((line) => line.words ?? []));
+      })
       .catch((err: unknown) => (failure = toAppError(err)));
   });
 
@@ -54,13 +59,16 @@
     } catch (err) {
       failure = toAppError(err);
       deleting = false;
-      confirmDelete = false;
+      displayOpen = false;
     }
   }
 </script>
 
+<!-- prettier-ignore -->
+{#snippet rubyText(parts: RubyPart[])}{#each parts as part, k (k)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}{/snippet}
+
 <div class="screen">
-  <header>
+  <header class="topbar">
     <a class="icon-button" href={homeHref} aria-label="Back to your songs">
       <svg
         width="22"
@@ -74,13 +82,22 @@
         aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg
       >
     </a>
-    {#if song}
-      <div class="heading">
+    <div class="topbar-title">
+      {#if song}
         <h1>{song.title}</h1>
-        <p class="muted">{song.artist || "Unknown artist"}</p>
-      </div>
+        <p>{song.artist || "Unknown artist"}</p>
+      {/if}
+    </div>
+    {#if song}
+      <button
+        type="button"
+        class="icon-button display"
+        aria-label="Display options"
+        onclick={() => (displayOpen = true)}
+      >
+        <span aria-hidden="true">Aa</span>
+      </button>
     {/if}
-    <span class="spacer" aria-hidden="true"></span>
   </header>
 
   {#if failure?.code === "not_found"}
@@ -96,19 +113,6 @@
     <main class="center"><p class="muted">Loading…</p></main>
   {:else}
     <main>
-      <div class="aids" role="group" aria-label="Reading aids">
-        <button type="button" class="pill" aria-pressed={aids.furigana} onclick={() => toggle("furigana")}>
-          Furigana
-        </button>
-        <button type="button" class="pill" aria-pressed={aids.romaji} onclick={() => toggle("romaji")}>Romaji</button>
-        <button type="button" class="pill" aria-pressed={aids.words} onclick={() => toggle("words")}>Words</button>
-      </div>
-      <p class="hint muted">
-        Tap a line to follow along, then tap a word in it to see what it means.
-        {#if song.source !== "user"}
-          <br />Lyrics from {sourceLabel(song.source)}{song.lines?.some((l) => l.startMs !== null) ? ", synced" : ""}.
-        {/if}
-      </p>
       <ol class="lyrics" class:furigana={aids.furigana} class:words={aids.words} lang="ja">
         {#each lines as line, i (line.position)}
           <li class:stanza-start={startsStanza(lines, i)}>
@@ -137,7 +141,7 @@
             {:else if i === current && (line.words ?? []).length > 0}
               <div class="line current" role="group" aria-label={line.text} aria-current="true">
                 <!-- prettier-ignore -->
-                <span class="sung">{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [] })}>{#each piece.ruby ?? [] as part, k (k)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</button>{:else}{#each piece.ruby ?? [] as part, k (k)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}{/if}{/each}</span>
+                <span class="sung">{#each line.pieces ?? [] as piece, j (j)}{@const word = piece.word >= 0 ? line.words?.[piece.word] : undefined}{#if word}<button type="button" class="word" aria-label={word.text} onclick={() => (open = { word, ruby: piece.ruby ?? [] })}>{@render rubyText(piece.ruby ?? [])}</button>{:else}{@render rubyText(piece.ruby ?? [])}{/if}{/each}</span>
                 {#if aids.romaji && hasRomaji(line)}
                   <span class="romaji" lang="ja-Latn">{line.romaji}</span>
                 {/if}
@@ -152,7 +156,7 @@
                 onclick={() => (current = i)}
               >
                 <!-- prettier-ignore -->
-                <span class="sung">{#each line.ruby ?? [{ text: line.text, reading: "" }] as part, j (j)}{#if aids.furigana && part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</span>
+                <span class="sung">{@render rubyText(line.ruby ?? [{ text: line.text, reading: "" }])}</span>
                 {#if aids.romaji && hasRomaji(line)}
                   <span class="romaji" lang="ja-Latn">{line.romaji}</span>
                 {/if}
@@ -161,8 +165,8 @@
           </li>
         {/each}
       </ol>
-      {#if aids.words && jmdictCredit}
-        <p class="credit">{jmdictCredit}</p>
+      {#if aids.words && hasDefinitions}
+        <p class="footnote">Definitions from JMdict · <a href={aboutHref}>Sources</a></p>
       {/if}
     </main>
 
@@ -170,62 +174,31 @@
       <WordSheet word={open.word} ruby={open.ruby} onclose={() => (open = null)} />
     {/if}
 
-    <div class="actions">
-      {#if confirmDelete}
-        <button type="button" class="button" onclick={() => (confirmDelete = false)} disabled={deleting}>Keep it</button
-        >
-        <button type="button" class="button danger" onclick={remove} disabled={deleting}>
-          {deleting ? "Deleting…" : "Delete song"}
-        </button>
-      {:else}
-        <button type="button" class="button danger" onclick={() => (confirmDelete = true)}>Delete song…</button>
-      {/if}
-    </div>
+    {#if displayOpen}
+      <DisplaySheet
+        {aids}
+        {source}
+        {deleting}
+        ontoggle={toggle}
+        ondelete={remove}
+        onclose={() => (displayOpen = false)}
+      />
+    {/if}
   {/if}
 </div>
 
 <style>
-  header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 0;
-    margin: 0 -8px;
-  }
-
-  .heading {
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-  }
-
-  .heading h1,
-  .heading p {
-    margin: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .heading h1 {
-    font-size: 1.1rem;
+  .display {
+    font-size: 1.0625rem;
     font-weight: 700;
-  }
-
-  .heading p {
-    font-size: 0.85rem;
-  }
-
-  .spacer {
-    flex: none;
-    width: var(--tap);
+    letter-spacing: -0.02em;
   }
 
   main {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding-bottom: 16px;
+    padding: 8px 0 max(32px, env(safe-area-inset-bottom));
   }
 
   .center {
@@ -239,46 +212,6 @@
     flex: none;
   }
 
-  .aids {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    margin: 4px 0 8px;
-  }
-
-  .pill {
-    min-height: var(--tap);
-    min-width: 88px;
-    padding: 0 16px;
-    border: 1px solid var(--border);
-    border-radius: 22px;
-    background: var(--surface);
-    color: var(--muted);
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .pill[aria-pressed="true"] {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: var(--on-accent);
-  }
-
-  .credit {
-    margin: 24px 0 0;
-    font-size: 0.8rem;
-    color: var(--muted);
-    overflow-wrap: anywhere;
-  }
-
-  .hint {
-    margin: 4px 0 12px;
-    font-size: 0.85rem;
-    text-align: center;
-  }
-
   .lyrics {
     margin: 0;
     padding: 0;
@@ -286,19 +219,23 @@
   }
 
   .stanza-start {
-    margin-top: 20px;
+    margin-top: 24px;
   }
 
+  /* border-box because the current line is a <div> and the others are <button>s, which are border-box already:
+     without it the current line's padding came on top of its width and pushed it past the right edge. */
   .line {
+    box-sizing: border-box;
     display: block;
     width: 100%;
     min-height: var(--tap);
     padding: 6px 8px;
     border: 0;
-    border-radius: 12px;
+    border-radius: 16px;
     background: transparent;
     color: var(--dim);
-    font-size: 1.15rem;
+    font-size: 1.125rem;
+    font-weight: 500;
     line-height: 1.7;
     text-align: center;
     cursor: pointer;
@@ -313,7 +250,7 @@
 
   .line.current {
     color: var(--fg);
-    font-size: 1.6rem;
+    font-size: 1.5rem;
     font-weight: 700;
   }
 
@@ -326,14 +263,14 @@
     line-height: 2.2;
   }
 
-  .line rt {
+  .line :global(rt) {
     font-size: max(0.5em, 10px);
     font-weight: 400;
     line-height: 1;
     color: inherit;
   }
 
-  .line.current rt {
+  .line.current :global(rt) {
     color: var(--muted);
   }
 
@@ -341,7 +278,7 @@
     display: block;
     margin-bottom: 4px;
     color: var(--dim);
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 400;
     line-height: 1.4;
   }
@@ -350,17 +287,17 @@
     color: var(--muted);
   }
 
-  /* With Words on, each line is its own card, so it's clear where one line and its English end and the next begin.
-     The current line's card is outlined in amber. */
+  /* With Words on, each line is a soft card, so it's clear where one line and its English end and the next begin.
+     The current line's card is brighter. */
   .words .card {
-    margin: 6px 0;
+    margin: 4px 0;
     padding: 10px 6px;
-    border: 1px solid var(--border);
-    background: var(--surface);
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
   }
 
   .words .card.current {
-    border-color: var(--link);
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--link) 45%, transparent);
   }
 
   .words .card .romaji {
@@ -399,11 +336,11 @@
 
   @media (min-width: 640px) {
     .line {
-      font-size: 1.3rem;
+      font-size: 1.25rem;
     }
 
     .line.current {
-      font-size: 1.9rem;
+      font-size: 1.75rem;
     }
   }
 </style>

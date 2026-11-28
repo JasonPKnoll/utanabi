@@ -56,6 +56,14 @@ func newFakeDictionary(t *testing.T) *fakeDictionary {
 			entry(1150450, "愛する", "あいする", sense(0, "to love", "vs-s", "vt")),
 			entry(1512670, "勉強", "べんきょう", sense(0, "study", "n", "vs", "vt")),
 			entry(1591900, "綺麗", "きれい", sense(0, "pretty", "adj-na")),
+			entry(1221520, "気", "き", sense(0, "spirit", "n")),
+			entry(1495740, "付く", "つく", sense(0, "to be attached", "v5k", "vi")),
+			{ID: 1591050, Forms: []Form{{Text: "気がつく", Reading: "きがつく"}, {Text: "気が付く", Reading: "きがつく"}},
+				Senses: []Sense{sense(0, "to notice", "exp", "v5k")}},
+			entry(1395570, "難", "なん", sense(0, "difficulty", "n")),
+			entry(1188490, "何", "なん", sense(0, "what", "pn")),
+			entry(1165970, "一番", "いちばん", sense(0, "number one", "n", "adv")),
+			entry(1482660, "二人", "ふたり", sense(0, "two people", "n")),
 		},
 		tags: map[string]string{"v5s": "Godan verb with 'su' ending", "vt": "transitive verb", "uk": "usually kana"},
 	}
@@ -135,6 +143,10 @@ func TestWordsTakeTheirMeaningFromTheDictionary(t *testing.T) {
 		{text: "愛する", want: []string{"愛する 1150450/0 vs-s"}},
 		{text: "勉強する", want: []string{"勉強する 1512670/0 vs"}},
 		{text: "綺麗な", want: []string{"綺麗 1591900/0 adj-na"}},
+		{text: "気がつく", want: []string{"気がつく 1591050/0 v5k"}},
+		{text: "気が付いた", want: []string{"気が付く 1591050/0 v5k"}},
+		{text: "なんだ", want: []string{"なん 1188490/0 ", "だ 0/0 "}},
+		{text: "1番", want: []string{"一番 1165970/0 "}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.text, func(t *testing.T) {
@@ -201,32 +213,57 @@ func TestPickPrefersAFittingSenseThenTheClassThenKana(t *testing.T) {
 	godan := Entry{ID: 3, Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"v5r"}}}}
 	ichidan := Entry{ID: 4, Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"v1"}}}}
 	kana := Entry{ID: 5, Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"v1"}, Misc: []string{"uk"}}}}
+	// だれ: 垂れ "sauce" is rare but usually written in kana; 誰 "who" is common.
+	sauce := Entry{ID: 6, Forms: []Form{{Text: "たれ", Reading: "たれ", Common: true}, {Text: "だれ", Reading: "だれ"}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}, Misc: []string{"uk"}}}}
+	who := Entry{ID: 7, Forms: []Form{{Text: "誰", Reading: "だれ", Common: true}, {Text: "だれ", Reading: "だれ", Common: true}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"pn"}}}}
+	commonNoun := Entry{ID: 8, Forms: []Form{{Text: "た", Reading: "た", Common: true}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}}}}
+	hollow := Entry{ID: 9, Forms: []Form{{Text: "洞", Reading: "ほら", Common: true}, {Text: "ほら", Reading: "ほら", Common: true}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}}}}
+	boasting := Entry{ID: 10, Forms: []Form{{Text: "法螺", Reading: "ほら"}, {Text: "ホラ", Reading: "ほら"}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}}}}
+	difficulty := Entry{ID: 11, Forms: []Form{{Text: "なん", Reading: "なん", Common: true}},
+		Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"n"}}}}
+	what := Entry{ID: 12, Forms: []Form{{Text: "なん", Reading: "なん"}}, Senses: []Sense{{Index: 0, PartsOfSpeech: []string{"pn"}}}}
 	tests := []struct {
 		name      string
 		entries   []Entry
 		cat       category
 		class     string
-		kana      bool
+		form      string
 		wantID    int64
 		wantSense int
 	}{
 		{name: "the first sense that fits", entries: []Entry{noun, laterVerb}, cat: catVerb, wantID: 2, wantSense: 1},
 		{name: "nothing fits takes the first", entries: []Entry{noun}, cat: catVerb, wantID: 1, wantSense: 0},
 		{name: "the word's class", entries: []Entry{godan, ichidan}, cat: catVerb, class: "v1", wantID: 4},
-		{name: "kana for a kana word", entries: []Entry{ichidan, kana}, cat: catVerb, class: "v1", kana: true,
+		{name: "kana for a kana word", entries: []Entry{ichidan, kana}, cat: catVerb, class: "v1", form: "いる",
 			wantID: 5},
-		{name: "dictionary order on a tie", entries: []Entry{ichidan, kana}, cat: catVerb, class: "v1", wantID: 4},
+		{name: "dictionary order on a tie", entries: []Entry{ichidan, kana}, cat: catVerb, class: "v1", form: "居る",
+			wantID: 4},
+		{name: "the word's common spelling over a rare kana one", entries: []Entry{sauce, who}, cat: catNoun,
+			form: "だれ", wantID: 7},
+		{name: "common in katakana too", entries: []Entry{sauce, who}, cat: catNoun, form: "ダレ", wantID: 7},
+		{name: "a fitting sense over a common word", entries: []Entry{commonNoun, ichidan}, cat: catVerb, wantID: 4},
+		{name: "the spelling as written over a common one", entries: []Entry{hollow, boasting}, cat: catNoun,
+			form: "ホラ", wantID: 10},
+		{name: "a pronoun sense for a pronoun", entries: []Entry{difficulty, what}, cat: catPronoun, form: "なん",
+			wantID: 12},
+		{name: "a noun sense when a pronoun has no pronoun sense", entries: []Entry{ichidan, difficulty},
+			cat: catPronoun, form: "なん", wantID: 11},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			e, sense, ok := pick(tt.entries, tt.cat, tt.class, tt.kana)
+			e, sense, ok := pick(tt.entries, tt.cat, tt.class, tt.form)
 			if !ok || e.ID != tt.wantID || sense != tt.wantSense {
 				t.Errorf("pick = %d sense %d (%v), want %d sense %d", e.ID, sense, ok, tt.wantID, tt.wantSense)
 			}
 		})
 	}
-	if _, _, ok := pick(nil, catNoun, "", false); ok {
+	if _, _, ok := pick(nil, catNoun, "", ""); ok {
 		t.Error("pick(nil) found an entry")
 	}
 }
@@ -325,5 +362,82 @@ func TestLookupWordPrefersTheWordsOwnEntry(t *testing.T) {
 	}
 	if !none.Installed || none.EntryID != 0 || len(none.Senses) != 0 || none.Attribution == "" {
 		t.Errorf("LookupWord(未知語) = %+v, want installed with no senses and the credit", none)
+	}
+}
+
+func TestNumbersInDigitsAreReadLikeTheirKanji(t *testing.T) {
+	t.Parallel()
+
+	dict := newFakeDictionary(t)
+	tests := []struct {
+		text        string
+		wantNumber  string
+		wantCounter string
+		wantLemma   string
+	}{
+		{text: "1番", wantNumber: "いち", wantCounter: "ばん", wantLemma: "いちばん"},
+		{text: "2人", wantNumber: "ふたり", wantCounter: "", wantLemma: "ふたり"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.text, func(t *testing.T) {
+			t.Parallel()
+			line := analyzedLine(t, dict, tt.text)
+			if len(line.Analysis) != 1 || len(line.Tokens) != 2 {
+				t.Fatalf("words = %+v over %d tokens, want one word over two", line.Analysis, len(line.Tokens))
+			}
+			got := []string{line.Tokens[0].Reading, line.Tokens[1].Reading, line.Analysis[0].LemmaReading}
+			if want := []string{tt.wantNumber, tt.wantCounter, tt.wantLemma}; !slices.Equal(got, want) {
+				t.Errorf("readings of %q (number, counter, lemma) = %q, want %q", tt.text, got, want)
+			}
+		})
+	}
+}
+
+func TestLookupEntriesDescribesEachEntryOnce(t *testing.T) {
+	t.Parallel()
+
+	got, err := LookupEntries(t.Context(), newFakeDictionary(t), []int64{1593670, 1245290, 1593670, 999})
+	if err != nil {
+		t.Fatalf("LookupEntries: %v", err)
+	}
+	if len(got) != 2 || got[0].EntryID != 1593670 || got[1].EntryID != 1245290 {
+		t.Fatalf("LookupEntries = %+v, want 探す then 空, once each, and nothing for an unknown ID", got)
+	}
+	want := Meaning{Index: 0, Glosses: []string{"to search for"},
+		PartsOfSpeech: []string{"Godan verb with 'su' ending", "transitive verb"}, Notes: []string{}}
+	if !reflect.DeepEqual(got[0].Senses[0], want) || !got[0].Installed || got[0].Attribution == "" {
+		t.Errorf("探す = %+v, want installed with the credit and %+v", got[0], want)
+	}
+}
+
+func TestLookupEntriesWithoutTheDictionary(t *testing.T) {
+	t.Parallel()
+
+	got, err := LookupEntries(t.Context(), noMeanings(t), []int64{1593670})
+	if err != nil || len(got) != 0 || got == nil {
+		t.Errorf("LookupEntries = %+v, %v, want an empty list", got, err)
+	}
+}
+
+func TestLookupEntriesRejectsBadInput(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		ids  []int64
+	}{
+		{name: "zero", ids: []int64{0}},
+		{name: "negative", ids: []int64{1593670, -1}},
+		{name: "too many", ids: make([]int64, maxLookupEntries+1)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := LookupEntries(t.Context(), newFakeDictionary(t), tt.ids)
+			var invalid *fault.InvalidError
+			if !errors.As(err, &invalid) || invalid.Field != "ids" {
+				t.Errorf("LookupEntries(%s) error = %v, want invalid ids", tt.name, err)
+			}
+		})
 	}
 }

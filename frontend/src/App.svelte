@@ -1,5 +1,6 @@
 <script lang="ts">
   import { homeHref, parseRoute } from "./lib/route";
+  import About from "./screens/About.svelte";
   import AddSong from "./screens/AddSong.svelte";
   import Home from "./screens/Home.svelte";
   import Search from "./screens/Search.svelte";
@@ -21,6 +22,8 @@
   <Home />
 {:else if route.name === "search"}
   <Search />
+{:else if route.name === "about"}
+  <About />
 {:else if route.name === "add"}
   <AddSong />
 {:else if route.name === "song"}

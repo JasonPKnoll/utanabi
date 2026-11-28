@@ -33,7 +33,7 @@
 </script>
 
 <div class="screen">
-  <header>
+  <header class="topbar">
     <a class="icon-button" href={homeHref} aria-label="Back to your songs">
       <svg
         width="22"
@@ -47,7 +47,7 @@
         aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg
       >
     </a>
-    <h1>Add your own lyrics</h1>
+    <div class="topbar-title"><h1>Add your own lyrics</h1></div>
   </header>
 
   <form onsubmit={save} novalidate>
@@ -107,20 +107,6 @@
 </div>
 
 <style>
-  header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 0 12px;
-    margin-left: -8px;
-  }
-
-  h1 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-  }
-
   form {
     flex: 1;
     display: flex;
@@ -150,11 +136,17 @@
     width: 100%;
     min-height: 50px;
     padding: 12px 16px;
-    border: 1px solid var(--border);
+    border: 1px solid transparent;
     border-radius: 14px;
     background: var(--surface);
     color: var(--fg);
     font-size: 1rem;
+  }
+
+  input:focus,
+  textarea:focus {
+    border-color: var(--link);
+    outline: none;
   }
 
   textarea {

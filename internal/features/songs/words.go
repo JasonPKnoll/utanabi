@@ -1,9 +1,12 @@
 package songs
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/JasonPKnoll/utanabi/internal/common/jtext"
 	"github.com/JasonPKnoll/utanabi/internal/common/morph"
@@ -62,11 +65,17 @@ type WordAnalysis struct {
 
 // findWords groups a line's tokens into words. A content word takes the suffixes, auxiliaries, and conjugation pieces
 // that attach to it, so 探し, て, いる is one word, 探す in the 〜ている form. Particles are words of their own.
-// Punctuation, symbols, and spaces belong to no word. It needs the analyzer's IPA fields; tokens read back from the
+// Punctuation, symbols, spaces, and text with no Japanese in it (English, numbers) belong to no word. It needs the analyzer's IPA fields; tokens read back from the
 // database don't have them.
 func findWords(tokens []Token) []WordAnalysis {
 	var words []WordAnalysis
 	for i := 0; i < len(tokens); {
+		if numberBeforeCounter(tokens, i) {
+			w := numberWord(tokens, i)
+			words = append(words, w)
+			i = w.LastToken + 1
+			continue
+		}
 		if outsideWords(tokens[i]) {
 			i++
 			continue
@@ -89,7 +98,43 @@ func findWords(tokens []Token) []WordAnalysis {
 }
 
 func outsideWords(t Token) bool {
-	return t.POS == morph.Symbol || strings.TrimFunc(t.Surface, unicode.IsSpace) == ""
+	return t.POS == morph.Symbol || !hasJapanese(t.Surface)
+}
+
+// hasJapanese reports whether s has kana or kanji in it. An English phrase in a Japanese song stays as it's sung,
+// not cut into words that only repeat themselves.
+func hasJapanese(s string) bool {
+	return strings.ContainsFunc(s, func(r rune) bool {
+		return unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana)
+	})
+}
+
+// numberBeforeCounter reports whether token i is a number written in digits with a counter after it, as in 1番 or 2人.
+// The two are one word, though digits alone belong to no word.
+func numberBeforeCounter(tokens []Token, i int) bool {
+	if i+1 >= len(tokens) || tokens[i+1].POS != morph.Suffix {
+		return false
+	}
+	return tokens[i].Surface != "" && strings.IndexFunc(tokens[i].Surface, func(r rune) bool { return !unicode.IsDigit(r) }) < 0
+}
+
+// numberWord makes a number and its counter one word. JMdict spells numbers in kanji (一番, 二人), so the lemma does
+// too when the number is small enough to have one kanji; otherwise the counter alone is looked up.
+func numberWord(tokens []Token, i int) WordAnalysis {
+	counter := tokens[i+1]
+	w := WordAnalysis{FirstToken: i, LastToken: i + 1, Kind: WordContent, Source: AnalysisAuto, head: i + 1}
+	digits := tokens[i].Surface
+	if k, ok := kanjiDigits[strings.TrimLeft(norm.NFKC.String(digits), "0")]; ok {
+		w.Lemma, _ = cleanLemma(k+counter.base(), "")
+	} else {
+		w.Lemma, _ = cleanLemma(digits+counter.base(), "")
+	}
+	w.altLemma, w.altReading = cleanLemma(counter.base(), counter.Reading)
+	return w
+}
+
+var kanjiDigits = map[string]string{
+	"1": "一", "2": "二", "3": "三", "4": "四", "5": "五", "6": "六", "7": "七", "8": "八", "9": "九", "10": "十",
 }
 
 // wordDraft is a word while its tokens are being gathered.
@@ -119,6 +164,30 @@ func takeWord(tokens []Token, i int) WordAnalysis {
 	case (t.base() == "じゃ" || t.base() == "では") && t.POS == morph.Particle && i+1 < len(tokens) &&
 		isNai(tokens[i+1]):
 		d.expression(i+1, t.Surface+"ない", t.Reading+"ない", "ja-nai")
+	case t.POS == morph.Pronoun && slices.Contains(questionWords, t.base()) && demoAfter(tokens, i+1) > 0:
+		// A question word and でも are one word, any-: なんでも, anything; だれでも, anyone.
+		d.w.LastToken = i + demoAfter(tokens, i+1)
+		d.stepsFrom = d.w.LastToken + 1
+		d.w.Lemma, d.w.LemmaReading = t.Surface+"でも", t.Reading+"でも"
+		d.w.altLemma, d.w.altReading = t.base(), lemmaReading(t)
+	case t.POS == morph.Other && i+1 < len(tokens) && (tokens[i+1].base() == "まま" || tokens[i+1].base() == "儘"):
+		// このまま, そのまま: a word of its own in the dictionary, "as it is".
+		d.w.LastToken = i + 1
+		d.stepsFrom = i + 2
+		d.w.Lemma, d.w.LemmaReading = t.Surface+tokens[i+1].Surface, t.Reading+tokens[i+1].Reading
+	case t.POS == morph.Particle && t.base() == "で" && i+1 < len(tokens) && tokens[i+1].POS == morph.Particle &&
+		tokens[i+1].base() == "も" && i+3 < len(tokens) && (tokens[i+2].POS == morph.Noun ||
+		tokens[i+2].POS == morph.Pronoun) && demoAfter(tokens, i+3) > 0:
+		// 針でもなんでも, needles or anything: with a second でも straight after, で and も are でも, not "at" and
+		// "also" as in 学校でも.
+		d.w.Kind = WordParticle
+		d.w.LastToken = i + 1
+		d.w.Lemma, d.w.LemmaReading = "でも", "でも"
+	case t.POS == morph.Particle && t.base() == "よ" && i+1 < len(tokens) && tokens[i+1].POS == morph.Particle &&
+		tokens[i+1].base() == "か":
+		d.w.Kind = WordParticle
+		d.w.LastToken = i + 1
+		d.w.Lemma, d.w.LemmaReading = "よか", "よか"
 	case t.POS == morph.Particle:
 		d.w.Kind = WordParticle
 	case t.POS == morph.Auxiliary:
@@ -141,6 +210,20 @@ func takeWord(tokens []Token, i int) WordAnalysis {
 	d.name()
 	d.w.Steps = d.steps()
 	return d.w
+}
+
+// demoAfter counts the tokens of でも at position i: 1 for でも, 2 when kagome reads it as で and も, 0 for none.
+func demoAfter(tokens []Token, i int) int {
+	particle := func(j int, base string) bool {
+		return j < len(tokens) && tokens[j].POS == morph.Particle && tokens[j].base() == base
+	}
+	switch {
+	case particle(i, "でも"):
+		return 1
+	case particle(i, "で") && particle(i+1, "も"):
+		return 2
+	}
+	return 0
 }
 
 func (d *wordDraft) expression(last int, lemma, reading, grammar string) {
@@ -181,8 +264,9 @@ func (d *wordDraft) attaches(j int) bool {
 			// 静かな, 静かに, 静かだった: a な-adjective takes its copula.
 			d.conjugates = true
 			return true
-		case head.Detail == "サ変接続" && t.POS == morph.Verb && t.base() == "する":
-			// 勉強する is one verb.
+		case (head.Detail == "サ変接続" || head.Detail == "一般" || head.Detail == "固有名詞") && t.POS == morph.Verb &&
+			t.base() == "する":
+			// 勉強する and おサラバする are one verb: a noun with する straight after it is a する verb.
 			d.stem = j
 			d.stepsFrom = j + 1
 			d.conjugates = true
@@ -263,9 +347,9 @@ func (d *wordDraft) name() {
 	var alt spelling
 	switch {
 	case d.stem != d.w.head:
-		// A noun and する: 勉強する conjugates as a する verb.
-		alt = lemma
-		lemma = lemma.join(spelling{text: "する", reading: "する"})
+		// A noun and する: 勉強する conjugates as a する verb. A prefix stays with the noun: おサラバ.
+		alt = prefix.join(lemma)
+		lemma = alt.join(spelling{text: "する", reading: "する"})
 		d.w.ConjClass = "vs"
 	case head.POS == morph.Noun || head.POS == morph.Pronoun:
 		var suffix spelling
@@ -495,8 +579,8 @@ func auxiliaryStep(p Token) []string {
 	return nil
 }
 
-// helperVerbStep names the helper verbs that follow the te form: いる, しまう, いく, くる, くれる, and the spoken short
-// forms てる and ちゃう, which carry the て inside them.
+// helperVerbStep names the helper verbs that follow the te form: いる, しまう, いく, くる, くれる, those in teHelpers,
+// and the spoken short forms てる and ちゃう, which carry the て inside them.
 func helperVerbStep(p, prev Token) []string {
 	afterTe := prev.POS == morph.Particle && (prev.base() == "て" || prev.base() == "で")
 	switch p.base() {
@@ -524,8 +608,20 @@ func helperVerbStep(p, prev Token) []string {
 		if afterTe {
 			return []string{"te-kureru"}
 		}
+	default:
+		if id, ok := teHelpers[p.base()]; ok && afterTe {
+			return []string{id}
+		}
 	}
 	return nil
+}
+
+// teHelpers are the other helper verbs after the te form, each with its own meaning: 治してみせる, I'll cure it, you'll
+// see.
+var teHelpers = map[string]string{
+	"みせる": "te-miseru", "見せる": "te-miseru", "いただく": "te-itadaku", "頂く": "te-itadaku", "みる": "te-miru",
+	"見る": "te-miru", "もらう": "te-morau", "貰う": "te-morau", "あげる": "te-ageru", "上げる": "te-ageru",
+	"おく": "te-oku", "置く": "te-oku",
 }
 
 // endingStep names the form of the word's last token when nothing after it does: a command (走れ), an adjective

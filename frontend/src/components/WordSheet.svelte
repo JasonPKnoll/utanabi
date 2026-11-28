@@ -1,12 +1,10 @@
 <script lang="ts">
-  import {
-    Service as Songs,
-    type Meanings,
-    type RubyPart,
-    type Word,
-  } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
+  import type { Meanings, RubyPart, Word } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
+  import { meaningsCache } from "../lib/meaningsCache";
+  import { aboutHref } from "../lib/route";
   import { hasMeanings, lemmaLine, splitMeanings } from "../lib/words";
+  import Sheet from "./Sheet.svelte";
 
   let {
     word,
@@ -18,7 +16,6 @@
     onclose: () => void;
   } = $props();
 
-  let dialog: HTMLDialogElement | undefined = $state();
   let meanings = $state<Meanings | null>(null);
   let failure = $state<AppError | null>(null);
 
@@ -26,35 +23,30 @@
   let steps = $derived(word.steps ?? []);
 
   $effect(() => {
-    // showModal keeps focus inside the sheet, closes it on Escape, and puts focus back on the word when it closes.
-    dialog?.showModal();
-  });
-
-  $effect(() => {
     if (!hasMeanings(word)) {
       return;
     }
-    meanings = null;
     failure = null;
-    Songs.LookupWord(word.lemma, word.lemmaReading, word.entryId)
+    // Usually the song's meanings are already here, so the sheet opens with them and nothing to wait for. A local, so
+    // the effect doesn't read the state it sets.
+    const hit = meaningsCache.cached(word);
+    meanings = hit ?? null;
+    if (hit) {
+      return;
+    }
+    meaningsCache
+      .lookup(word)
       .then((found) => (meanings = found))
       .catch((err: unknown) => (failure = toAppError(err)));
   });
-
-  // A tap on the dimmed backdrop, outside the sheet, closes it too.
-  function backdropClose(event: MouseEvent) {
-    if (event.target === dialog) {
-      dialog?.close();
-    }
-  }
 </script>
 
-<dialog bind:this={dialog} class="sheet" aria-labelledby="word-sheet-title" {onclose} onclick={backdropClose}>
-  <div class="body">
+<Sheet labelledby="word-sheet-title" {onclose}>
+  {#snippet children(close)}
     <header>
       <!-- prettier-ignore -->
       <h2 id="word-sheet-title" lang="ja">{#each ruby as part, i (i)}{#if part.reading}<ruby>{part.text}<rt>{part.reading}</rt></ruby>{:else}{part.text}{/if}{/each}</h2>
-      <button type="button" class="icon-button close" aria-label="Close" onclick={() => dialog?.close()}>
+      <button type="button" class="icon-button close" aria-label="Close" onclick={close}>
         <svg
           width="22"
           height="22"
@@ -131,38 +123,13 @@
       </section>
     {/if}
 
-    {#if meanings?.installed && meanings.attribution}
-      <p class="credit">{meanings.attribution}</p>
+    {#if meanings?.installed}
+      <p class="footnote">Definitions from JMdict · <a href={aboutHref}>Sources</a></p>
     {/if}
-  </div>
-</dialog>
+  {/snippet}
+</Sheet>
 
 <style>
-  .sheet {
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 640px;
-    max-height: 85dvh;
-    margin: auto auto 0;
-    padding: 0;
-    border: 1px solid var(--border);
-    border-bottom: 0;
-    border-radius: 20px 20px 0 0;
-    background: var(--surface);
-    color: var(--fg);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .sheet::backdrop {
-    background: rgb(0 0 0 / 55%);
-  }
-
-  .body {
-    padding: 8px max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom))
-      max(20px, env(safe-area-inset-left));
-  }
-
   header {
     display: flex;
     align-items: flex-start;
@@ -267,12 +234,5 @@
 
   .step-title {
     font-weight: 600;
-  }
-
-  .credit {
-    margin: 20px 0 0;
-    font-size: 0.8rem;
-    color: var(--muted);
-    overflow-wrap: anywhere;
   }
 </style>

@@ -9,6 +9,7 @@ describe("parseRoute", () => {
     ["#/", { name: "home" }],
     ["#/add", { name: "add" }],
     ["#/search", { name: "search" }],
+    ["#/about", { name: "about" }],
     ["#/song/12", { name: "song", id: 12 }],
     [songHref(7), { name: "song", id: 7 }],
     ["#/song/0", { name: "missing" }],

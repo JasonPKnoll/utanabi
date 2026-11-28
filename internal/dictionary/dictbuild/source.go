@@ -15,19 +15,20 @@ import (
 	"strings"
 )
 
-// The pinned JMdict release: jmdict-simplified's English-only common-words JSON. To update, pick a release from
+// The pinned JMdict release: jmdict-simplified's English-only JSON of all of JMdict, not only the common words, since
+// lyrics are full of words the common list leaves out (纏う, 見惚れる, 浮つく). To update, pick a release from
 // https://github.com/scriptin/jmdict-simplified/releases, set all three values, and run task dictionary.
 const (
 	JMdictRelease = "3.6.2+20261116213322"
 	JMdictURL     = "https://github.com/scriptin/jmdict-simplified/releases/download/3.6.2%2B20261116213322/" +
-		"jmdict-eng-common-3.6.2%2B20261116213322.json.tgz"
-	JMdictSHA256 = "bc8ffa4f1350686e519051e7bac4520f05f375d2b52b1549bcba2e1a08193002"
+		"jmdict-eng-3.6.2%2B20261116213322.json.tgz"
+	JMdictSHA256 = "956a1cbd6478b86bc351d26bb33c74deedc8737ebfccc396a95e313199ccbfce"
 )
 
 const (
-	// maxArchiveSize is far above the 1.4 MB common archive, and stops a wrong URL from filling the disk.
+	// maxArchiveSize is far above the 12 MB archive, and stops a wrong URL from filling the disk.
 	maxArchiveSize = 200 << 20
-	// maxJSONSize bounds the unpacked JSON, which is 16 MB for the common words and about 120 MB for all of JMdict.
+	// maxJSONSize bounds the unpacked JSON, which is about 120 MB.
 	maxJSONSize = 1 << 30
 )
 

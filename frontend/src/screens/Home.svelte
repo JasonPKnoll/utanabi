@@ -1,16 +1,14 @@
 <script lang="ts">
-  import { AboutService, type About } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/app";
   import {
     Service as Songs,
     type Summary,
   } from "../../bindings/github.com/JasonPKnoll/utanabi/internal/features/songs";
   import { toAppError, type AppError } from "../lib/errors";
   import { initial } from "../lib/lyrics";
-  import { addHref, searchHref, songHref } from "../lib/route";
+  import { aboutHref, addHref, searchHref, songHref } from "../lib/route";
   import { sourceLabel } from "../lib/sources";
 
   let songs = $state<Summary[] | null>(null);
-  let about = $state<About | null>(null);
   let failure = $state<AppError | null>(null);
   // Online search can be switched off in settings. Until the answer arrives, assume it's on, the usual case.
   let searchOn = $state(true);
@@ -19,27 +17,41 @@
     .then((list) => (songs = list ?? []))
     .catch((err: unknown) => (failure = toAppError(err)));
 
-  // These two only decide whether a button and the version line show, so a failure keeps the library on screen:
-  // search stays offered (the search screen reports its own errors), and the version line is left out.
+  // This only decides whether the search bar shows, so a failure keeps it: the search screen reports its own errors.
   Songs.SearchSources()
     .then((names) => (searchOn = (names ?? []).length > 0))
     .catch(() => (searchOn = true));
-
-  AboutService.Info()
-    .then((info) => (about = info))
-    .catch(() => (about = null));
 </script>
 
 <div class="screen">
-  <header>
-    <h1>
-      <span class="mark" lang="ja">うたなび</span>
-      <span class="latin">Utanabi</span>
-    </h1>
+  <header class="topbar">
+    <p class="mark"><span lang="ja">うたなび</span></p>
+    <a class="icon-button" href={aboutHref} aria-label="About Utanabi">
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        ><circle cx="12" cy="12" r="9" /><line x1="12" y1="11" x2="12" y2="16" /><circle
+          cx="12"
+          cy="7.75"
+          r="0.6"
+          fill="currentColor"
+        /></svg
+      >
+    </a>
   </header>
 
   <main>
-    <h2>Your songs</h2>
+    <h1 class="page-title">
+      Library
+      {#if songs && songs.length > 0}<span class="count">{songs.length}</span>{/if}
+    </h1>
 
     {#if failure}
       <p class="alert" role="alert">{failure.message}</p>
@@ -50,12 +62,12 @@
         <p class="empty-title">No songs yet</p>
         <p class="muted">
           {searchOn
-            ? "Find a song to start learning from it, or add one with your own lyrics."
+            ? "Search for a song to start learning from it, or add one with your own lyrics."
             : "Add a song with your own lyrics to start learning from it."}
         </p>
       </div>
     {:else}
-      <ul>
+      <ul class="songs">
         {#each songs as song (song.id)}
           <li>
             <a class="row" href={songHref(song.id)}>
@@ -64,100 +76,72 @@
                 <span class="title">{song.title}</span>
                 <span class="sub">{song.artist || "Unknown artist"} · {sourceLabel(song.source)}</span>
               </span>
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg
-              >
             </a>
           </li>
         {/each}
       </ul>
     {/if}
-
-    {#if about}
-      <p class="about" data-testid="about">{about.name} {about.version} · {about.platform}</p>
-      {#if (about.credits ?? []).length > 0}
-        <details class="credits">
-          <summary>Credits</summary>
-          {#each about.credits ?? [] as credit (credit.name)}
-            <p><strong>{credit.name}.</strong> {credit.text}</p>
-          {/each}
-        </details>
-      {/if}
-    {/if}
   </main>
 
-  <div class="actions">
-    {#if !searchOn}
-      <a class="button primary" href={addHref}>Add your own lyrics</a>
-    {:else}
-      <a class="button" href={addHref}>Add your own</a>
-      <a class="button primary" href={searchHref}>
+  <div class="dock">
+    {#if searchOn}
+      <a class="search" href={searchHref}>
         <svg
-          width="20"
-          height="20"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.25"
+          stroke-linecap="round"
+          aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+        >
+        Search songs or artists
+      </a>
+      <a class="add" href={addHref} aria-label="Add your own lyrics">
+        <svg
+          width="22"
+          height="22"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           stroke-width="2.5"
           stroke-linecap="round"
-          aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+          aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg
         >
-        Find a song
       </a>
+    {:else}
+      <a class="button primary" href={addHref}>Add your own lyrics</a>
     {/if}
   </div>
 </div>
 
 <style>
-  header {
-    padding: 16px 0 8px;
-  }
-
-  h1 {
-    margin: 0;
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-  }
-
   .mark {
-    font-size: 1.6rem;
-    font-weight: 700;
-  }
-
-  .latin {
-    font-size: 0.85rem;
-    font-weight: 500;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--muted);
+    flex: 1;
+    margin: 0;
+    padding: 0 8px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
   }
 
   main {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 12px;
     padding-bottom: 16px;
   }
 
-  h2 {
-    margin: 16px 0 0;
-    font-size: 0.8rem;
+  .count {
+    margin-left: 6px;
+    font-size: 1rem;
     font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     color: var(--muted);
+    vertical-align: middle;
   }
 
-  ul {
+  .songs {
     margin: 0;
     padding: 0;
     list-style: none;
@@ -168,18 +152,16 @@
     align-items: center;
     gap: 14px;
     min-height: 64px;
-    padding: 8px 0;
+    margin: 0 -8px;
+    padding: 6px 8px;
+    border-radius: 14px;
     color: var(--fg);
     text-decoration: none;
   }
 
   .row:hover {
     color: var(--fg);
-  }
-
-  .row svg {
-    flex: none;
-    color: var(--muted);
+    background: var(--surface);
   }
 
   .tile {
@@ -211,48 +193,58 @@
   }
 
   .title {
-    font-size: 1.05rem;
     font-weight: 600;
   }
 
   .sub {
-    font-size: 0.85rem;
+    font-size: 0.8125rem;
     color: var(--muted);
   }
 
-  .about {
-    margin: 24px 0 0;
-    font-size: 0.8rem;
-    color: var(--muted);
+  /* Search and add, together in a slim bar within thumb reach. */
+  .dock {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    gap: 10px;
+    padding: 12px 0 max(16px, env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, transparent, var(--bg) 20px);
   }
 
-  .credits {
-    font-size: 0.8rem;
-    color: var(--muted);
-    overflow-wrap: anywhere;
-  }
-
-  .credits summary {
+  .search {
+    flex: 1;
     display: flex;
     align-items: center;
-    min-height: var(--tap);
-    width: fit-content;
-    color: var(--link);
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .credits p {
-    margin: 0 0 8px;
-  }
-
-  /* The secondary button takes only the room it needs, so "Find a song" stays on one line at 360px. */
-  .actions .button:not(.primary) {
-    flex: none;
-  }
-
-  .actions .button {
+    gap: 10px;
+    min-height: 52px;
+    padding: 0 18px;
+    border-radius: 26px;
+    background: var(--surface);
+    box-shadow: 0 4px 20px rgb(0 0 0 / 18%);
+    color: var(--muted);
+    text-decoration: none;
     white-space: nowrap;
+  }
+
+  .search:hover {
+    color: var(--fg);
+  }
+
+  .add {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 26px;
+    background: var(--accent);
+    box-shadow: 0 4px 20px rgb(0 0 0 / 18%);
+    color: var(--on-accent);
+  }
+
+  .add:hover {
+    color: var(--on-accent);
+    background: var(--accent-strong);
   }
 </style>
