@@ -28,13 +28,15 @@ const slowestBeatMs = 600;
 const paceQuantile = 0.5;
 const paceMinBeats = 3;
 const paceMinLines = 4;
-// How much slower than the song's pace a line may take before the rest of its time is taken to be a pause. Only a line
-// well past it is cut short: cutting every line slower than the fastest raced the sweep ahead of the singing, since a
-// singer holds notes and phrases lines unevenly.
-const pauseFactor = 1.8;
-// A singer breathes before the next line: a line's sweep ends this share of the gap before it starts, at most 0.4 s.
+// How much slower than the song's pace a line may take before the rest of its time is taken to be a pause. These
+// settings, and the breath and the held last note below, are tuned on real word timings: sweep.real.test.ts scores
+// them against 56 Japanese songs timed word by word.
+const pauseFactor = 1.3;
+// A singer breathes before the next line: a line's sweep ends this share of the gap before it starts, at most 0.7 s.
 const breathShare = 0.12;
-const longestBreathMs = 400;
+const longestBreathMs = 700;
+// A singer holds a line's last note: it takes a beat more than its kana.
+const finalHold = 1;
 const shortestLineMs = 1500;
 
 // How many beats text takes to sing: one per kana (ー and っ included), two per kanji with no reading, one per group of
@@ -118,10 +120,14 @@ export function songPace(lines: readonly (Timed & { pieces: Piece[] | null })[])
   return Math.min(slowestBeatMs, Math.max(fastestBeatMs, pace));
 }
 
-// How far through each piece the singing is at ms, from 0 to 1, for a line sung from startMs to endMs. Pieces with no
-// beats, such as punctuation, are done once the piece before them is.
+// How far through each piece the singing is at ms, from 0 to 1, for a line sung from startMs to endMs, its last note
+// held a beat longer. Pieces with no beats, such as punctuation, are done once the piece before them is.
 export function sweep(pieces: readonly Piece[], startMs: number, endMs: number, ms: number): number[] {
   const weights = pieces.map(pieceBeats);
+  const last = weights.findLastIndex((w) => w > 0);
+  if (last >= 0) {
+    weights[last] = (weights[last] ?? 0) + finalHold;
+  }
   const total = weights.reduce((a, b) => a + b, 0);
   if (total === 0 || endMs <= startMs) {
     return pieces.map(() => (ms >= startMs ? 1 : 0));
